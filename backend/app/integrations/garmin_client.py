@@ -9,7 +9,7 @@ so every extractor below is defensive (.get chains, try/except) and we always ke
 the raw payload in the DB so nothing is lost.
 """
 from __future__ import annotations
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 import logging
 
@@ -49,7 +49,7 @@ def _g(d: dict | None, *keys, default=None):
     return cur
 
 
-def fetch_daily_health(client, day: date) -> dict:
+def fetch_daily_health(client, day: date, include_fitness_age: bool = False) -> dict:
     """Pull and normalize all-day wellness metrics for one date."""
     ds = day.isoformat()
     out: dict[str, Any] = {"date": day, "raw": {}}
@@ -117,6 +117,15 @@ def fetch_daily_health(client, day: date) -> dict:
     except Exception as e:
         log.debug("max_metrics %s: %s", ds, e)
 
+    if include_fitness_age:
+        try:
+            fa = client.get_fitnessage_data(ds) or {}
+            out["raw"]["fitness_age"] = fa
+            out["fitness_age"] = fa.get("fitnessAge")
+            out["chronological_age"] = fa.get("chronologicalAge")
+        except Exception as e:
+            log.debug("fitness_age %s: %s", ds, e)
+
     return out
 
 
@@ -131,6 +140,24 @@ def fetch_sleep(client, day: date) -> dict | None:
     if not dto:
         return None
     total = dto.get("sleepTimeSeconds")
+
+    def _ms(key):
+        """Garmin's '...Local' timestamps are epoch ms with the local offset already
+        baked in — interpreting as UTC gives the correct wall-clock time directly.
+        (Using fromtimestamp() here would apply the *server's* timezone on top,
+        double-shifting it.)"""
+        ms = dto.get(key)
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).replace(tzinfo=None) if ms else None
+
+    # SpO2/respiration summaries live under their own nested DTOs, not the
+    # (usually-null) top-level averageSpO2Value/averageRespirationValue fields.
+    spo2 = s.get("wellnessSpO2SleepSummaryDTO") or {}
+    resp_epochs = [
+        e["respirationAverageValue"] for e in (s.get("wellnessEpochRespirationAveragesList") or [])
+        if (e.get("respirationAverageValue") or 0) > 0
+    ]
+    avg_respiration = round(sum(resp_epochs) / len(resp_epochs), 1) if resp_epochs else s.get("averageRespirationValue")
+
     return {
         "date": day,
         "total_seconds": total,
@@ -141,11 +168,16 @@ def fetch_sleep(client, day: date) -> dict | None:
         "sleep_score": _g(dto, "sleepScores", "overall", "value"),
         "sleep_quality": _g(dto, "sleepScores", "overall", "qualifierKey"),
         "resting_hr": s.get("restingHeartRate"),
-        "avg_spo2": s.get("averageSpO2Value"),
-        "lowest_spo2": s.get("lowestSpO2Value"),
-        "avg_respiration": s.get("averageRespirationValue"),
+        "avg_spo2": spo2.get("averageSPO2") or s.get("averageSpO2Value"),
+        "lowest_spo2": spo2.get("lowestSPO2") or s.get("lowestSpO2Value"),
+        "avg_respiration": avg_respiration,
         "avg_stress": dto.get("avgSleepStress"),
-        "hrv_avg": _g(s, "hrvData") and None or s.get("avgOvernightHrv"),
+        "hrv_avg": s.get("avgOvernightHrv"),
+        "start_time": _ms("sleepStartTimestampLocal"),
+        "end_time": _ms("sleepEndTimestampLocal"),
+        "avg_hr": dto.get("avgHeartRate"),
+        "awake_count": dto.get("awakeCount"),
+        "score_feedback": dto.get("sleepScoreFeedback"),
         "body_battery_change": s.get("bodyBatteryChange"),
         "raw": {"sleep": {k: v for k, v in s.items() if k != "sleepMovement"}},
     }
@@ -204,6 +236,65 @@ def _parse_dt(s):
 def _parse_day(s):
     dt = _parse_dt(s)
     return dt.date() if dt else None
+
+
+def fetch_intraday_stress(client, day: date) -> dict | None:
+    """Hourly-bucketed stress + body battery for one day — fetched on demand
+    (Garmin returns ~3-minute resolution; we average into hourly buckets so the
+    chart stays readable instead of a 480-point noise cloud)."""
+    ds = day.isoformat()
+    try:
+        d = client.get_all_day_stress(ds) or {}
+    except Exception as e:
+        log.debug("all_day_stress %s: %s", ds, e)
+        return None
+
+    stress_pts = d.get("stressValuesArray") or []
+    bb_pts = d.get("bodyBatteryValuesArray") or []
+
+    hourly: dict[int, dict] = {h: {"stress": [], "battery": []} for h in range(24)}
+    for ts_ms, val in stress_pts:
+        if val is None or val < 0:  # negative = no data / not measurable
+            continue
+        h = datetime.fromtimestamp(ts_ms / 1000).hour
+        hourly[h]["stress"].append(val)
+    for point in bb_pts:
+        # [timestamp, status, level, version] — keep only measured points
+        if len(point) < 3 or point[1] != "MEASURED" or point[2] is None:
+            continue
+        h = datetime.fromtimestamp(point[0] / 1000).hour
+        hourly[h]["battery"].append(point[2])
+
+    def _avg(vals):
+        return round(sum(vals) / len(vals), 1) if vals else None
+
+    return {
+        "date": day.isoformat(),
+        "max_stress": d.get("maxStressLevel"),
+        "avg_stress": d.get("avgStressLevel"),
+        "hourly": [
+            {"hour": h, "avg_stress": _avg(v["stress"]), "avg_battery": _avg(v["battery"])}
+            for h, v in sorted(hourly.items())
+        ],
+    }
+
+
+def fetch_route(client, activity_id: str) -> list[dict] | None:
+    """GPS polyline for one activity — fetched on demand (not stored in bulk sync)
+    since most users only ever look at a handful of route maps."""
+    try:
+        details = client.get_activity_details(activity_id, maxpoly=2000)
+    except Exception as e:
+        log.debug("activity_details %s: %s", activity_id, e)
+        return None
+    poly = _g(details, "geoPolylineDTO", "polyline")
+    if not poly:
+        return None
+    return [
+        {"lat": p["lat"], "lon": p["lon"]}
+        for p in poly
+        if p.get("lat") is not None and p.get("lon") is not None
+    ]
 
 
 def make_client():

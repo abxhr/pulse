@@ -31,6 +31,9 @@ export const activityMeta = (type = "") => {
   return { label: type || "Activity", color: "muted" };
 };
 
+// Shared style for Recharts <YAxis label={{...}}> / <XAxis label={{...}}> titles.
+export const axisLabelStyle = { fill: "#5b6479", fontSize: 10, fontFamily: "JetBrains Mono", textAnchor: "middle" };
+
 export const COLORS = {
   recovery: "#3DD68C",
   effort: "#FF5C7A",

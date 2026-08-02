@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import base64
+import os
+import sys
+import time
 
 from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form
 from sqlalchemy import select, func
@@ -14,6 +17,7 @@ from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
 from .services import analytics, insights, reports, sync, nutrition
+from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
 
@@ -74,14 +78,39 @@ def health_trend(days: int = 30, db: Session = Depends(get_session)):
     return analytics.health_trend(db, days)
 
 
+@router.get("/health/intraday")
+def health_intraday(d: str | None = None):
+    """Hourly stress + body battery for a single day — fetched live from Garmin
+    on demand (not stored in bulk; intraday resolution would bloat the DB)."""
+    day = date.fromisoformat(d) if d else date.today()
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    result = gc.fetch_intraday_stress(client, day)
+    if not result:
+        raise HTTPException(status_code=404, detail="no intraday data for this date")
+    return result
+
+
 @router.get("/sleep/trend")
 def sleep_trend(days: int = 30, db: Session = Depends(get_session)):
     return analytics.sleep_trend(db, days)
 
 
+@router.get("/sleep/consistency")
+def sleep_consistency(days: int = 30, db: Session = Depends(get_session)):
+    return analytics.sleep_consistency(db, days)
+
+
 @router.get("/activities")
 def activities(limit: int = 20, db: Session = Depends(get_session)):
     return analytics.recent_activities(db, limit)
+
+
+@router.get("/activities/hr-zones")
+def activities_hr_zones(days: int = 30, db: Session = Depends(get_session)):
+    return analytics.hr_zone_summary(db, days)
 
 
 @router.get("/workouts")
@@ -129,7 +158,23 @@ def activity_detail(activity_id: str, db: Session = Depends(get_session)):
         "vigorous_intensity_min": raw.get("vigorousIntensityMinutes"),
         "hr_zones_min": zones,
         "splits": raw.get("splitSummaries") or [],
+        "has_route": bool(raw.get("hasPolyline")),
     }
+
+
+@router.get("/activities/{activity_id}/route")
+def activity_route(activity_id: str, db: Session = Depends(get_session)):
+    a = db.get(Activity, activity_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="activity not found")
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    points = gc.fetch_route(client, activity_id)
+    if not points:
+        raise HTTPException(status_code=404, detail="no route data for this activity")
+    return {"points": points}
 
 
 @router.get("/workouts/{workout_id}")
@@ -148,6 +193,29 @@ def workout_detail(workout_id: str, db: Session = Depends(get_session)):
     }
 
 
+@router.post("/workouts/{workout_id}/push-to-garmin")
+def push_workout_to_garmin(workout_id: str, db: Session = Depends(get_session)):
+    """Upload this workout to Garmin Connect as a structured strength workout and
+    push it to your watch. Exercise matching against Garmin's catalog is best-effort —
+    the response reports which exercises matched exactly vs. fell back to a broad
+    category guess, so sets/reps/weight are always preserved either way."""
+    w = db.get(Workout, workout_id)
+    if not w:
+        raise HTTPException(status_code=404, detail="workout not found")
+    if not w.exercises:
+        raise HTTPException(status_code=400, detail="this workout has no exercise data")
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    from ..integrations import garmin_workout as gw
+    try:
+        return gw.push_workout(client, w.title or "Pulse Workout", w.exercises)
+    except Exception as e:
+        log_msg = f"Failed to push workout to Garmin: {e}"
+        raise HTTPException(status_code=502, detail=log_msg)
+
+
 @router.get("/strength")
 def strength(weeks: int = 8, db: Session = Depends(get_session)):
     return analytics.strength_summary(db, weeks)
@@ -163,11 +231,29 @@ def training_load(weeks: int = 12, db: Session = Depends(get_session)):
     return analytics.training_load(db, weeks)
 
 
+# ---------- system ----------
+def _restart_process():
+    time.sleep(0.4)  # give uvicorn a moment to flush the response
+    os.execv(sys.executable, [sys.executable, "-m", "app.main"])
+
+
+@router.post("/system/restart")
+def restart_server(background: BackgroundTasks):
+    """Re-exec the server process in place — picks up a fresh .env, clears any
+    stuck-in-memory state, without needing to touch the machine."""
+    background.add_task(_restart_process)
+    return {"status": "restarting"}
+
+
 # ---------- sync (runs in background; poll /status) ----------
+# The plain endpoints default to a fast "quick sync" (last quick_sync_days) so the
+# Sync button and the 30-min scheduler stay quick. Pass ?full=true for a deep
+# backfill over the full default_backfill_days window (slow — years of history).
 @router.post("/sync/garmin")
-def sync_garmin(background: BackgroundTasks, days: int | None = None):
-    background.add_task(sync.sync_garmin, days)
-    return {"started": "garmin", "days": days or settings.default_backfill_days}
+def sync_garmin(background: BackgroundTasks, days: int | None = None, full: bool = False):
+    n = days or (settings.default_backfill_days if full else settings.quick_sync_days)
+    background.add_task(sync.sync_garmin, n)
+    return {"started": "garmin", "days": n}
 
 
 @router.post("/sync/hevy")
@@ -191,9 +277,10 @@ async def upload_hevy_csv(file: UploadFile = File(...), db: Session = Depends(ge
 
 
 @router.post("/sync/all")
-def sync_all(background: BackgroundTasks, days: int | None = None):
-    background.add_task(sync.sync_all, days)
-    return {"started": "all", "days": days or settings.default_backfill_days}
+def sync_all(background: BackgroundTasks, days: int | None = None, full: bool = False):
+    n = days or (settings.default_backfill_days if full else settings.quick_sync_days)
+    background.add_task(sync.sync_all, n)
+    return {"started": "all", "days": n}
 
 
 # ---------- AI insights ----------

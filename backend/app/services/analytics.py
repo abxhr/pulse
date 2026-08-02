@@ -45,11 +45,34 @@ def latest_sleep(db: Session) -> Sleep | None:
     ).scalar_one_or_none()
 
 
+def latest_vo2max(db: Session) -> DailyHealth | None:
+    """VO2max only updates on days with a qualifying run, so pull the most recent
+    day that actually has one rather than whatever day snapshot() otherwise picks."""
+    return db.execute(
+        select(DailyHealth)
+        .where(DailyHealth.vo2max.isnot(None))
+        .order_by(DailyHealth.date.desc()).limit(1)
+    ).scalar_one_or_none()
+
+
+def latest_fitness_age(db: Session) -> DailyHealth | None:
+    return db.execute(
+        select(DailyHealth)
+        .where(DailyHealth.fitness_age.isnot(None))
+        .order_by(DailyHealth.date.desc()).limit(1)
+    ).scalar_one_or_none()
+
+
 def snapshot(db: Session) -> dict:
     """Today's headline numbers for the hero panel."""
     h = latest_health(db)
     s = latest_sleep(db)
+    fa = latest_fitness_age(db)
+    v = latest_vo2max(db)
     return {
+        "fitness_age": fa.fitness_age if fa else None,
+        "chronological_age": fa.chronological_age if fa else None,
+        "vo2max_date": v.date.isoformat() if v else None,
         "date": h.date.isoformat() if h else None,
         "training_readiness": h.training_readiness if h else None,
         "training_readiness_label": h.training_readiness_label if h else None,
@@ -59,7 +82,7 @@ def snapshot(db: Session) -> dict:
         "resting_hr": h.resting_hr if h else None,
         "hrv_last_night": h.hrv_last_night if h else None,
         "hrv_status": h.hrv_status if h else None,
-        "vo2max": h.vo2max if h else None,
+        "vo2max": v.vo2max if v else None,
         "steps": h.steps if h else None,
         "step_goal": h.step_goal if h else None,
         "stress": h.avg_stress if h else None,
@@ -78,6 +101,8 @@ def health_trend(db: Session, days: int = 30) -> list[dict]:
     return [{
         "date": r.date.isoformat(),
         "resting_hr": r.resting_hr,
+        "max_hr": r.max_hr,
+        "min_hr": r.min_hr,
         "hrv": r.hrv_last_night,
         "readiness": r.training_readiness,
         "body_battery_high": r.body_battery_high,
@@ -85,6 +110,37 @@ def health_trend(db: Session, days: int = 30) -> list[dict]:
         "steps": r.steps,
         "vo2max": r.vo2max,
     } for r in rows]
+
+
+def hr_zone_summary(db: Session, days: int = 30) -> dict:
+    """Time-in-HR-zone across recent activities — sourced from each activity's raw
+    Garmin payload (hrTimeInZone_1..5), which we already store but don't aggregate."""
+    start = date.today() - timedelta(days=days)
+    rows = db.execute(
+        select(Activity).where(Activity.date >= start)
+    ).scalars().all()
+    zone_min = [0.0] * 5
+    n = 0
+    for a in rows:
+        raw = a.raw or {}
+        if not any(f"hrTimeInZone_{i}" in raw for i in range(1, 6)):
+            continue
+        n += 1
+        for i in range(1, 6):
+            zone_min[i - 1] += (raw.get(f"hrTimeInZone_{i}") or 0) / 60
+    return {
+        "activities_with_hr": n,
+        "zones_min": [round(v, 1) for v in zone_min],
+    }
+
+
+def _bedtime_hour(dt) -> float | None:
+    """Hour-of-day as a decimal, normalized so a typical bedtime (evening through
+    past-midnight) stays on one continuous scale instead of wrapping at 24."""
+    if not dt:
+        return None
+    h = dt.hour + dt.minute / 60
+    return h if h >= 12 else h + 24
 
 
 def sleep_trend(db: Session, days: int = 30) -> list[dict]:
@@ -102,7 +158,39 @@ def sleep_trend(db: Session, days: int = 30) -> list[dict]:
         "awake_h": round((r.awake_seconds or 0) / 3600, 2),
         "resting_hr": r.resting_hr,
         "hrv": r.hrv_avg,
+        "avg_hr": r.avg_hr,
+        "awake_count": r.awake_count,
+        "avg_spo2": r.avg_spo2,
+        "avg_respiration": r.avg_respiration,
+        "avg_stress": r.avg_stress,
+        "body_battery_change": r.body_battery_change,
+        "bedtime_hour": _bedtime_hour(r.start_time),
+        "wake_hour": r.end_time.hour + r.end_time.minute / 60 if r.end_time else None,
+        "score_feedback": r.score_feedback,
     } for r in rows]
+
+
+def sleep_consistency(db: Session, days: int = 30) -> dict:
+    """How stable bedtime/wake time are — a big lever on actual sleep quality that
+    the raw score alone doesn't capture."""
+    trend = sleep_trend(db, days)
+    bedtimes = [r["bedtime_hour"] for r in trend if r["bedtime_hour"] is not None]
+    wakes = [r["wake_hour"] for r in trend if r["wake_hour"] is not None]
+
+    def _std(vals):
+        if len(vals) < 2:
+            return None
+        m = sum(vals) / len(vals)
+        return round((sum((v - m) ** 2 for v in vals) / len(vals)) ** 0.5, 2)
+
+    return {
+        "nights": len(trend),
+        "avg_bedtime_hour": _avg(bedtimes),
+        "avg_wake_hour": _avg(wakes),
+        "bedtime_variability_h": _std(bedtimes),
+        "wake_variability_h": _std(wakes),
+        "nights_data": trend,
+    }
 
 
 def recent_activities(db: Session, limit: int = 12) -> list[dict]:

@@ -28,7 +28,7 @@ export default function Training() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label={`Runs (${acts.length} total)`} value={runs.length} color={COLORS.cardio} />
         <StatTile label="Distance" value={fmtNum(totalKm, 0)} unit="km" color={COLORS.cardio} />
-        <StatTile label="Current VO₂max" value={vo2.length ? vo2[vo2.length - 1].vo2max : "—"} color={COLORS.recovery} />
+        <StatTile label="Current VO₂max" value={vo2.length ? fmtNum(vo2[vo2.length - 1].vo2max, 1) : "—"} color={COLORS.recovery} />
         <StatTile label="Avg HR (runs)" value={fmtNum(runs.reduce((s, a) => s + (a.avg_hr || 0), 0) / (runs.length || 1))} unit="bpm" color={COLORS.effort} />
       </div>
 
@@ -87,7 +87,7 @@ export default function Training() {
                       <td className="py-2 pr-3 text-right text-muted">{fmtDuration(a.duration_min * 60)}</td>
                       <td className="py-2 pr-3 text-right text-cardio">{a.pace_per_km ? fmtPace(a.pace_per_km) : "—"}</td>
                       <td className="py-2 pr-3 text-right text-effort">{a.avg_hr ?? "—"}</td>
-                      <td className="py-2 text-right text-recovery">{a.aerobic_te ?? "—"}</td>
+                      <td className="py-2 text-right text-recovery">{a.aerobic_te != null ? fmtNum(a.aerobic_te, 1) : "—"}</td>
                     </tr>
                   );
                 })}

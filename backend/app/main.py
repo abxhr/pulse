@@ -50,11 +50,12 @@ async def lifespan(app: FastAPI):
         from .services import sync
         scheduler = BackgroundScheduler()
         scheduler.add_job(
-            lambda: sync.sync_all(),
-            "interval", hours=settings.sync_interval_hours, id="pulse_sync",
+            lambda: sync.sync_all(days=settings.quick_sync_days),
+            "interval", minutes=settings.sync_interval_minutes, id="pulse_sync",
         )
         scheduler.start()
-        log.info("Scheduler started: every %sh", settings.sync_interval_hours)
+        log.info("Scheduler started: quick sync (%sd) every %smin",
+                  settings.quick_sync_days, settings.sync_interval_minutes)
     yield
     if scheduler:
         scheduler.shutdown()

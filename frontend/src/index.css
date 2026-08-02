@@ -32,6 +32,20 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* Standalone iOS PWA (Safari "Add to Home Screen"): the status bar overlaps
+   viewport-fit=cover content, so anything sticky at the very top (header,
+   sidebar) needs real padding for the notch/status-bar height, not just
+   visual spacing. env() resolves to 0 everywhere else, so this is a no-op
+   in a normal browser tab. */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* thin scrollbars */
 * {
   scrollbar-width: thin;

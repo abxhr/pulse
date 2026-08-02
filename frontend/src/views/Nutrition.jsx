@@ -40,6 +40,24 @@ function MacroBar({ label, value, goal, unit, color }) {
 
 const EMPTY_MEAL = { name: "", meal_type: "lunch", calories: "", protein_g: "", carbs_g: "", fat_g: "" };
 
+function MacroInputs({ form, onChange }) {
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {MACROS.map(({ key, label, unit, color }) => (
+        <div key={key} className="rounded-lg border border-line bg-ink px-2 py-1.5">
+          <label htmlFor={`macro-${key}`} className="block truncate text-center text-[9.5px] font-medium uppercase tracking-wide" style={{ color }}>
+            {label}
+          </label>
+          <input id={`macro-${key}`} inputMode="decimal" value={form[key]} onChange={(e) => onChange(key, e.target.value)}
+            placeholder="0"
+            className="w-full bg-transparent text-center text-sm text-txt placeholder:text-faint focus:outline-none" />
+          <div className="text-center text-[9px] text-faint">{unit}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ScanMeal({ onEstimate, aiStatus }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -230,14 +248,7 @@ function AddMealForm({ onAdded, aiStatus }) {
             ))}
           </div>
 
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              ["calories", "kcal"], ["protein_g", "protein g"], ["carbs_g", "carbs g"], ["fat_g", "fat g"],
-            ].map(([k, ph]) => (
-              <input key={k} inputMode="decimal" value={form[k]} onChange={set(k)} placeholder={ph}
-                className="rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
-            ))}
-          </div>
+          <MacroInputs form={form} onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
 
           <button type="submit" disabled={busy || !form.name.trim()}
             className="w-full rounded-lg bg-nutrition py-2.5 text-sm font-semibold text-ink transition disabled:opacity-50">
@@ -274,14 +285,10 @@ function GoalEditor({ goal, onSaved }) {
         <Settings2 size={12} /> {open ? "Close" : "Edit targets"}
       </button>
       {open && (
-        <form onSubmit={submit} className="mt-2 grid grid-cols-4 gap-2 rounded-xl border border-line bg-panel2/60 p-3">
-          {[
-            ["calories", "kcal"], ["protein_g", "protein g"], ["carbs_g", "carbs g"], ["fat_g", "fat g"],
-          ].map(([k, ph]) => (
-            <input key={k} inputMode="decimal" value={form?.[k] ?? ""} onChange={set(k)} placeholder={ph}
-              className="rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
-          ))}
-          <button type="submit" className="col-span-4 rounded-lg border border-nutrition/40 bg-nutrition/10 py-2 text-xs font-semibold text-nutrition">
+        <form onSubmit={submit} className="mt-2 space-y-2 rounded-xl border border-line bg-panel2/60 p-3">
+          <MacroInputs form={{ calories: form?.calories ?? "", protein_g: form?.protein_g ?? "", carbs_g: form?.carbs_g ?? "", fat_g: form?.fat_g ?? "" }}
+            onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
+          <button type="submit" className="w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-2 text-xs font-semibold text-nutrition">
             Save targets
           </button>
         </form>
