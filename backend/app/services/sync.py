@@ -1,5 +1,6 @@
 """Sync orchestration: pull from sources, upsert into the local DB, log each run."""
 from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import logging
@@ -44,10 +45,18 @@ def _log_finish(db: Session, entry: SyncLog, status: str, records: int, message:
 
 
 _STOP_AFTER_EMPTY_DAYS = 60  # give up backfilling once this many consecutive days come back empty
+_CHUNK_SIZE = 15             # days fetched concurrently per batch
+_MAX_WORKERS = 6             # concurrent Garmin requests — enough to be fast, gentle on rate limits
+
+
+def _fetch_day(client, day: date, today: date) -> tuple[date, dict, dict | None]:
+    health = gc.fetch_daily_health(client, day, include_fitness_age=(day == today))
+    sleep = gc.fetch_sleep(client, day)
+    return day, health, sleep
 
 
 def sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
-    days = days or settings.default_backfill_days
+    days = days or settings.quick_sync_days
     own = db is None
     db = db or SessionLocal()
     entry = _log_start(db, "garmin")
@@ -65,28 +74,46 @@ def sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
                 _upsert(db, Activity, "id", a)
         db.commit()
 
-        # Daily health + sleep, one date at a time, newest first. Once we hit a long
-        # stretch of consecutive days with nothing at all, we've gone past the start
-        # of the device's actual history — stop instead of grinding through empty years.
+        # Daily health + sleep, fetched concurrently in chunks (newest first). Once a
+        # whole chunk comes back completely empty we've gone past the start of the
+        # device's actual history — stop instead of grinding through empty years.
+        all_days = [today - timedelta(days=i) for i in range(days)]
         consecutive_empty = 0
-        for i in range(days):
-            day = today - timedelta(days=i)
-            health = gc.fetch_daily_health(client, day)
-            sleep = gc.fetch_sleep(client, day)
-            is_empty = health.get("steps") is None and health.get("resting_hr") is None and not sleep
-            consecutive_empty = consecutive_empty + 1 if is_empty else 0
+        stopped = False
+        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
+            for start in range(0, len(all_days), _CHUNK_SIZE):
+                chunk = all_days[start:start + _CHUNK_SIZE]
+                futures = {pool.submit(_fetch_day, client, d, today): d for d in chunk}
+                results: dict[date, tuple] = {}
+                for fut in as_completed(futures):
+                    d = futures[fut]
+                    try:
+                        results[d] = fut.result()
+                    except Exception as e:
+                        log.warning("garmin fetch failed for %s: %s", d, e)
 
-            _upsert(db, DailyHealth, "date", health)
-            if sleep:
-                _upsert(db, Sleep, "date", sleep)
-            n += 1
-            if i % 10 == 0:
+                for d in chunk:  # newest-first order within the chunk for early-stop accuracy
+                    if d not in results:
+                        continue
+                    _, health, sleep = results[d]
+                    is_empty = health.get("steps") is None and health.get("resting_hr") is None and not sleep
+                    consecutive_empty = consecutive_empty + 1 if is_empty else 0
+
+                    # Don't write a placeholder row for a day Garmin has nothing for —
+                    # otherwise every trend chart fills up with empty date gaps.
+                    if not is_empty:
+                        _upsert(db, DailyHealth, "date", health)
+                        if sleep:
+                            _upsert(db, Sleep, "date", sleep)
+                    n += 1
+
+                    if consecutive_empty >= _STOP_AFTER_EMPTY_DAYS:
+                        log.info("garmin sync: stopping early at %s after %d empty days", d, consecutive_empty)
+                        stopped = True
+                        break
                 db.commit()
-
-            if consecutive_empty >= _STOP_AFTER_EMPTY_DAYS:
-                log.info("garmin sync: stopping early at %s after %d empty days", day, consecutive_empty)
-                break
-        db.commit()
+                if stopped:
+                    break
         _log_finish(db, entry, "ok", n + len(acts), f"{n} days, {len(acts)} activities")
         return {"status": "ok", "days": n, "activities": len(acts)}
     except Exception as e:

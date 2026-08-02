@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta } from "../lib/format";
 import { Modal, StatTile, Chip, Loading } from "./primitives";
+import RouteMap from "./RouteMap";
 
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 
@@ -31,6 +32,8 @@ export default function ActivityDetail({ id, onClose }) {
             <Chip color={COLORS[m.color]}>{m.label}</Chip>
           </div>
 
+          {a.has_route && <RouteMap activityId={a.id} />}
+
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Distance" value={a.distance_km || "—"} unit="km" color={COLORS.cardio} />
             <StatTile label="Duration" value={fmtDuration((a.moving_duration_min || a.duration_min) * 60)} color={COLORS.cardio} />
@@ -40,7 +43,7 @@ export default function ActivityDetail({ id, onClose }) {
             <StatTile label="Calories" value={fmtNum(a.calories)} color={COLORS.strength} />
             <StatTile label="Elevation" value={fmtNum(a.elevation_gain_m)} unit="m" color={COLORS.muted} />
             <StatTile label="Cadence" value={fmtNum(a.avg_cadence)} color={COLORS.muted} />
-            <StatTile label="VO₂max" value={a.vo2max ?? "—"} color={COLORS.recovery} />
+            <StatTile label="VO₂max" value={a.vo2max != null ? fmtNum(a.vo2max, 1) : "—"} color={COLORS.recovery} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

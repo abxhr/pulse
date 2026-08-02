@@ -34,6 +34,8 @@ class DailyHealth(Base):
     acute_load: Mapped[float | None] = mapped_column(Float)
     hrv_last_night: Mapped[int | None] = mapped_column(Integer)
     hrv_status: Mapped[str | None] = mapped_column(String(32))
+    fitness_age: Mapped[float | None] = mapped_column(Float)
+    chronological_age: Mapped[int | None] = mapped_column(Integer)
     raw: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -57,6 +59,11 @@ class Sleep(Base):
     avg_stress: Mapped[int | None] = mapped_column(Integer)
     hrv_avg: Mapped[int | None] = mapped_column(Integer)
     body_battery_change: Mapped[int | None] = mapped_column(Integer)
+    start_time: Mapped[datetime | None] = mapped_column(DateTime)   # bedtime
+    end_time: Mapped[datetime | None] = mapped_column(DateTime)     # wake time
+    avg_hr: Mapped[int | None] = mapped_column(Integer)             # overnight avg HR
+    awake_count: Mapped[int | None] = mapped_column(Integer)
+    score_feedback: Mapped[str | None] = mapped_column(String(64))  # Garmin's own qualifier, e.g. NEGATIVE_LONG_BUT_DISCONTINUOUS
     raw: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

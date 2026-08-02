@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
 import {
-  ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
+  ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta } from "../lib/format";
+import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
 import ReadinessRing from "../components/ReadinessRing";
+import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 
-function ChartTip({ active, payload, label, unit = "" }) {
+const fmtWeek = (w) => (w ? `Week ${w.split("-W")[1]}, ${w.split("-W")[0]}` : "—");
+
+function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+      <div className="mb-1 font-mono text-[11px] text-muted">{labelFormatter(label)}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-xs">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
@@ -34,6 +37,11 @@ export default function Dashboard() {
   useEffect(() => {
     api.dashboard().then(setD).catch((e) => setErr(String(e)));
   }, []);
+
+  const recoveryToggle = useSeriesToggle();
+  const sleepToggle = useSeriesToggle();
+  const stressToggle = useSeriesToggle();
+  const loadToggle = useSeriesToggle();
 
   if (err) return <Empty title="Couldn't load dashboard" body={err} />;
   if (!d) return <Loading />;
@@ -65,7 +73,8 @@ export default function Dashboard() {
             <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
             <StatTile label="Sleep score" value={s.sleep_score} color={COLORS.sleep}
               hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
-            <StatTile label="VO₂max" value={s.vo2max} color={COLORS.cardio} />
+            <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "—"}
+              color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
             <StatTile label="Stress" value={s.stress} color={COLORS.strength} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
               hint={s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
@@ -76,6 +85,22 @@ export default function Dashboard() {
             <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
               hint={s.training_readiness_label} />
           </div>
+          {s.fitness_age != null && (
+            <div className="mt-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] uppercase tracking-wider text-muted">Fitness age</span>
+                <span className="font-mono text-xs text-faint tnum">chronological {s.chronological_age}</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-mono text-2xl font-semibold text-recovery tnum">{fmtNum(s.fitness_age, 1)}</span>
+                <span className="text-xs text-faint">
+                  {s.fitness_age < s.chronological_age
+                    ? `${fmtNum(s.chronological_age - s.fitness_age, 1)} years younger than your age`
+                    : "keep training to bring this down"}
+                </span>
+              </div>
+            </div>
+          )}
         </Panel>
       </div>
 
@@ -86,18 +111,26 @@ export default function Dashboard() {
             <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={40} />
-              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={30} />
+              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={36}
+                label={{ value: "ms", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={32}
+                label={{ value: "bpm", angle: 90, position: "insideRight", style: axisLabelStyle }} />
               <Tooltip content={<ChartTip />} />
-              <Line yAxisId="l" type="monotone" dataKey="hrv" name="HRV" stroke={COLORS.recovery} strokeWidth={2} dot={false} />
-              <Line yAxisId="r" type="monotone" dataKey="resting_hr" name="Rest HR" stroke={COLORS.effort} strokeWidth={2} dot={false} />
+              <Line yAxisId="l" type="monotone" dataKey="hrv" name="HRV" stroke={COLORS.recovery} strokeWidth={2} dot={false}
+                hide={recoveryToggle.hidden.has("hrv")} />
+              <Line yAxisId="r" type="monotone" dataKey="resting_hr" name="Rest HR" stroke={COLORS.effort} strokeWidth={2} dot={false}
+                hide={recoveryToggle.hidden.has("resting_hr")} />
             </LineChart>
           </ResponsiveContainer>
+          <ChartLegend series={[
+            { key: "hrv", name: "HRV", color: COLORS.recovery },
+            { key: "resting_hr", name: "Rest HR", color: COLORS.effort },
+          ]} {...recoveryToggle} />
         </Panel>
 
         <Panel accent={COLORS.sleep} title="Sleep" sub="hours + score · 30 days">
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={d.sleep_trend} margin={{ left: -18, right: 8, top: 6 }}>
+            <ComposedChart data={d.sleep_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <defs>
                 <linearGradient id="sl" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={COLORS.sleep} stopOpacity={0.5} />
@@ -106,13 +139,86 @@ export default function Dashboard() {
               </defs>
               <CartesianGrid stroke="#1c2230" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
-              <YAxis tick={axis} axisLine={false} tickLine={false} width={40} />
-              <Tooltip content={<ChartTip unit="h" />} />
-              <Area type="monotone" dataKey="total_h" name="Hours" stroke={COLORS.sleep} strokeWidth={2} fill="url(#sl)" />
-            </AreaChart>
+              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30}
+                label={{ value: "hours", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={34} domain={[0, 100]}
+                label={{ value: "score", angle: 90, position: "insideRight", style: axisLabelStyle }} />
+              <Tooltip content={<ChartTip />} />
+              <Area yAxisId="l" type="monotone" dataKey="total_h" name="Hours" stroke={COLORS.sleep} strokeWidth={2} fill="url(#sl)"
+                hide={sleepToggle.hidden.has("total_h")} />
+              <Line yAxisId="r" type="monotone" dataKey="score" name="Score" stroke={COLORS.recovery} strokeWidth={2} dot={false}
+                hide={sleepToggle.hidden.has("score")} />
+            </ComposedChart>
           </ResponsiveContainer>
+          <ChartLegend series={[
+            { key: "total_h", name: "Hours", color: COLORS.sleep },
+            { key: "score", name: "Score", color: COLORS.recovery },
+          ]} {...sleepToggle} />
         </Panel>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Panel accent={COLORS.muted} title="Steps" sub="daily · 30 days">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
+              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
+              <YAxis tick={axis} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                label={{ value: "steps", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <Tooltip content={<ChartTip />} cursor={{ fill: "#ffffff08" }} />
+              <Bar dataKey="steps" name="Steps" radius={[3, 3, 0, 0]} maxBarSize={16}>
+                {d.health_trend.map((r, i) => (
+                  <Cell key={i} fill={(r.steps || 0) >= 10000 ? COLORS.recovery : COLORS.muted} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          <p className="mt-2 text-center text-[11px] text-faint">
+            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} /> 10k+ goal met
+          </p>
+        </Panel>
+
+        <Panel accent={COLORS.strength} title="Stress vs body battery" sub="30 days">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
+              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30}
+                label={{ value: "stress", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={34} domain={[0, 100]}
+                label={{ value: "battery", angle: 90, position: "insideRight", style: axisLabelStyle }} />
+              <Tooltip content={<ChartTip />} />
+              <Line yAxisId="l" type="monotone" dataKey="stress" name="Stress" stroke={COLORS.strength} strokeWidth={2} dot={false}
+                hide={stressToggle.hidden.has("stress")} />
+              <Line yAxisId="r" type="monotone" dataKey="body_battery_high" name="Body battery" stroke={COLORS.sleep} strokeWidth={2} dot={false}
+                hide={stressToggle.hidden.has("body_battery_high")} />
+            </LineChart>
+          </ResponsiveContainer>
+          <ChartLegend series={[
+            { key: "stress", name: "Stress", color: COLORS.strength },
+            { key: "body_battery_high", name: "Body battery", color: COLORS.sleep },
+          ]} {...stressToggle} />
+        </Panel>
+      </div>
+
+      <Panel accent={COLORS.recovery} title="Training readiness" sub="30 days">
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
+            <defs>
+              <linearGradient id="rd" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLORS.recovery} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={COLORS.recovery} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
+            <YAxis tick={axis} axisLine={false} tickLine={false} width={30} domain={[0, 100]}
+              label={{ value: "readiness", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+            <Tooltip content={<ChartTip />} />
+            <Area type="monotone" dataKey="readiness" name="Readiness" stroke={COLORS.recovery} strokeWidth={2} fill="url(#rd)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </Panel>
 
       {/* training load + activities */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -122,13 +228,21 @@ export default function Dashboard() {
               <CartesianGrid stroke="#1c2230" vertical={false} />
               <XAxis dataKey="week" tick={axis} axisLine={false} tickLine={false}
                 tickFormatter={(w) => w?.split("-W")[1]} />
-              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={38} />
-              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={44} />
-              <Tooltip content={<ChartTip />} cursor={{ fill: "#ffffff08" }} />
-              <Bar yAxisId="l" dataKey="run_km" name="Run km" fill={COLORS.cardio} radius={[3, 3, 0, 0]} maxBarSize={16} />
-              <Bar yAxisId="r" dataKey="strength_volume" name="Volume kg" fill={COLORS.strength} radius={[3, 3, 0, 0]} maxBarSize={16} opacity={0.85} />
+              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={38}
+                label={{ value: "km", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={44}
+                label={{ value: "kg", angle: 90, position: "insideRight", style: axisLabelStyle }} />
+              <Tooltip content={<ChartTip labelFormatter={fmtWeek} />} cursor={{ fill: "#ffffff08" }} />
+              <Bar yAxisId="l" dataKey="run_km" name="Run km" fill={COLORS.cardio} radius={[3, 3, 0, 0]} maxBarSize={16}
+                hide={loadToggle.hidden.has("run_km")} />
+              <Bar yAxisId="r" dataKey="strength_volume" name="Volume kg" fill={COLORS.strength} radius={[3, 3, 0, 0]} maxBarSize={16} opacity={0.85}
+                hide={loadToggle.hidden.has("strength_volume")} />
             </BarChart>
           </ResponsiveContainer>
+          <ChartLegend series={[
+            { key: "run_km", name: "Run km", color: COLORS.cardio },
+            { key: "strength_volume", name: "Volume kg", color: COLORS.strength },
+          ]} {...loadToggle} />
         </Panel>
 
         <Panel accent={COLORS.strength} title="Recent sessions">

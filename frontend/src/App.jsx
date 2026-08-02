@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
-  RefreshCw, Circle, Menu, X, Upload,
+  RefreshCw, Circle, Menu, X, Upload, Power,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { COLORS } from "./lib/format";
@@ -65,6 +65,22 @@ export default function App() {
     setTimeout(() => { refresh(); setSyncing(false); }, 800);
   }
 
+  const [restarting, setRestarting] = useState(false);
+  async function handleRestart() {
+    if (!window.confirm("Restart the Pulse server? It'll be back in a few seconds.")) return;
+    setRestarting(true);
+    try { await api.restartServer(); } catch { /* connection drops mid-restart, expected */ }
+    // Poll /api/health until the new process is back up, then reload.
+    const start = Date.now();
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch("/api/health");
+        if (res.ok) { clearInterval(poll); window.location.reload(); }
+      } catch { /* still restarting */ }
+      if (Date.now() - start > 30000) clearInterval(poll);
+    }, 1000);
+  }
+
   const conn = status?.connections;
   const isDemo = status && status.recent_syncs?.length === 0 && (status.counts?.daily_health || 0) > 0;
 
@@ -74,7 +90,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen">
       {/* sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-60 border-r border-line bg-ink/95 backdrop-blur-lg transition-transform lg:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`safe-top safe-bottom fixed inset-y-0 left-0 z-40 w-60 overflow-y-auto border-r border-line bg-ink/95 backdrop-blur-lg transition-transform lg:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-2.5 px-5 py-5">
           <div className="relative flex h-8 w-8 items-center justify-center">
             <span className="absolute h-8 w-8 rounded-full bg-effort/20" />
@@ -124,7 +140,7 @@ export default function App() {
 
       {/* main */}
       <div className="flex-1 lg:pl-60">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-ink/80 px-4 py-3 backdrop-blur-lg sm:px-6">
+        <header className="safe-top sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-ink/80 px-4 py-3 backdrop-blur-lg sm:px-6">
           <button className="lg:hidden" onClick={() => setMobileNav(true)}><Menu size={20} /></button>
           <h1 className="font-display text-base font-semibold capitalize">
             {NAV.find((n) => n.id === view)?.label}
@@ -146,6 +162,11 @@ export default function App() {
               className="flex items-center gap-2 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40 disabled:opacity-60">
               <RefreshCw size={13} className={syncing ? "animate-spin text-recovery" : ""} />
               {syncing ? "Syncing…" : "Sync"}
+            </button>
+            <button onClick={handleRestart} disabled={restarting} title="Restart server"
+              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-effort/40 disabled:opacity-60">
+              <Power size={13} className={restarting ? "animate-pulse text-effort" : ""} />
+              <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
             </button>
           </div>
         </header>

@@ -44,8 +44,9 @@ class Settings(BaseSettings):
 
     # --- Sync scheduler ---
     enable_scheduler: bool = False
-    sync_interval_hours: int = 6
-    default_backfill_days: int = 90
+    sync_interval_minutes: int = 30   # how often the background scheduler runs a quick sync
+    quick_sync_days: int = 7          # window a quick sync (scheduler + the UI Sync button) covers
+    default_backfill_days: int = 90   # window a full/explicit backfill covers
 
     # --- Server / self-hosting (e.g. Raspberry Pi) ---
     host: str = "0.0.0.0"          # bind to all interfaces so your phone can reach it on the LAN
