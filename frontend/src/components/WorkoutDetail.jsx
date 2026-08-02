@@ -1,0 +1,69 @@
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+import { COLORS, fmtDate, fmtDuration, fmtNum } from "../lib/format";
+import { Modal, StatTile, Chip, Loading } from "./primitives";
+
+export default function WorkoutDetail({ id, onClose }) {
+  const [w, setW] = useState(null);
+  useEffect(() => {
+    if (!id) return;
+    setW(null);
+    api.workoutDetail(id).then(setW).catch(() => setW(false));
+  }, [id]);
+
+  return (
+    <Modal open={!!id} onClose={onClose} accent={COLORS.strength}
+      title={w ? (w.title || "Workout") : "Workout"} sub={w ? fmtDate(w.date) : undefined}>
+      {!w && w !== false && <Loading label="Loading workout…" />}
+      {w === false && <p className="text-sm text-muted">Couldn't load this workout.</p>}
+      {w && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <StatTile label="Volume" value={fmtNum(w.volume_kg)} unit="kg" color={COLORS.strength} />
+            <StatTile label="Sets" value={w.set_count} color={COLORS.strength} />
+            <StatTile label="Duration" value={fmtDuration(w.duration_min * 60)} color={COLORS.strength} />
+          </div>
+
+          {w.description && <p className="text-xs text-muted">{w.description}</p>}
+
+          <div className="space-y-3">
+            {(w.exercises || []).map((ex, i) => {
+              const vol = (ex.sets || []).reduce((s, x) => s + (x.weight_kg || 0) * (x.reps || 0), 0);
+              return (
+                <div key={i} className="rounded-xl border border-line bg-panel2/50 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-txt">{ex.title}</span>
+                      {ex.muscle_group && <Chip color={COLORS.effort}>{ex.muscle_group}</Chip>}
+                    </div>
+                    <span className="font-mono text-[11px] text-faint tnum">{fmtNum(vol)}kg</span>
+                  </div>
+                  <table className="mt-2 w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-faint">
+                        <th className="py-1 pr-3 font-medium">Set</th>
+                        <th className="py-1 pr-3 font-medium">Weight</th>
+                        <th className="py-1 pr-3 font-medium">Reps</th>
+                        <th className="py-1 text-right font-medium">RPE</th>
+                      </tr>
+                    </thead>
+                    <tbody className="font-mono tnum">
+                      {(ex.sets || []).map((s, j) => (
+                        <tr key={j} className="border-t border-line/50">
+                          <td className="py-1 pr-3 text-faint">{j + 1}</td>
+                          <td className="py-1 pr-3 text-txt">{s.weight_kg ? `${s.weight_kg}kg` : "—"}</td>
+                          <td className="py-1 pr-3 text-txt">{s.reps ?? "—"}</td>
+                          <td className="py-1 text-right text-muted">{s.rpe ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}

@@ -1,0 +1,18 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy>=2.0
+pydantic>=2.7
+pydantic-settings>=2.3
+python-dotenv>=1.0
+python-dateutil>=2.9
+python-multipart>=0.0.9
+requests>=2.32
+garminconnect>=0.2.25
+apscheduler>=3.10
+# AI providers (install whichever you use; both listed so it just works)
+anthropic>=0.40
+openai>=1.40
+# Optional: automated free-account Hevy sync (unofficial private API).
+# Only needed if HEVY_MODE=unofficial. Lightweight (no browser) variant:
+#   pip install 'hevy-unofficial[core]'
+# hevy-unofficial[core]>=0.0.2a0

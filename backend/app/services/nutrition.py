@@ -1,0 +1,118 @@
+"""Nutrition tracking: manual meal entries, daily macro totals vs a target goal."""
+from __future__ import annotations
+from datetime import date, datetime, timedelta
+
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session
+
+from ..models import Meal, NutritionGoal
+
+MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
+
+
+def get_goal(db: Session) -> dict:
+    goal = db.get(NutritionGoal, 1)
+    if not goal:
+        return {"calories": None, "protein_g": None, "carbs_g": None, "fat_g": None}
+    return {
+        "calories": goal.calories, "protein_g": goal.protein_g,
+        "carbs_g": goal.carbs_g, "fat_g": goal.fat_g,
+    }
+
+
+def set_goal(db: Session, data: dict) -> dict:
+    goal = db.get(NutritionGoal, 1)
+    if not goal:
+        goal = NutritionGoal(id=1)
+        db.add(goal)
+    for k in ("calories", "protein_g", "carbs_g", "fat_g"):
+        if k in data and data[k] is not None:
+            setattr(goal, k, data[k])
+    goal.updated_at = datetime.utcnow()
+    db.commit()
+    return get_goal(db)
+
+
+def _serialize(m: Meal) -> dict:
+    return {
+        "id": m.id, "date": m.date.isoformat() if m.date else None,
+        "time": m.time.isoformat() if m.time else None,
+        "meal_type": m.meal_type, "name": m.name,
+        "calories": m.calories, "protein_g": m.protein_g,
+        "carbs_g": m.carbs_g, "fat_g": m.fat_g, "fiber_g": m.fiber_g,
+        "notes": m.notes,
+    }
+
+
+def add_meal(db: Session, data: dict) -> dict:
+    d = data.get("date")
+    if isinstance(d, str):
+        d = date.fromisoformat(d)
+    elif d is None:
+        d = date.today()
+    t = data.get("time")
+    if isinstance(t, str):
+        t = datetime.fromisoformat(t)
+    elif t is None:
+        t = datetime.utcnow()
+    meal_type = data.get("meal_type")
+    if meal_type and meal_type not in MEAL_TYPES:
+        meal_type = None
+    meal = Meal(
+        date=d, time=t, meal_type=meal_type, name=data.get("name") or "Meal",
+        calories=data.get("calories"), protein_g=data.get("protein_g"),
+        carbs_g=data.get("carbs_g"), fat_g=data.get("fat_g"),
+        fiber_g=data.get("fiber_g"), notes=data.get("notes"),
+    )
+    db.add(meal)
+    db.commit()
+    db.refresh(meal)
+    return _serialize(meal)
+
+
+def delete_meal(db: Session, meal_id: int) -> bool:
+    meal = db.get(Meal, meal_id)
+    if not meal:
+        return False
+    db.delete(meal)
+    db.commit()
+    return True
+
+
+def meals_for_date(db: Session, d: date) -> list[dict]:
+    rows = db.execute(
+        select(Meal).where(Meal.date == d).order_by(Meal.time.asc())
+    ).scalars().all()
+    return [_serialize(m) for m in rows]
+
+
+def _totals(meals: list[dict]) -> dict:
+    totals = {"calories": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0, "fiber_g": 0.0}
+    for m in meals:
+        for k in totals:
+            totals[k] += m.get(k) or 0
+    return {k: round(v, 1) for k, v in totals.items()}
+
+
+def day_summary(db: Session, d: date) -> dict:
+    meals = meals_for_date(db, d)
+    return {
+        "date": d.isoformat(), "meals": meals,
+        "totals": _totals(meals), "goal": get_goal(db),
+    }
+
+
+def trend(db: Session, days: int = 14) -> list[dict]:
+    today = date.today()
+    start = today - timedelta(days=days - 1)
+    rows = db.execute(
+        select(Meal).where(Meal.date >= start).order_by(Meal.date.asc())
+    ).scalars().all()
+    by_day: dict[date, list[dict]] = {}
+    for m in rows:
+        by_day.setdefault(m.date, []).append(_serialize(m))
+    out = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        out.append({"date": d.isoformat(), "totals": _totals(by_day.get(d, []))})
+    return out

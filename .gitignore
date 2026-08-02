@@ -1,0 +1,18 @@
+# secrets & data
+.env
+backend/data/
+!backend/data/.gitkeep
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node
+node_modules/
+dist/
+.vite/
+
+# os
+.DS_Store
