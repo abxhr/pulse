@@ -199,6 +199,104 @@ def analyze_meal(image_b64: str | None, media_type: str | None, notes: str | Non
     }
 
 
+RECIPE_SYSTEM = """You are a precise recipe reader and nutrition estimator. You're given some
+combination of: photos of a recipe (screenshots, a cookbook page, a video frame), a video
+transcript/description, a social caption, or pasted text. Your job:
+
+1. Extract the recipe: a clear name, ingredient list (with quantities as given), and a short
+   instructions summary.
+2. Estimate total nutrition for the WHOLE recipe as written, then divide by the number of
+   servings to get per-serving macros. Infer a sensible serving count if not stated (e.g. from
+   ingredient quantities/typical portion sizes) and say what you assumed.
+3. If sources conflict (e.g. a video transcript says one thing, an on-screen photo shows
+   another), prefer the most concrete/quantified source.
+
+Respond with ONLY a single JSON object, no markdown fences, no commentary outside it:
+{"name": "recipe name", "servings": number, "ingredients": ["1 cup rice", "200g chicken", ...],
+ "instructions": "short numbered or step-by-step summary",
+ "calories": number, "protein_g": number, "carbs_g": number, "fat_g": number, "fiber_g": number,
+ "confidence": "low"|"medium"|"high", "notes": "assumptions you made, e.g. serving count"}
+calories/protein_g/carbs_g/fat_g/fiber_g are PER SERVING. Never omit a field; use your best
+estimate. If you truly can't identify a recipe from what's given, set "name" to null."""
+
+
+def _vision_content_blocks(provider: str, images_b64: list[tuple[str, str]], text: str) -> list[dict]:
+    """images_b64: list of (base64_data, media_type). Shared block-builder for both providers."""
+    blocks = []
+    for data, media_type in images_b64:
+        if provider == "openai":
+            blocks.append({"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{data}"}})
+        else:
+            blocks.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}})
+    text_block = {"type": "text", "text": text}
+    return (blocks + [text_block]) if provider == "anthropic" else ([text_block] + blocks)
+
+
+def _analyze_recipe_anthropic(images_b64: list[tuple[str, str]], text: str) -> str:
+    import anthropic
+    if not settings.anthropic_api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY not set")
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    content = _vision_content_blocks("anthropic", images_b64, text)
+    resp = client.messages.create(
+        model=settings.anthropic_model, max_tokens=1200,
+        system=RECIPE_SYSTEM, messages=[{"role": "user", "content": content}],
+    )
+    return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+
+
+def _analyze_recipe_openai(images_b64: list[tuple[str, str]], text: str) -> str:
+    from openai import OpenAI
+    if not settings.openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY not set")
+    client = OpenAI(api_key=settings.openai_api_key)
+    content = _vision_content_blocks("openai", images_b64, text)
+    resp = client.chat.completions.create(
+        model=settings.openai_model, max_tokens=1200,
+        messages=[{"role": "system", "content": RECIPE_SYSTEM}, {"role": "user", "content": content}],
+    )
+    return resp.choices[0].message.content or ""
+
+
+def _parse_json_response(raw: str) -> dict:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lower().startswith("json"):
+            text = text[4:]
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1:
+        raise RuntimeError(f"Model didn't return JSON: {raw[:200]}")
+    return json.loads(text[start:end + 1])
+
+
+def analyze_recipe(images_b64: list[tuple[str, str]], text: str, provider: str | None = None) -> dict:
+    """Extract a structured recipe + per-serving macros from photos and/or text
+    (pasted caption, video transcript/description, or free-form notes)."""
+    if not images_b64 and not text.strip():
+        raise ValueError("Provide at least one screenshot or some text/URL content.")
+    resolved = _resolve_provider(provider)
+    raw = _analyze_recipe_openai(images_b64, text) if resolved == "openai" \
+        else _analyze_recipe_anthropic(images_b64, text)
+    data = _parse_json_response(raw)
+    if not data.get("name"):
+        raise ValueError("Couldn't identify a recipe from what was given.")
+    return {
+        "name": data.get("name"),
+        "servings": data.get("servings") or 1,
+        "ingredients": data.get("ingredients") or [],
+        "instructions": data.get("instructions"),
+        "calories": data.get("calories"), "protein_g": data.get("protein_g"),
+        "carbs_g": data.get("carbs_g"), "fat_g": data.get("fat_g"), "fiber_g": data.get("fiber_g"),
+        "confidence": data.get("confidence"), "notes": data.get("notes"),
+    }
+
+
+def extract_recipe_from_text(text: str, provider: str | None = None) -> dict:
+    """Recipe extraction from pure text (e.g. a Coach chat message)."""
+    return analyze_recipe([], text, provider)
+
+
 def generate_insight(db: Session, question: str | None = None, scope: str = "chat",
                      history: list[dict] | None = None, provider: str | None = None) -> dict:
     """Ask the model for analysis. `history` is prior [{role, content}] turns."""

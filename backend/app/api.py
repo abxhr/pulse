@@ -16,7 +16,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -386,6 +386,93 @@ async def analyze_meal(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI analysis failed: {e}")
+
+
+# ---------- recipes ----------
+@router.post("/recipes/extract")
+async def extract_recipe(
+    text: str | None = Form(default=None),
+    url: str | None = Form(default=None),
+    provider: str | None = Form(default=None),
+    images: list[UploadFile] = File(default=[]),
+):
+    """Extract a structured recipe + per-serving macros from screenshots, a
+    YouTube/Instagram URL, and/or pasted text. Returns the extraction for the
+    user to review/edit — POST /recipes to actually save it."""
+    source_type = "text"
+    combined_text_parts = [text] if text else []
+
+    if url:
+        from .integrations import recipe_sources
+        try:
+            if "instagram.com" in url:
+                source_type = "instagram"
+                info = recipe_sources.fetch_instagram_content(url)
+                if info.get("title"):
+                    combined_text_parts.append(f"Post title: {info['title']}")
+                combined_text_parts.append(f"Caption: {info['caption']}")
+            else:
+                source_type = "youtube"
+                info = recipe_sources.fetch_youtube_content(url)
+                if info.get("title"):
+                    combined_text_parts.append(f"Video title: {info['title']}")
+                if info.get("description"):
+                    combined_text_parts.append(f"Description: {info['description']}")
+                if info.get("transcript"):
+                    combined_text_parts.append(f"Transcript: {info['transcript'][:6000]}")
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+    images_b64: list[tuple[str, str]] = []
+    for img in images:
+        if not img.filename:
+            continue
+        raw = await img.read()
+        if len(raw) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"{img.filename} is too large (max 8MB).")
+        images_b64.append((base64.b64encode(raw).decode(), img.content_type or "image/jpeg"))
+        if source_type == "text":
+            source_type = "screenshot"
+
+    combined_text = "\n\n".join(combined_text_parts)
+    try:
+        result = insights.analyze_recipe(images_b64, combined_text, provider)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI extraction failed: {e}")
+    result["source_type"] = source_type
+    result["source_url"] = url
+    return result
+
+
+@router.get("/recipes")
+def list_recipes(db: Session = Depends(get_session)):
+    return recipes.list_recipes(db)
+
+
+@router.post("/recipes")
+def create_recipe(payload: dict = Body(...), db: Session = Depends(get_session)):
+    if not payload.get("name"):
+        raise HTTPException(status_code=400, detail="name is required")
+    return recipes.save_recipe(db, payload)
+
+
+@router.delete("/recipes/{recipe_id}")
+def remove_recipe(recipe_id: int, db: Session = Depends(get_session)):
+    if not recipes.delete_recipe(db, recipe_id):
+        raise HTTPException(status_code=404, detail="recipe not found")
+    return {"deleted": recipe_id}
+
+
+@router.post("/recipes/{recipe_id}/log-as-meal")
+def log_recipe(recipe_id: int, payload: dict = Body(default={}), db: Session = Depends(get_session)):
+    result = recipes.log_recipe_as_meal(
+        db, recipe_id, payload.get("servings_eaten", 1), payload.get("meal_type"),
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="recipe not found")
+    return result
 
 
 @router.get("/nutrition/goal")

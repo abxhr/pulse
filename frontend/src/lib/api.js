@@ -64,6 +64,20 @@ export const api = {
   setCutGoal: (payload) => req("/weight/goal", { method: "PUT", body: JSON.stringify(payload) }),
   macroRecommendation: () => req("/weight/recommendation"),
   intraday: (d) => req(`/health/intraday${d ? `?d=${d}` : ""}`),
+  recipes: () => req("/recipes"),
+  extractRecipe: async (images, url, text, provider) => {
+    const fd = new FormData();
+    (images || []).forEach((f) => fd.append("images", f));
+    if (url) fd.append("url", url);
+    if (text) fd.append("text", text);
+    if (provider) fd.append("provider", provider);
+    const res = await fetch("/api/recipes/extract", { method: "POST", body: fd });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `${res.status}`);
+    return res.json();
+  },
+  saveRecipe: (payload) => req("/recipes", { method: "POST", body: JSON.stringify(payload) }),
+  deleteRecipe: (id) => req(`/recipes/${id}`, { method: "DELETE" }),
+  logRecipeAsMeal: (id, payload) => req(`/recipes/${id}/log-as-meal`, { method: "POST", body: JSON.stringify(payload || {}) }),
   insight: (payload) => req("/insights", { method: "POST", body: JSON.stringify(payload) }),
   dailyInsight: () => req("/insights/daily"),
   refreshDailyInsight: () => req("/insights/daily/refresh", { method: "POST" }),

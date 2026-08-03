@@ -181,6 +181,27 @@ class CutGoal(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class Recipe(Base):
+    """A saved recipe with AI-extracted macros (per serving), sourced from
+    screenshots, a YouTube/Instagram URL, or pasted text."""
+    __tablename__ = "recipe"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    servings: Mapped[float | None] = mapped_column(Float, default=1)
+    ingredients: Mapped[str | None] = mapped_column(Text)   # newline-separated
+    instructions: Mapped[str | None] = mapped_column(Text)
+    calories: Mapped[float | None] = mapped_column(Float)   # per serving
+    protein_g: Mapped[float | None] = mapped_column(Float)
+    carbs_g: Mapped[float | None] = mapped_column(Float)
+    fat_g: Mapped[float | None] = mapped_column(Float)
+    fiber_g: Mapped[float | None] = mapped_column(Float)
+    source_type: Mapped[str | None] = mapped_column(String(16))  # screenshot | youtube | instagram | text
+    source_url: Mapped[str | None] = mapped_column(String(512))
+    notes: Mapped[str | None] = mapped_column(Text)  # AI's assumptions/confidence note
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Insight(Base):
     __tablename__ = "insight"
 

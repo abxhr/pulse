@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, BookmarkPlus, Check } from "lucide-react";
 import { api } from "../lib/api";
 
 const SUGGESTIONS = [
@@ -18,7 +18,20 @@ export default function Insights({ aiStatus }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [provider, setProvider] = useState(null); // null = use server default
+  const [recipeState, setRecipeState] = useState({}); // { [messageIndex]: "saving" | "saved" | "error" }
   const endRef = useRef(null);
+
+  async function saveAsRecipe(i, content) {
+    setRecipeState((s) => ({ ...s, [i]: "saving" }));
+    try {
+      const extracted = await api.extractRecipe([], null, content, provider);
+      await api.saveRecipe(extracted);
+      setRecipeState((s) => ({ ...s, [i]: "saved" }));
+    } catch {
+      setRecipeState((s) => ({ ...s, [i]: "error" }));
+      setTimeout(() => setRecipeState((s) => ({ ...s, [i]: undefined })), 3000);
+    }
+  }
 
   const options = [
     { id: null, label: "Auto" },
@@ -95,7 +108,18 @@ export default function Insights({ aiStatus }) {
                 : "bg-panel2/70 border border-line"
             }`}>
               {m.role === "assistant"
-                ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                ? (
+                  <>
+                    <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                    <button onClick={() => saveAsRecipe(i, m.content)} disabled={recipeState[i] === "saving"}
+                      className="mt-2 flex items-center gap-1.5 text-[11px] text-faint transition hover:text-nutrition disabled:opacity-50">
+                      {recipeState[i] === "saved" ? <><Check size={12} className="text-nutrition" /> Saved to recipes</>
+                        : recipeState[i] === "saving" ? "Saving…"
+                        : recipeState[i] === "error" ? "Couldn't find a recipe in this reply"
+                        : <><BookmarkPlus size={12} /> Save as recipe</>}
+                    </button>
+                  </>
+                )
                 : m.content}
             </div>
           </div>

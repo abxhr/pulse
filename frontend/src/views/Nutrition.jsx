@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
 import { Panel, Loading, Chip } from "../components/primitives";
 import WeightCut from "../components/WeightCut";
+import Recipes from "../components/Recipes";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
@@ -396,6 +397,8 @@ export default function Nutrition({ aiStatus }) {
           </div>
         )}
       </Panel>
+
+      <Recipes aiStatus={aiStatus} />
 
       <Panel accent={COLORS.nutrition} title="Calories" sub="last 14 days">
         <ResponsiveContainer width="100%" height={200}>

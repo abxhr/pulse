@@ -1,10 +1,43 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Sparkles } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta } from "../lib/format";
 import { Modal, StatTile, Chip, Loading } from "./primitives";
 import RouteMap from "./RouteMap";
 
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
+
+function ExplainRun({ a }) {
+  const [content, setContent] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function ask() {
+    setBusy(true);
+    try {
+      const res = await api.insight({
+        scope: "activity",
+        question: `Explain this specific ${a.type || "activity"} from ${a.date}: ${a.distance_km}km, ` +
+          `${fmtDuration((a.moving_duration_min || a.duration_min) * 60)}, pace ${a.pace_per_km ? fmtPace(a.pace_per_km) : "n/a"}, ` +
+          `avg HR ${a.avg_hr ?? "n/a"}, max HR ${a.max_hr ?? "n/a"}, aerobic TE ${a.aerobic_te ?? "n/a"}, ` +
+          `anaerobic TE ${a.anaerobic_te ?? "n/a"}. How does it fit into my recent training load and recovery? ` +
+          `Was this an appropriate effort given my recent sleep/readiness? Keep it to 3-4 sentences.`,
+      });
+      setContent(res.content);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (content) return <div className="md text-sm border-t border-line pt-3"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>;
+  return (
+    <button onClick={ask} disabled={busy}
+      className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line py-2 text-xs text-muted transition hover:border-recovery/40 hover:text-recovery disabled:opacity-50">
+      <Sparkles size={13} /> {busy ? "Analyzing…" : "Explain this run"}
+    </button>
+  );
+}
 
 export default function ActivityDetail({ id, onClose }) {
   const [a, setA] = useState(null);
@@ -86,6 +119,8 @@ export default function ActivityDetail({ id, onClose }) {
               )}
             </div>
           )}
+
+          {(a.type || "").includes("run") && <ExplainRun a={a} />}
         </div>
       )}
     </Modal>

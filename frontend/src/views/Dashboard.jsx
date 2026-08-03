@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw } from "lucide-react";
+import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
@@ -16,6 +16,7 @@ function DailyInsight() {
   const [insight, setInsight] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [open, setOpen] = useState(false);
 
   const load = () => api.dailyInsight().then(setInsight).catch((e) => setErr(String(e)));
   useEffect(() => { load(); }, []);
@@ -46,14 +47,21 @@ function DailyInsight() {
 
   return (
     <Panel accent={COLORS.recovery} title="Today's briefing"
-      sub={`auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+      sub={open ? `auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "tap to expand"}
       right={
-        <button onClick={refresh} disabled={busy} title="Refresh"
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1 text-[11px] text-muted transition hover:border-recovery/40 disabled:opacity-50">
-          <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {open && (
+            <button onClick={refresh} disabled={busy} title="Refresh"
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1 text-[11px] text-muted transition hover:border-recovery/40 disabled:opacity-50">
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
+            </button>
+          )}
+          <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
+            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </div>
       }>
-      <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>
+      {open && <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>}
     </Panel>
   );
 }
