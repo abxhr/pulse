@@ -64,6 +64,7 @@ export const api = {
   setCutGoal: (payload) => req("/weight/goal", { method: "PUT", body: JSON.stringify(payload) }),
   macroRecommendation: () => req("/weight/recommendation"),
   intraday: (d) => req(`/health/intraday${d ? `?d=${d}` : ""}`),
+  currentReading: () => req("/health/current"),
   recipes: () => req("/recipes"),
   extractRecipe: async (images, url, text, provider) => {
     const fd = new FormData();

@@ -334,12 +334,14 @@ function Tip({ active, payload, label }) {
 export default function Nutrition({ aiStatus }) {
   const [today, setToday] = useState(null);
   const [trendData, setTrendData] = useState(null);
+  const [burned, setBurned] = useState(null);
 
   const formRef = useRef(null);
 
   const refresh = useCallback(() => {
     api.nutritionToday().then(setToday).catch(() => setToday({ meals: [], totals: {}, goal: {} }));
     api.nutritionTrend(14).then(setTrendData).catch(() => setTrendData([]));
+    api.dashboard().then((d) => setBurned(d.snapshot)).catch(() => setBurned(null));
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -361,6 +363,28 @@ export default function Nutrition({ aiStatus }) {
             value={totals?.[m.key] ?? 0} goal={goal?.[m.key]} />
         ))}
       </div>
+
+      {burned?.calories_total != null && (
+        <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
+          <div className="text-center">
+            <div className="text-[10px] uppercase tracking-wide text-faint">Eaten</div>
+            <div className="font-mono text-lg font-semibold text-nutrition tnum">{fmtNum(totals?.calories ?? 0)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] uppercase tracking-wide text-faint">Burned (Garmin)</div>
+            <div className="font-mono text-lg font-semibold text-strength tnum">{fmtNum(burned.calories_total)}</div>
+            <div className="text-[9px] text-faint">{fmtNum(burned.calories_active)} active + {fmtNum(burned.calories_resting)} resting</div>
+          </div>
+          <div className="text-center">
+            <div className="text-[10px] uppercase tracking-wide text-faint">Net</div>
+            <div className={`font-mono text-lg font-semibold tnum ${
+              (totals?.calories ?? 0) - burned.calories_total > 0 ? "text-effort" : "text-recovery"
+            }`}>
+              {(totals?.calories ?? 0) - burned.calories_total > 0 ? "+" : ""}{fmtNum((totals?.calories ?? 0) - burned.calories_total)}
+            </div>
+          </div>
+        </div>
+      )}
 
       <GoalEditor goal={goal} onSaved={refresh} />
 

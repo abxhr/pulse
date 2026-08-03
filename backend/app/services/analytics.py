@@ -90,6 +90,10 @@ def snapshot(db: Session) -> dict:
         "sleep_score": s.sleep_score if s else None,
         "sleep_seconds": s.total_seconds if s else None,
         "sleep_date": s.date.isoformat() if s else None,
+        "calories_total": h.calories_total if h else None,
+        "calories_active": h.calories_active if h else None,
+        "calories_resting": (h.calories_total - h.calories_active)
+            if h and h.calories_total is not None and h.calories_active is not None else None,
     }
 
 

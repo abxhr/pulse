@@ -63,6 +63,22 @@ def fetch_youtube_content(url: str) -> dict:
     return {"title": title, "description": description, "transcript": transcript}
 
 
+def fetch_tiktok_content(url: str) -> dict:
+    """TikTok's public oEmbed endpoint reliably returns the caption as `title` —
+    no login wall, unlike Instagram. The most trustworthy of the three URL sources."""
+    try:
+        r = requests.get("https://www.tiktok.com/oembed", params={"url": url}, timeout=10)
+    except Exception as e:
+        raise ValueError(f"Couldn't reach TikTok: {e}")
+    if not r.ok:
+        raise ValueError("Couldn't read this TikTok — it may be private or removed.")
+    data = r.json()
+    caption = data.get("title")
+    if not caption:
+        raise ValueError("TikTok didn't return a caption for this video.")
+    return {"title": caption, "author": data.get("author_name")}
+
+
 def fetch_instagram_content(url: str) -> dict:
     try:
         r = requests.get(url, headers={"User-Agent": _UA}, timeout=10)

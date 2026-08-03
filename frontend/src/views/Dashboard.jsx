@@ -11,6 +11,7 @@ import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
+import IntradayChart from "../components/IntradayChart";
 
 function DailyInsight() {
   const [insight, setInsight] = useState(null);
@@ -89,14 +90,21 @@ function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate 
 export default function Dashboard() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
+  const [current, setCurrent] = useState(null);
 
   useEffect(() => {
     api.dashboard().then(setD).catch((e) => setErr(String(e)));
   }, []);
 
+  useEffect(() => {
+    const load = () => api.currentReading().then(setCurrent).catch(() => {});
+    load();
+    const t = setInterval(load, 2 * 60 * 1000); // stress/body battery are genuinely live — refresh every 2 min
+    return () => clearInterval(t);
+  }, []);
+
   const recoveryToggle = useSeriesToggle();
   const sleepToggle = useSeriesToggle();
-  const stressToggle = useSeriesToggle();
   const loadToggle = useSeriesToggle();
 
   if (err) return <Empty title="Couldn't load dashboard" body={err} />;
@@ -133,16 +141,25 @@ export default function Dashboard() {
               hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
             <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "—"}
               color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
-            <StatTile label="Stress" value={s.stress} color={COLORS.strength} />
+            <StatTile label="Stress now" value={current?.stress ?? s.stress} color={COLORS.strength}
+              hint={current?.stress != null ? `today's avg ${s.stress ?? "—"}` : "today's avg"} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
               hint={s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
-            <StatTile label="Body battery" value={s.body_battery_high} unit="peak" color={COLORS.sleep} />
+            <StatTile label="Body battery now" value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
+              hint={current?.body_battery != null ? `today's peak ${s.body_battery_high ?? "—"}` : "today's peak"} />
             <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
               hint={s.training_readiness_label} />
           </div>
+          {s.calories_total != null && (
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <StatTile label="Burned total" value={fmtNum(s.calories_total)} unit="kcal" color={COLORS.strength} />
+              <StatTile label="Active" value={fmtNum(s.calories_active)} unit="kcal" color={COLORS.effort} />
+              <StatTile label="Resting" value={fmtNum(s.calories_resting)} unit="kcal" color={COLORS.muted} />
+            </div>
+          )}
           {s.fitness_age != null && (
             <div className="mt-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
               <div className="flex items-center justify-between">
@@ -236,27 +253,7 @@ export default function Dashboard() {
           </p>
         </Panel>
 
-        <Panel accent={COLORS.strength} title="Stress vs body battery" sub="30 days">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
-              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30}
-                label={{ value: "stress", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
-              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={34} domain={[0, 100]}
-                label={{ value: "battery", angle: 90, position: "insideRight", style: axisLabelStyle }} />
-              <Tooltip content={<ChartTip />} />
-              <Line yAxisId="l" type="monotone" dataKey="stress" name="Stress" stroke={COLORS.strength} strokeWidth={2} dot={false}
-                hide={stressToggle.hidden.has("stress")} />
-              <Line yAxisId="r" type="monotone" dataKey="body_battery_high" name="Body battery" stroke={COLORS.sleep} strokeWidth={2} dot={false}
-                hide={stressToggle.hidden.has("body_battery_high")} />
-            </LineChart>
-          </ResponsiveContainer>
-          <ChartLegend series={[
-            { key: "stress", name: "Stress", color: COLORS.strength },
-            { key: "body_battery_high", name: "Body battery", color: COLORS.sleep },
-          ]} {...stressToggle} />
-        </Panel>
+        <IntradayChart />
       </div>
 
       <Panel accent={COLORS.recovery} title="Training readiness" sub="30 days">

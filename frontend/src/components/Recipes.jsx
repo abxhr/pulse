@@ -5,7 +5,7 @@ import { COLORS, fmtNum } from "../lib/format";
 import { Panel, Chip, Loading } from "./primitives";
 
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
-const SOURCE_LABEL = { screenshot: "photo", youtube: "YouTube", instagram: "Instagram", text: "text" };
+const SOURCE_LABEL = { screenshot: "photo", youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram", text: "text" };
 
 function AddRecipe({ onSaved, aiStatus }) {
   const [open, setOpen] = useState(false);
@@ -111,9 +111,9 @@ function AddRecipe({ onSaved, aiStatus }) {
 
           {mode === "url" && (
             <div>
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube or Instagram Reel URL"
+              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube, TikTok, or Instagram Reel URL"
                 className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
-              <p className="mt-1.5 text-[11px] text-faint">Instagram is best-effort — if it can't read the caption, paste it in via the Text tab instead.</p>
+              <p className="mt-1.5 text-[11px] text-faint">Instagram is best-effort — if it can't read the caption, paste it in via the Text tab instead. YouTube and TikTok are reliable.</p>
             </div>
           )}
 

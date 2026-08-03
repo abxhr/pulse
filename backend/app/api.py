@@ -93,6 +93,18 @@ def health_intraday(d: str | None = None):
     return result
 
 
+@router.get("/health/current")
+def health_current():
+    """Live current stress + body battery reading — bypasses the DB entirely,
+    always a fresh call to Garmin, since these change throughout the day and the
+    stored daily row only has the day's average/peak stats."""
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return gc.fetch_current_reading(client)
+
+
 @router.get("/sleep/trend")
 def sleep_trend(days: int = 30, db: Session = Depends(get_session)):
     return analytics.sleep_trend(db, days)
@@ -397,8 +409,8 @@ async def extract_recipe(
     images: list[UploadFile] = File(default=[]),
 ):
     """Extract a structured recipe + per-serving macros from screenshots, a
-    YouTube/Instagram URL, and/or pasted text. Returns the extraction for the
-    user to review/edit — POST /recipes to actually save it."""
+    YouTube/TikTok/Instagram URL, and/or pasted text. Returns the extraction for
+    the user to review/edit — POST /recipes to actually save it."""
     source_type = "text"
     combined_text_parts = [text] if text else []
 
@@ -411,6 +423,10 @@ async def extract_recipe(
                 if info.get("title"):
                     combined_text_parts.append(f"Post title: {info['title']}")
                 combined_text_parts.append(f"Caption: {info['caption']}")
+            elif "tiktok.com" in url:
+                source_type = "tiktok"
+                info = recipe_sources.fetch_tiktok_content(url)
+                combined_text_parts.append(f"TikTok caption: {info['title']}")
             else:
                 source_type = "youtube"
                 info = recipe_sources.fetch_youtube_content(url)

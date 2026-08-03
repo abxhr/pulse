@@ -238,6 +238,39 @@ def _parse_day(s):
     return dt.date() if dt else None
 
 
+def fetch_current_reading(client) -> dict:
+    """The most recent actual stress + body battery reading Garmin has synced —
+    NOT the same as the daily summary's avg_stress/body_battery_high, which are
+    statistics for the whole day (average / peak-so-far) and barely change hour
+    to hour. This is the true 'right now' value, at whatever resolution Garmin's
+    device last pushed to the cloud (typically every few minutes when worn)."""
+    today = date.today()
+    try:
+        d = client.get_all_day_stress(today.isoformat()) or {}
+    except Exception as e:
+        log.debug("current_reading: %s", e)
+        return {"stress": None, "body_battery": None, "as_of": None}
+
+    def _latest(points, value_index=None):
+        valid = [p for p in points if p and (p[1] if value_index is None else p[value_index]) is not None]
+        if not valid:
+            return None, None
+        last = valid[-1]
+        val = last[1] if value_index is None else last[value_index]
+        return val, datetime.fromtimestamp(last[0] / 1000)
+
+    stress_val, stress_ts = _latest(d.get("stressValuesArray") or [])
+    bb_pts = [p for p in (d.get("bodyBatteryValuesArray") or []) if len(p) >= 3 and p[1] == "MEASURED"]
+    bb_val, bb_ts = (bb_pts[-1][2], datetime.fromtimestamp(bb_pts[-1][0] / 1000)) if bb_pts else (None, None)
+
+    as_of = max((t for t in (stress_ts, bb_ts) if t), default=None)
+    return {
+        "stress": stress_val if (stress_val is None or stress_val >= 0) else None,
+        "body_battery": bb_val,
+        "as_of": as_of.isoformat() if as_of else None,
+    }
+
+
 def fetch_intraday_stress(client, day: date) -> dict | None:
     """Hourly-bucketed stress + body battery for one day — fetched on demand
     (Garmin returns ~3-minute resolution; we average into hourly buckets so the
