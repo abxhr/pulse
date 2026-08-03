@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
-  RefreshCw, Circle, Menu, X, Upload, Power,
+  RefreshCw, Circle, Menu, X, Upload, Power, ScrollText,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { COLORS } from "./lib/format";
@@ -12,6 +12,7 @@ import Strength from "./views/Strength";
 import Nutrition from "./views/Nutrition";
 import Insights from "./views/Insights";
 import Reports from "./views/Reports";
+import Changelog from "./components/Changelog";
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
@@ -66,6 +67,7 @@ export default function App() {
   }
 
   const [restarting, setRestarting] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   async function handleRestart() {
     if (!window.confirm("Restart the Pulse server? It'll be back in a few seconds.")) return;
     setRestarting(true);
@@ -168,6 +170,10 @@ export default function App() {
               <Power size={13} className={restarting ? "animate-pulse text-effort" : ""} />
               <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
             </button>
+            <button onClick={() => setShowChangelog(true)} title="What's new"
+              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40">
+              <ScrollText size={13} />
+            </button>
           </div>
         </header>
 
@@ -181,6 +187,8 @@ export default function App() {
       </div>
 
       {mobileNav && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileNav(false)} />}
+
+      <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
     </div>
   );
 }

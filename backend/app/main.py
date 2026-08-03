@@ -40,6 +40,19 @@ def _clear_stale_syncs() -> None:
         db.close()
 
 
+def _generate_daily_insight() -> None:
+    from .db import SessionLocal
+    from .services import insights
+    db = SessionLocal()
+    try:
+        insights.get_or_generate_daily(db)
+        log.info("Daily insight generated")
+    except Exception as e:
+        log.warning("Daily insight generation failed (will retry on next Overview load): %s", e)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -53,8 +66,9 @@ async def lifespan(app: FastAPI):
             lambda: sync.sync_all(days=settings.quick_sync_days),
             "interval", minutes=settings.sync_interval_minutes, id="pulse_sync",
         )
+        scheduler.add_job(_generate_daily_insight, "cron", hour=6, minute=0, id="pulse_daily_insight")
         scheduler.start()
-        log.info("Scheduler started: quick sync (%sd) every %smin",
+        log.info("Scheduler started: quick sync (%sd) every %smin, daily insight at 06:00",
                   settings.quick_sync_days, settings.sync_interval_minutes)
     yield
     if scheduler:

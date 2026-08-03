@@ -335,6 +335,31 @@ def strength_this_week(db: Session) -> dict:
     }
 
 
+_RACE_DISTANCES = {
+    "5k": (5000, 0.98), "10k": (10000, 0.95),
+    "half_marathon": (21097.5, 0.88), "marathon": (42195, 0.82),
+}
+
+
+def race_predictions(db: Session) -> dict | None:
+    """Predicted race times from current VO2max, using the standard ACSM running
+    VO2-cost equation (VO2 = 0.2*v + 3.5) combined with Daniels'-style %VO2max
+    sustainability by race duration. A well-known approximation, not a lab test —
+    framed as a ballpark, not gospel."""
+    v = latest_vo2max(db)
+    if not v or not v.vo2max:
+        return None
+    out = {}
+    for name, (dist_m, pct) in _RACE_DISTANCES.items():
+        vo2_race = v.vo2max * pct
+        v_m_per_min = (vo2_race - 3.5) / 0.2
+        if v_m_per_min <= 0:
+            continue
+        time_sec = round(dist_m / v_m_per_min * 60)
+        out[name] = {"seconds": time_sec, "pace_per_km": round(time_sec / (dist_m / 1000))}
+    return {"vo2max": v.vo2max, "vo2max_date": v.date.isoformat(), "predictions": out}
+
+
 def _week_key(d: date) -> str:
     iso = d.isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"

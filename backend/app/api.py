@@ -16,7 +16,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -208,7 +208,7 @@ def push_workout_to_garmin(workout_id: str, db: Session = Depends(get_session)):
         client = gc.make_client()
     except gc.GarminUnavailable as e:
         raise HTTPException(status_code=502, detail=str(e))
-    from ..integrations import garmin_workout as gw
+    from .integrations import garmin_workout as gw
     try:
         return gw.push_workout(client, w.title or "Pulse Workout", w.exercises)
     except Exception as e:
@@ -229,6 +229,11 @@ def strength_this_week(db: Session = Depends(get_session)):
 @router.get("/training-load")
 def training_load(weeks: int = 12, db: Session = Depends(get_session)):
     return analytics.training_load(db, weeks)
+
+
+@router.get("/training/race-predictions")
+def race_predictions(db: Session = Depends(get_session)):
+    return analytics.race_predictions(db) or {}
 
 
 # ---------- system ----------
@@ -292,6 +297,24 @@ def create_insight(payload: dict = Body(default={}), db: Session = Depends(get_s
     provider = payload.get("provider")
     try:
         return insights.generate_insight(db, question=question, scope=scope, history=history, provider=provider)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
+
+
+@router.get("/insights/daily")
+def daily_insight(db: Session = Depends(get_session)):
+    """Cached once-a-day briefing for the Overview page — generated automatically
+    if today's doesn't exist yet, otherwise returns the cached one instantly."""
+    try:
+        return insights.get_or_generate_daily(db)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
+
+
+@router.post("/insights/daily/refresh")
+def refresh_daily_insight(db: Session = Depends(get_session)):
+    try:
+        return insights.get_or_generate_daily(db, force=True)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
 
@@ -373,6 +396,49 @@ def get_nutrition_goal(db: Session = Depends(get_session)):
 @router.put("/nutrition/goal")
 def put_nutrition_goal(payload: dict = Body(...), db: Session = Depends(get_session)):
     return nutrition.set_goal(db, payload)
+
+
+@router.put("/nutrition/meals/{meal_id}")
+def update_meal(meal_id: int, payload: dict = Body(...), db: Session = Depends(get_session)):
+    if not nutrition.update_meal(db, meal_id, payload):
+        raise HTTPException(status_code=404, detail="meal not found")
+    return {"updated": meal_id}
+
+
+# ---------- weight / cut ----------
+@router.get("/weight/trend")
+def weight_trend(days: int = 90, db: Session = Depends(get_session)):
+    return weight_svc.trend(db, days)
+
+
+@router.post("/weight")
+def log_weight(payload: dict = Body(...), db: Session = Depends(get_session)):
+    if payload.get("weight_kg") is None:
+        raise HTTPException(status_code=400, detail="weight_kg is required")
+    d = date.fromisoformat(payload["date"]) if payload.get("date") else date.today()
+    return weight_svc.add_weight(db, d, payload["weight_kg"], payload.get("body_fat_pct"), payload.get("notes"))
+
+
+@router.delete("/weight/{d}")
+def delete_weight(d: str, db: Session = Depends(get_session)):
+    if not weight_svc.delete_weight(db, date.fromisoformat(d)):
+        raise HTTPException(status_code=404, detail="no weigh-in for that date")
+    return {"deleted": d}
+
+
+@router.get("/weight/goal")
+def get_cut_goal(db: Session = Depends(get_session)):
+    return weight_svc.get_goal(db)
+
+
+@router.put("/weight/goal")
+def put_cut_goal(payload: dict = Body(...), db: Session = Depends(get_session)):
+    return weight_svc.set_goal(db, payload)
+
+
+@router.get("/weight/recommendation")
+def macro_recommendation(db: Session = Depends(get_session)):
+    return weight_svc.macro_recommendation(db)
 
 
 # ---------- reports ----------

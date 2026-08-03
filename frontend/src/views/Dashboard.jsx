@@ -1,14 +1,62 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp } from "lucide-react";
+import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
+
+function DailyInsight() {
+  const [insight, setInsight] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.dailyInsight().then(setInsight).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function refresh() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await api.refreshDailyInsight();
+      setInsight(res);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (err) {
+    return (
+      <Panel accent={COLORS.recovery} title="Today's briefing">
+        <p className="text-xs text-faint">
+          {err.includes("not set") ? "Add an AI key in .env and restart the server to enable daily briefings." : err}
+        </p>
+      </Panel>
+    );
+  }
+  if (!insight) return null;
+
+  return (
+    <Panel accent={COLORS.recovery} title="Today's briefing"
+      sub={`auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`}
+      right={
+        <button onClick={refresh} disabled={busy} title="Refresh"
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1 text-[11px] text-muted transition hover:border-recovery/40 disabled:opacity-50">
+          <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
+        </button>
+      }>
+      <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>
+    </Panel>
+  );
+}
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 
@@ -51,6 +99,8 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
+      <DailyInsight />
+
       {/* hero */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
         <Panel accent={COLORS.recovery} title="Today" sub={s.date || "no data yet"}>

@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { api } from "../lib/api";
-import { COLORS, fmtNum, fmtDate, fmtDuration } from "../lib/format";
+import { COLORS, fmtNum, fmtDate, fmtDuration, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
@@ -28,6 +28,79 @@ function WeekHeatmap({ week }) {
       </div>
       {!week.workout_count && (
         <p className="mt-2 text-center text-xs text-faint">No workouts logged yet this week.</p>
+      )}
+    </Panel>
+  );
+}
+
+function ExerciseProgression({ wkos }) {
+  const [selected, setSelected] = useState(null);
+
+  const byExercise = useMemo(() => {
+    const map = new Map();
+    for (const w of wkos) {
+      if (!w.date) continue;
+      for (const ex of w.exercises || []) {
+        if (!ex.sets?.length) continue;
+        let best = { weight_kg: 0, reps: 0, e1rm: 0 };
+        let volume = 0;
+        for (const s of ex.sets) {
+          const weight = s.weight_kg || 0;
+          const reps = s.reps || 0;
+          volume += weight * reps;
+          const e1rm = weight * (1 + reps / 30); // Epley formula
+          if (e1rm > best.e1rm) best = { weight_kg: weight, reps, e1rm };
+        }
+        if (!map.has(ex.title)) map.set(ex.title, { entries: [], totalVolume: 0 });
+        const rec = map.get(ex.title);
+        rec.entries.push({ date: w.date, best_kg: best.weight_kg, e1rm: Math.round(best.e1rm), volume });
+        rec.totalVolume += volume;
+      }
+    }
+    for (const rec of map.values()) rec.entries.sort((a, b) => a.date.localeCompare(b.date));
+    return map;
+  }, [wkos]);
+
+  const options = useMemo(
+    () => [...byExercise.entries()].sort((a, b) => b[1].totalVolume - a[1].totalVolume).map(([name]) => name),
+    [byExercise]
+  );
+  const active = selected && byExercise.has(selected) ? selected : options[0];
+  const entries = active ? byExercise.get(active).entries : [];
+  const last = entries[entries.length - 1];
+  const first = entries[0];
+
+  if (!options.length) return null;
+
+  return (
+    <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley) · best set weight per session">
+      <select value={active} onChange={(e) => setSelected(e.target.value)}
+        className="mb-3 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt focus:border-strength/50 focus:outline-none">
+        {options.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+
+      {entries.length >= 2 ? (
+        <>
+          <div className="mb-2 grid grid-cols-3 gap-3">
+            <StatTile label="Latest e1RM" value={fmtNum(last?.e1rm)} unit="kg" color={COLORS.effort} />
+            <StatTile label="Sessions" value={entries.length} color={COLORS.muted} />
+            <StatTile label="Since first logged" value={last && first ? `${last.e1rm - first.e1rm >= 0 ? "+" : ""}${fmtNum(last.e1rm - first.e1rm)}` : "—"} unit="kg" color={COLORS.recovery} />
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={entries} margin={{ left: -8, right: 8, top: 6 }}>
+              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={30} axisLine={false} tickLine={false} />
+              <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 5", "dataMax + 5"]}
+                label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <Tooltip
+                contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                labelFormatter={fmtDate} />
+              <Line type="monotone" dataKey="e1rm" name="Est. 1RM" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      ) : (
+        <p className="py-4 text-center text-xs text-faint">Need at least 2 sessions of this exercise to chart progression.</p>
       )}
     </Panel>
   );
@@ -66,7 +139,8 @@ export default function Strength() {
             <BarChart data={s.weekly_volume} margin={{ left: -8, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
               <XAxis dataKey="week" tick={axis} axisLine={false} tickLine={false} tickFormatter={(w) => w?.split("-W")[1]} />
-              <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
                 contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
               />
@@ -79,7 +153,8 @@ export default function Strength() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.by_muscle} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
               <CartesianGrid stroke="#1c2230" horizontal={false} />
-              <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                label={{ value: "kg", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
               <YAxis type="category" dataKey="muscle" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
                 contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
@@ -92,6 +167,8 @@ export default function Strength() {
           </ResponsiveContainer>
         </Panel>
       </div>
+
+      <ExerciseProgression wkos={wkos} />
 
       <Panel accent={COLORS.strength} title="Top exercises" sub="by volume · 8 weeks">
         <div className="space-y-2">

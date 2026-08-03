@@ -155,6 +155,32 @@ class NutritionGoal(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class BodyWeight(Base):
+    """Daily weigh-ins, manually logged (or pulled from Garmin body composition
+    if a bridged smart scale populates it)."""
+    __tablename__ = "body_weight"
+
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    body_fat_pct: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(16), default="manual")  # manual | garmin
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CutGoal(Base):
+    """Single-row table describing the current weight goal (e.g. a cut)."""
+    __tablename__ = "cut_goal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    start_date: Mapped[date_t | None] = mapped_column(Date)
+    start_weight_kg: Mapped[float | None] = mapped_column(Float)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
+    weekly_rate_kg: Mapped[float | None] = mapped_column(Float)  # negative = losing, positive = gaining
+    active: Mapped[bool] = mapped_column(default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Insight(Base):
     __tablename__ = "insight"
 

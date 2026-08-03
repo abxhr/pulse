@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useRef } from "react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon } from "lucide-react";
+import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
 import { Panel, Loading, Chip } from "../components/primitives";
+import WeightCut from "../components/WeightCut";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
@@ -140,12 +141,27 @@ function ScanMeal({ onEstimate, aiStatus }) {
   );
 }
 
-function AddMealForm({ onAdded, aiStatus }) {
+const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("manual"); // manual | scan
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(EMPTY_MEAL);
   const [estimate, setEstimate] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+
+  useImperativeHandle(ref, () => ({
+    edit(meal) {
+      setForm({
+        name: meal.name || "", meal_type: meal.meal_type || "lunch",
+        calories: meal.calories ?? "", protein_g: meal.protein_g ?? "",
+        carbs_g: meal.carbs_g ?? "", fat_g: meal.fat_g ?? "",
+      });
+      setEditingId(meal.id);
+      setEstimate(null);
+      setMode("manual");
+      setOpen(true);
+    },
+  }));
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -165,6 +181,7 @@ function AddMealForm({ onAdded, aiStatus }) {
   function reset() {
     setForm(EMPTY_MEAL);
     setEstimate(null);
+    setEditingId(null);
     setMode("manual");
     setOpen(false);
   }
@@ -173,15 +190,17 @@ function AddMealForm({ onAdded, aiStatus }) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setBusy(true);
+    const payload = {
+      name: form.name.trim(),
+      meal_type: form.meal_type,
+      calories: form.calories ? Number(form.calories) : null,
+      protein_g: form.protein_g ? Number(form.protein_g) : null,
+      carbs_g: form.carbs_g ? Number(form.carbs_g) : null,
+      fat_g: form.fat_g ? Number(form.fat_g) : null,
+    };
     try {
-      await api.addMeal({
-        name: form.name.trim(),
-        meal_type: form.meal_type,
-        calories: form.calories ? Number(form.calories) : null,
-        protein_g: form.protein_g ? Number(form.protein_g) : null,
-        carbs_g: form.carbs_g ? Number(form.carbs_g) : null,
-        fat_g: form.fat_g ? Number(form.fat_g) : null,
-      });
+      if (editingId) await api.updateMeal(editingId, payload);
+      else await api.addMeal(payload);
       reset();
       onAdded();
     } finally {
@@ -252,13 +271,13 @@ function AddMealForm({ onAdded, aiStatus }) {
 
           <button type="submit" disabled={busy || !form.name.trim()}
             className="w-full rounded-lg bg-nutrition py-2.5 text-sm font-semibold text-ink transition disabled:opacity-50">
-            {busy ? "Saving…" : "Add meal"}
+            {busy ? "Saving…" : editingId ? "Save changes" : "Add meal"}
           </button>
         </form>
       )}
     </div>
   );
-}
+});
 
 function GoalEditor({ goal, onSaved }) {
   const [open, setOpen] = useState(false);
@@ -315,6 +334,8 @@ export default function Nutrition({ aiStatus }) {
   const [today, setToday] = useState(null);
   const [trendData, setTrendData] = useState(null);
 
+  const formRef = useRef(null);
+
   const refresh = useCallback(() => {
     api.nutritionToday().then(setToday).catch(() => setToday({ meals: [], totals: {}, goal: {} }));
     api.nutritionTrend(14).then(setTrendData).catch(() => setTrendData([]));
@@ -342,7 +363,9 @@ export default function Nutrition({ aiStatus }) {
 
       <GoalEditor goal={goal} onSaved={refresh} />
 
-      <AddMealForm onAdded={refresh} aiStatus={aiStatus} />
+      <WeightCut />
+
+      <AddMealForm ref={formRef} onAdded={refresh} aiStatus={aiStatus} />
 
       <Panel accent={COLORS.nutrition} title="Today's meals" sub={meals?.length ? `${meals.length} logged` : "nothing logged yet"}>
         {!meals?.length ? (
@@ -360,9 +383,14 @@ export default function Nutrition({ aiStatus }) {
                     {fmtNum(m.calories)} kcal · P{fmtNum(m.protein_g)} · C{fmtNum(m.carbs_g)} · F{fmtNum(m.fat_g)}
                   </div>
                 </div>
-                <button onClick={() => removeMeal(m.id)} className="ml-2 shrink-0 text-faint hover:text-effort">
-                  <Trash2 size={15} />
-                </button>
+                <div className="ml-2 flex shrink-0 items-center gap-2">
+                  <button onClick={() => formRef.current?.edit(m)} className="text-faint hover:text-txt">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => removeMeal(m.id)} className="text-faint hover:text-effort">
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -8,23 +8,27 @@ from datetime import datetime
 import json
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import Insight
-from . import analytics
+from . import analytics, nutrition, weight as weight_svc
 
 log = logging.getLogger("pulse.insights")
 
 SYSTEM_PROMPT = """You are Pulse, a sharp, encouraging personal performance analyst.
-You are given a structured JSON summary of the user's recent Garmin health metrics
-and Hevy strength workouts. Analyze it like a great coach + sports scientist would:
+You are given a structured JSON summary of the user's recent Garmin health metrics,
+Hevy strength workouts, nutrition log, and (if they're tracking a cut/bulk) their
+weight trend and macro targets. Analyze it like a great coach + sports scientist would:
 
 - Lead with what matters. Call out the 2-3 most important signals first.
-- Connect the dots across domains (e.g. poor sleep -> low readiness -> lighter session).
+- Connect the dots across domains (e.g. poor sleep -> low readiness -> lighter session;
+  or calorie/protein intake vs. weight trend vs. training volume during a cut).
 - Be specific and quantitative; cite the actual numbers from the data.
 - Give concrete, actionable suggestions for the next few days.
-- Flag anything that looks like overtraining, under-recovery, or an anomaly.
+- Flag anything that looks like overtraining, under-recovery, an anomaly, or (if cutting)
+  losing weight too fast/slow relative to their target rate.
 - Never invent data you weren't given. If something is missing, say so briefly.
 - Be concise and scannable. Use short paragraphs and tight bullets.
 You are not a doctor; avoid medical diagnosis and note when something warrants a professional."""
@@ -32,7 +36,7 @@ You are not a doctor; avoid medical diagnosis and note when something warrants a
 
 def build_context(db: Session, days: int = 30) -> dict:
     """Compact JSON the model can reason over."""
-    return {
+    ctx = {
         "generated_at": datetime.utcnow().isoformat(),
         "today": analytics.snapshot(db),
         "health_trend_30d": analytics.health_trend(db, days),
@@ -41,6 +45,16 @@ def build_context(db: Session, days: int = 30) -> dict:
         "training_load_12w": analytics.training_load(db, 12),
         "strength_summary_8w": analytics.strength_summary(db, 8),
     }
+    w_trend = weight_svc.trend(db, days)
+    if w_trend:
+        ctx["weight_trend"] = w_trend
+        ctx["weight_goal"] = weight_svc.get_goal(db)
+        ctx["macro_recommendation"] = weight_svc.macro_recommendation(db)
+    n_trend = nutrition.trend(db, 14)
+    if any(d["totals"]["calories"] for d in n_trend):
+        ctx["nutrition_trend_14d"] = n_trend
+        ctx["nutrition_goal"] = nutrition.get_goal(db)
+    return ctx
 
 
 def _call_anthropic(system: str, messages: list[dict]) -> str:
@@ -213,3 +227,31 @@ def generate_insight(db: Session, question: str | None = None, scope: str = "cha
         "model": model,
         "created_at": row.created_at.isoformat(),
     }
+
+
+DAILY_SCOPE = "daily_auto"
+DAILY_QUESTION = (
+    "Give me my daily briefing: the 2-3 things that matter most right now across recovery, "
+    "sleep, training, and (if I'm logging it) nutrition/weight vs. my cut goal. Be direct and "
+    "specific with numbers. Keep it tight — this is a daily-glance summary, not a full report."
+)
+
+
+def get_or_generate_daily(db: Session, force: bool = False) -> dict:
+    """One AI insight per calendar day, cached — regenerated only when forced or
+    when today's doesn't exist yet. Keeps the Overview page showing something
+    without hammering the API on every page load."""
+    if not force:
+        today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+        existing = db.execute(
+            select(Insight)
+            .where(Insight.scope == DAILY_SCOPE, Insight.role == "assistant", Insight.created_at >= today_start)
+            .order_by(Insight.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if existing:
+            return {
+                "id": existing.id, "content": existing.content, "provider": existing.provider,
+                "model": existing.model, "created_at": existing.created_at.isoformat(),
+            }
+    return generate_insight(db, question=DAILY_QUESTION, scope=DAILY_SCOPE)

@@ -70,6 +70,19 @@ def add_meal(db: Session, data: dict) -> dict:
     return _serialize(meal)
 
 
+def update_meal(db: Session, meal_id: int, data: dict) -> dict | None:
+    meal = db.get(Meal, meal_id)
+    if not meal:
+        return None
+    for field in ("name", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "notes"):
+        if field in data:
+            setattr(meal, field, data[field])
+    if "meal_type" in data and (data["meal_type"] in MEAL_TYPES or data["meal_type"] is None):
+        meal.meal_type = data["meal_type"]
+    db.commit()
+    return _serialize(meal)
+
+
 def delete_meal(db: Session, meal_id: int) -> bool:
     meal = db.get(Meal, meal_id)
     if not meal:
