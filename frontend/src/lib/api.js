@@ -42,6 +42,8 @@ export const api = {
   assignShoe: (activityId, shoeId) => req(`/activities/${activityId}/shoe`, { method: "POST", body: JSON.stringify({ shoe_id: shoeId }) }),
   racePredictions: () => req("/training/race-predictions"),
   hrZones: (days = 30) => req(`/activities/hr-zones?days=${days}`),
+  karvonenZones: () => req("/activities/karvonen-zones"),
+  karvonenSessions: (days = 90) => req(`/activities/karvonen-sessions?days=${days}`),
   syncAll: (days) => req(`/sync/all${days ? `?days=${days}` : ""}`, { method: "POST" }),
   restartServer: () => req("/system/restart", { method: "POST" }),
   syncGarmin: (days) => req(`/sync/garmin${days ? `?days=${days}` : ""}`, { method: "POST" }),

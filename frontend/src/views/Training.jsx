@@ -9,7 +9,7 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
-import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker } from "../components/CardioExtras";
+import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard } from "../components/CardioExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
@@ -139,6 +139,8 @@ export default function Training() {
           ) : <Empty title="No HR trend yet" body="Syncs more days to populate this." />}
         </Panel>
       </div>
+
+      <KarvonenZonesCard />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.strength} title="Time in HR zones" sub={`across ${zones?.activities_with_hr ?? 0} activities · 30 days`}>

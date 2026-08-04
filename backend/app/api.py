@@ -154,6 +154,16 @@ def activities_hr_zones(days: int = 30, db: Session = Depends(get_session)):
     return analytics.hr_zone_summary(db, days)
 
 
+@router.get("/activities/karvonen-zones")
+def karvonen_zones_route(db: Session = Depends(get_session)):
+    return analytics.karvonen_zones(db) or {}
+
+
+@router.get("/activities/karvonen-sessions")
+def karvonen_sessions_route(days: int = 90, db: Session = Depends(get_session)):
+    return analytics.sessions_by_karvonen_zone(db, days)
+
+
 @router.get("/workouts")
 def workouts(limit: int = 20, db: Session = Depends(get_session)):
     rows = db.execute(

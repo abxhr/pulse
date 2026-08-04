@@ -4,6 +4,44 @@ import { api } from "../lib/api";
 import { COLORS, fmtNum, fmtPace, fmtDate } from "../lib/format";
 import { Panel } from "./primitives";
 
+const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
+
+export function KarvonenZonesCard() {
+  const [zones, setZones] = useState(null);
+  const [sessions, setSessions] = useState(null);
+  useEffect(() => {
+    api.karvonenZones().then((z) => setZones(z?.zones ? z : null)).catch(() => setZones(null));
+    api.karvonenSessions().then(setSessions).catch(() => setSessions([]));
+  }, []);
+  if (!zones) return null;
+  const maxSessions = Math.max(1, ...(sessions || []).map((s) => s.sessions));
+
+  return (
+    <Panel accent={COLORS.effort} title="Personalized HR zones" sub={`Karvonen · max ${zones.max_hr} · resting ${zones.resting_hr}bpm`}>
+      <div className="space-y-2">
+        {zones.zones.map((z, i) => {
+          const s = sessions?.find((x) => x.zone === z.name);
+          return (
+            <div key={z.name} className="flex items-center gap-3">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: ZONE_COLORS[i] }} />
+              <span className="w-28 shrink-0 text-xs text-txt">{z.name}</span>
+              <span className="w-24 shrink-0 font-mono text-xs text-faint tnum">{z.low_bpm}-{z.high_bpm}bpm</span>
+              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-panel2">
+                <div className="h-full rounded-full" style={{ width: `${((s?.sessions || 0) / maxSessions) * 100}%`, background: ZONE_COLORS[i] }} />
+              </div>
+              <span className="w-6 shrink-0 text-right font-mono text-[11px] text-faint tnum">{s?.sessions || 0}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-faint">
+        Zones from heart-rate-reserve (your actual max/resting HR), not a generic %-of-max estimate.
+        Session counts are by average HR per run, not a full time-in-zone breakdown.
+      </p>
+    </Panel>
+  );
+}
+
 const DIST_OPTIONS = [
   { value: "5k", label: "5K" }, { value: "10k", label: "10K" },
   { value: "half_marathon", label: "Half Marathon" }, { value: "marathon", label: "Marathon" },

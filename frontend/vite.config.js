@@ -12,4 +12,19 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the big, rarely-changing vendor libs into their own chunks so
+        // a code change doesn't force re-downloading recharts/framer-motion,
+        // and so the very first paint doesn't wait on charting code at all.
+        manualChunks: {
+          recharts: ["recharts"],
+          "react-vendor": ["react", "react-dom"],
+          "markdown-vendor": ["react-markdown", "remark-gfm"],
+          "motion-vendor": ["framer-motion"],
+        },
+      },
+    },
+  },
 });

@@ -116,6 +116,60 @@ def health_trend(db: Session, days: int = 30) -> list[dict]:
     } for r in rows]
 
 
+_KARVONEN_BANDS = [
+    ("Z1 recovery", 0.50, 0.60), ("Z2 aerobic", 0.60, 0.70), ("Z3 tempo", 0.70, 0.80),
+    ("Z4 threshold", 0.80, 0.90), ("Z5 max", 0.90, 1.00),
+]
+
+
+def karvonen_zones(db: Session) -> dict | None:
+    """Personalized HR zones from the heart-rate-reserve method (Karvonen):
+    target = (max - resting) * intensity% + resting. Generic %-of-max bands
+    (what most trackers ship by default) systematically under/over-shoot for
+    anyone with an unusually low resting HR — this uses your actual measured
+    values instead."""
+    max_hr = db.execute(select(func.max(Activity.max_hr))).scalar()
+    resting = db.execute(
+        select(DailyHealth.resting_hr).where(DailyHealth.resting_hr.isnot(None))
+        .order_by(DailyHealth.date.desc()).limit(14)
+    ).scalars().all()
+    if not max_hr or not resting:
+        return None
+    resting_hr = round(sum(resting) / len(resting))
+    hrr = max_hr - resting_hr
+    if hrr <= 0:
+        return None
+    zones = [{
+        "name": name, "low_bpm": round(hrr * lo + resting_hr), "high_bpm": round(hrr * hi + resting_hr),
+    } for name, lo, hi in _KARVONEN_BANDS]
+    return {"max_hr": max_hr, "resting_hr": resting_hr, "zones": zones}
+
+
+def sessions_by_karvonen_zone(db: Session, days: int = 90) -> list[dict]:
+    """Buckets each run by which personalized zone its average HR falls in —
+    approximate (avg HR per session, not a true time-in-zone breakdown, since
+    we don't store second-by-second HR streams), but zone thresholds are
+    genuinely personalized rather than generic %-of-max bands."""
+    kz = karvonen_zones(db)
+    if not kz:
+        return []
+    start = date.today() - timedelta(days=days)
+    acts = db.execute(
+        select(Activity).where(Activity.date >= start, Activity.avg_hr.isnot(None))
+    ).scalars().all()
+    counts = {z["name"]: 0 for z in kz["zones"]}
+    zones = kz["zones"]
+    for a in acts:
+        if a.avg_hr < zones[0]["low_bpm"]:
+            continue  # below Z1 — pre-warmup / very easy, not counted
+        for i, z in enumerate(zones):
+            is_last = i == len(zones) - 1
+            if z["low_bpm"] <= a.avg_hr <= (10**9 if is_last else z["high_bpm"]):
+                counts[z["name"]] += 1
+                break
+    return [{"zone": name, "sessions": n} for name, n in counts.items()]
+
+
 def hr_zone_summary(db: Session, days: int = 30) -> dict:
     """Time-in-HR-zone across recent activities — sourced from each activity's raw
     Garmin payload (hrTimeInZone_1..5), which we already store but don't aggregate."""

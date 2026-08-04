@@ -1,21 +1,25 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
   RefreshCw, Circle, Menu, X, Upload, Power, ScrollText, Search, Sun, Bell, BellOff,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { COLORS } from "./lib/format";
-import Dashboard from "./views/Dashboard";
-import Sleep from "./views/Sleep";
-import Training from "./views/Training";
-import Strength from "./views/Strength";
-import Nutrition from "./views/Nutrition";
-import Insights from "./views/Insights";
-import Reports from "./views/Reports";
 import Changelog from "./components/Changelog";
 import ErrorBoundary from "./components/ErrorBoundary";
 import CommandPalette from "./components/CommandPalette";
 import { useReminders } from "./lib/useReminders";
+import { Loading } from "./components/primitives";
+
+// Each view is its own chunk — the initial bundle only needs to ship the app
+// shell, not every page's charting/AI code before the user's even logged in.
+const Dashboard = lazy(() => import("./views/Dashboard"));
+const Sleep = lazy(() => import("./views/Sleep"));
+const Training = lazy(() => import("./views/Training"));
+const Strength = lazy(() => import("./views/Strength"));
+const Nutrition = lazy(() => import("./views/Nutrition"));
+const Insights = lazy(() => import("./views/Insights"));
+const Reports = lazy(() => import("./views/Reports"));
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
@@ -209,11 +213,13 @@ export default function App() {
 
         <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
           <ErrorBoundary key={view} resetKey={view}>
-            {view === "insights"
-              ? <Insights aiStatus={conn?.ai} />
-              : view === "nutrition"
-              ? <Nutrition aiStatus={conn?.ai} />
-              : Current && <Current />}
+            <Suspense fallback={<Loading />}>
+              {view === "insights"
+                ? <Insights aiStatus={conn?.ai} />
+                : view === "nutrition"
+                ? <Nutrition aiStatus={conn?.ai} />
+                : Current && <Current />}
+            </Suspense>
           </ErrorBoundary>
         </main>
       </div>
