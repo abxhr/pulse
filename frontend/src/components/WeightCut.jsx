@@ -316,7 +316,8 @@ export default function WeightCut() {
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[10.5px] uppercase tracking-wider text-faint">Recommended daily macros</span>
                   <span className="font-mono text-[10px] text-faint">
-                    TDEE ~{fmtNum(rec.tdee_estimate)}kcal ({rec.tdee_source === "energy_balance" ? "from your logs" : "Garmin estimate"})
+                    TDEE ~{fmtNum(rec.tdee_estimate)}kcal ({rec.tdee_source === "energy_balance" ? "from your logs" : "Garmin estimate"}
+                    {rec.tdee_raw && Math.abs(rec.tdee_raw - rec.tdee_estimate) >= 10 ? `, smoothed from ${fmtNum(rec.tdee_raw)}` : ""})
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">

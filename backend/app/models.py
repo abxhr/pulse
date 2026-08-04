@@ -281,6 +281,18 @@ class PushLog(Base):
     date: Mapped[date_t] = mapped_column(Date)
 
 
+class TdeeState(Base):
+    """Single-row Bayesian smoothing state for the TDEE estimate — blending
+    each new raw calculation with the prior smoothed value instead of
+    replacing it outright, so the macro recommendation doesn't visibly jump
+    around as new data arrives."""
+    __tablename__ = "tdee_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    smoothed_tdee: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class CoachMemory(Base):
     """Single-row freeform notes the Coach should remember across conversations
     (dietary restrictions, preferences) instead of re-explaining every time."""

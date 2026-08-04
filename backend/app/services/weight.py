@@ -11,12 +11,12 @@ The AI narrative (services/insights.py) explains and contextualizes these number
 it doesn't invent the math.
 """
 from __future__ import annotations
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import BodyWeight, CutGoal, Meal, DailyHealth, GoalHistory
+from ..models import BodyWeight, CutGoal, Meal, DailyHealth, GoalHistory, TdeeState
 
 KCAL_PER_KG_FAT = 7700
 MIN_DAYS_FOR_ENERGY_BALANCE = 10
@@ -266,6 +266,25 @@ def refeed_nudge(db: Session) -> dict | None:
     }
 
 
+def _smoothed_tdee(db: Session, raw_tdee: float) -> float:
+    """Bayesian-style blend: each new raw estimate nudges the running smoothed
+    value rather than replacing it outright. Weighted 70/30 toward the new
+    reading — enough to track real metabolic/weight changes within a couple
+    of weeks, not so much that one noisy day swings the number."""
+    state = db.get(TdeeState, 1)
+    if not state or not state.smoothed_tdee:
+        smoothed = raw_tdee
+        if not state:
+            state = TdeeState(id=1)
+            db.add(state)
+    else:
+        smoothed = round(0.3 * state.smoothed_tdee + 0.7 * raw_tdee)
+    state.smoothed_tdee = smoothed
+    state.updated_at = datetime.utcnow()
+    db.commit()
+    return smoothed
+
+
 def macro_recommendation(db: Session) -> dict:
     weights = trend(db, 90)
     current_weight = weights[-1]["weight_kg"] if weights else None
@@ -276,6 +295,10 @@ def macro_recommendation(db: Session) -> dict:
     if not tdee:
         tdee = _garmin_calories_tdee(db)
         tdee_source = "garmin_estimate" if tdee else None
+
+    raw_tdee = tdee
+    if tdee:
+        tdee = _smoothed_tdee(db, tdee)
 
     if not tdee or not current_weight:
         return {
@@ -300,6 +323,7 @@ def macro_recommendation(db: Session) -> dict:
         "ready": True,
         "current_weight_kg": current_weight,
         "tdee_estimate": tdee,
+        "tdee_raw": raw_tdee,
         "tdee_source": tdee_source,
         "weekly_rate_kg": weekly_rate_kg,
         "target_calories": target_calories,
