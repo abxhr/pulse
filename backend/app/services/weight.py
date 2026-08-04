@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import BodyWeight, CutGoal, Meal, DailyHealth
+from ..models import BodyWeight, CutGoal, Meal, DailyHealth, GoalHistory
 
 KCAL_PER_KG_FAT = 7700
 MIN_DAYS_FOR_ENERGY_BALANCE = 10
@@ -83,11 +83,21 @@ def get_goal(db: Session) -> dict | None:
     }
 
 
+def _phase_for(weekly_rate_kg: float | None) -> str:
+    if not weekly_rate_kg:
+        return "maintain"
+    return "cut" if weekly_rate_kg < 0 else "bulk"
+
+
 def set_goal(db: Session, data: dict) -> dict:
     g = db.get(CutGoal, 1)
     if not g:
         g = CutGoal(id=1)
         db.add(g)
+
+    rate_changed = "weekly_rate_kg" in data and data["weekly_rate_kg"] is not None and data["weekly_rate_kg"] != g.weekly_rate_kg
+    is_new_phase = g.weekly_rate_kg is None or rate_changed
+
     if data.get("start_weight_kg") is not None:
         g.start_weight_kg = data["start_weight_kg"]
     if data.get("target_weight_kg") is not None:
@@ -97,8 +107,27 @@ def set_goal(db: Session, data: dict) -> dict:
     if not g.start_date:
         g.start_date = date.today()
     g.active = data.get("active", True)
+
+    if is_new_phase:
+        # close out whatever phase was ongoing, then open the new one
+        db.execute(
+            GoalHistory.__table__.update().where(GoalHistory.end_date.is_(None)).values(end_date=date.today())
+        )
+        db.add(GoalHistory(
+            start_date=date.today(), target_weight_kg=g.target_weight_kg,
+            weekly_rate_kg=g.weekly_rate_kg, phase=_phase_for(g.weekly_rate_kg),
+        ))
     db.commit()
     return get_goal(db)
+
+
+def goal_history(db: Session) -> list[dict]:
+    rows = db.execute(select(GoalHistory).order_by(GoalHistory.start_date.desc())).scalars().all()
+    return [{
+        "id": r.id, "start_date": r.start_date.isoformat(),
+        "end_date": r.end_date.isoformat() if r.end_date else None,
+        "target_weight_kg": r.target_weight_kg, "weekly_rate_kg": r.weekly_rate_kg, "phase": r.phase,
+    } for r in rows]
 
 
 def _linreg(points: list[tuple[float, float]]) -> tuple[float, float] | None:

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, TrendingDown, ImageDown } from "lucide-react";
+import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, TrendingDown, ImageDown, Download } from "lucide-react";
 import { api } from "../lib/api";
 import { Panel, StatTile, Chip } from "../components/primitives";
 import { COLORS, fmtNum } from "../lib/format";
@@ -88,6 +88,26 @@ function ComparisonPanel({ weeks }) {
   );
 }
 
+function DataExportPanel() {
+  const csvTables = ["meals", "weights", "activities", "workouts"];
+  return (
+    <Panel accent={COLORS.muted} title="Export your data" sub="independent of the SQLite file — for backup or external analysis">
+      <div className="flex flex-wrap gap-2">
+        <a href="/api/export/json" download
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-xs text-txt transition hover:border-recovery/40">
+          <Download size={13} /> Full export (JSON)
+        </a>
+        {csvTables.map((t) => (
+          <a key={t} href={`/api/export/csv/${t}`} download
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs capitalize text-muted transition hover:text-txt">
+            <Download size={12} /> {t} (CSV)
+          </a>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 function ShareImageButton({ summary, weeks }) {
   const canvasRef = useRef(null);
 
@@ -155,6 +175,7 @@ export default function Reports() {
     <div className="space-y-4">
       <ScheduledReportPanel />
       <ComparisonPanel weeks={weeks} />
+      <DataExportPanel />
 
       <Panel accent={COLORS.strength} title="Generate report" sub="performance summary + AI narrative">
         <div className="flex flex-wrap items-center gap-3">

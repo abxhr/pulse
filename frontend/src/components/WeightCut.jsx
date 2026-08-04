@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Sparkles, Settings2, Trash2, ChevronDown } from "lucide-react";
+import { Sparkles, Settings2, Trash2, ChevronDown, History } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading } from "../components/primitives";
@@ -87,6 +87,45 @@ function WeightHistory({ trend, onChanged }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const PHASE_LABEL = { cut: "Cut", bulk: "Bulk", maintain: "Maintain" };
+const PHASE_COLOR = { cut: COLORS.effort, bulk: COLORS.strength, maintain: COLORS.recovery };
+
+function GoalHistoryList() {
+  const [open, setOpen] = useState(false);
+  const [history, setHistory] = useState(null);
+
+  useEffect(() => { if (open && !history) api.goalHistory().then(setHistory).catch(() => setHistory([])); }, [open, history]);
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+        <History size={12} /> Goal history
+      </button>
+    );
+  }
+  return (
+    <div>
+      <button onClick={() => setOpen(false)} className="mb-1.5 flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+        <History size={12} /> Hide history
+      </button>
+      {history?.length ? (
+        <div className="space-y-1">
+          {history.map((h) => (
+            <div key={h.id} className="flex items-center justify-between rounded-lg border border-line bg-panel2/40 px-3 py-1.5 text-xs">
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: PHASE_COLOR[h.phase] }} />
+                {PHASE_LABEL[h.phase]}
+                {h.target_weight_kg ? ` · target ${fmtNum(h.target_weight_kg, 1)}kg` : ""}
+                {h.weekly_rate_kg ? ` · ${fmtNum(h.weekly_rate_kg, 2)}kg/wk` : ""}
+              </span>
+              <span className="font-mono text-faint tnum">{fmtDate(h.start_date)} – {h.end_date ? fmtDate(h.end_date) : "now"}</span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="text-xs text-faint">No goal changes recorded yet.</p>}
     </div>
   );
 }
@@ -266,6 +305,7 @@ export default function WeightCut() {
         <WeightHistory trend={trend} onChanged={refresh} />
 
         <GoalForm goal={goal} onSaved={refresh} />
+        <GoalHistoryList />
 
         <RefeedNudge data={rec?.refeed_nudge} />
 

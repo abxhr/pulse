@@ -4,13 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#0B0E14",
-        panel: "#121620",
-        panel2: "#171C28",
-        line: "#232a38",
-        txt: "#E6E9F0",
-        muted: "#8A93A6",
-        faint: "#5b6479",
+        ink: "var(--color-ink)",
+        panel: "var(--color-panel)",
+        panel2: "var(--color-panel2)",
+        line: "var(--color-line)",
+        txt: "var(--color-txt)",
+        muted: "var(--color-muted)",
+        faint: "var(--color-faint)",
         recovery: "#3DD68C", // recovery / good
         effort: "#FF5C7A",   // effort / heart / strain
         sleep: "#7C83FF",    // sleep

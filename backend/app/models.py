@@ -210,6 +210,20 @@ class Shoe(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class GoalHistory(Base):
+    """Archived cut/bulk/maintenance phases — CutGoal only ever holds the
+    current one; this is the "you were cutting Jan-Mar, then maintained
+    through May" longer story."""
+    __tablename__ = "goal_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    start_date: Mapped[date_t] = mapped_column(Date)
+    end_date: Mapped[date_t | None] = mapped_column(Date)  # null = ongoing
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
+    weekly_rate_kg: Mapped[float | None] = mapped_column(Float)
+    phase: Mapped[str] = mapped_column(String(16))  # cut | bulk | maintain
+
+
 class Recipe(Base):
     """A saved recipe with AI-extracted macros (per serving), sourced from
     screenshots, a YouTube/Instagram URL, or pasted text."""

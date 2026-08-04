@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import base64
+import json
 import os
 import sys
 import time
@@ -10,6 +11,7 @@ import time
 import requests
 
 from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form
+from fastapi.responses import Response
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -18,7 +20,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -727,6 +729,11 @@ def put_cut_goal(payload: dict = Body(...), db: Session = Depends(get_session)):
     return weight_svc.set_goal(db, payload)
 
 
+@router.get("/weight/goal-history")
+def weight_goal_history(db: Session = Depends(get_session)):
+    return weight_svc.goal_history(db)
+
+
 @router.get("/weight/recommendation")
 def macro_recommendation(db: Session = Depends(get_session)):
     return weight_svc.macro_recommendation(db)
@@ -758,3 +765,25 @@ def refresh_scheduled_report(db: Session = Depends(get_session)):
 @router.get("/reports/comparison")
 def comparison_report(weeks: int = 4, db: Session = Depends(get_session)):
     return reports.comparison_report(db, weeks)
+
+
+# ---------- data export ----------
+@router.get("/export/json")
+def export_json(db: Session = Depends(get_session)):
+    data = export_svc.full_export(db)
+    return Response(
+        content=json.dumps(data, indent=2), media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=pulse-export.json"},
+    )
+
+
+@router.get("/export/csv/{table}")
+def export_csv(table: str, db: Session = Depends(get_session)):
+    try:
+        csv_text = export_svc.csv_export(db, table)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="unknown table")
+    return Response(
+        content=csv_text, media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=pulse-{table}.csv"},
+    )

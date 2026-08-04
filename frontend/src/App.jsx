@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
-  RefreshCw, Circle, Menu, X, Upload, Power, ScrollText,
+  RefreshCw, Circle, Menu, X, Upload, Power, ScrollText, Search, Sun, Bell, BellOff,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { COLORS } from "./lib/format";
@@ -14,6 +14,8 @@ import Insights from "./views/Insights";
 import Reports from "./views/Reports";
 import Changelog from "./components/Changelog";
 import ErrorBoundary from "./components/ErrorBoundary";
+import CommandPalette from "./components/CommandPalette";
+import { useReminders } from "./lib/useReminders";
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
@@ -29,8 +31,19 @@ function Dot({ ok }) {
   return <Circle size={8} className={ok ? "fill-recovery text-recovery" : "fill-faint text-faint"} />;
 }
 
+function useTheme() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("pulse.theme") || "dark");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+    localStorage.setItem("pulse.theme", theme);
+  }, [theme]);
+  return [theme, () => setTheme((t) => (t === "light" ? "dark" : "light"))];
+}
+
 export default function App() {
   const [view, setView] = useState("dashboard");
+  const [theme, toggleTheme] = useTheme();
+  const reminders = useReminders();
   const [status, setStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -175,6 +188,22 @@ export default function App() {
               className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40">
               <ScrollText size={13} />
             </button>
+            <button onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+              title="Search (Ctrl+K)"
+              className="hidden items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-faint transition hover:border-recovery/40 hover:text-txt sm:flex">
+              <Search size={13} /> <kbd className="text-[10px]">Ctrl K</kbd>
+            </button>
+            <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark" : "Switch to light"}
+              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40">
+              {theme === "light" ? <Moon size={13} /> : <Sun size={13} />}
+            </button>
+            {reminders.supported && (
+              <button onClick={() => (reminders.enabled ? reminders.disable() : reminders.enable())}
+                title={reminders.enabled ? "Reminders on — click to disable" : "Enable weight/recovery reminders"}
+                className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40">
+                {reminders.enabled ? <Bell size={13} className="text-recovery" /> : <BellOff size={13} />}
+              </button>
+            )}
           </div>
         </header>
 
@@ -192,6 +221,7 @@ export default function App() {
       {mobileNav && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileNav(false)} />}
 
       <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
+      <CommandPalette onNavigate={setView} />
     </div>
   );
 }

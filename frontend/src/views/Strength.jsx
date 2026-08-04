@@ -8,6 +8,7 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
 import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from "../components/StrengthExtras";
+import { consumePendingOpen } from "../components/CommandPalette";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
@@ -147,6 +148,8 @@ export default function Strength() {
     api.strengthThisWeek().then(setWeek).catch(() => setWeek(null));
     api.workouts(200).then(setWkos).catch(() => setWkos([]));
     api.healthTrend(30).then(setHealth).catch(() => setHealth([]));
+    const pending = consumePendingOpen("workout");
+    if (pending) setOpenId(pending);
   }, []);
 
   if (!s) return <Loading label="Reading strength log…" />;

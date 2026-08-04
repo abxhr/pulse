@@ -10,6 +10,7 @@ import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
 import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker } from "../components/CardioExtras";
+import { consumePendingOpen } from "../components/CommandPalette";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
@@ -65,6 +66,8 @@ export default function Training() {
     api.healthTrend(90).then(setHealth).catch(() => setHealth([]));
     api.hrZones(30).then(setZones).catch(() => setZones(null));
     api.racePredictions().then(setPredictions).catch(() => setPredictions(null));
+    const pending = consumePendingOpen("activity");
+    if (pending) setOpenId(pending);
   }, []);
   if (!acts) return <Loading label="Reading activity log…" />;
 

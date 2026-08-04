@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles, BookmarkPlus, Check, RefreshCw, ChevronDown, BrainCircuit } from "lucide-react";
+import { Send, Sparkles, BookmarkPlus, Check, RefreshCw, ChevronDown, BrainCircuit, Mic } from "lucide-react";
 import { api } from "../lib/api";
+import { useVoiceInput } from "../lib/useVoiceInput";
 
 const SUGGESTIONS = [
   "How's my recovery trending this week?",
@@ -91,6 +92,7 @@ export default function Insights({ aiStatus }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [provider, setProvider] = useState(null); // null = use server default
+  const voice = useVoiceInput((text) => setInput((prev) => (prev ? `${prev} ${text}` : text)));
   const [recipeState, setRecipeState] = useState({}); // { [messageIndex]: "saving" | "saved" | "error" }
   const endRef = useRef(null);
 
@@ -232,6 +234,14 @@ export default function Insights({ aiStatus }) {
           placeholder="Ask your coach…"
           className="max-h-32 flex-1 resize-none rounded-xl border border-line bg-panel2/60 px-4 py-2.5 text-sm text-txt outline-none placeholder:text-faint focus:border-recovery/40"
         />
+        {voice.supported && (
+          <button onClick={voice.toggle} title="Voice input"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+              voice.listening ? "border-effort/50 bg-effort/15 text-effort animate-pulse" : "border-line bg-panel2 text-muted hover:text-txt"
+            }`}>
+            <Mic size={16} />
+          </button>
+        )}
         <button
           onClick={() => send()}
           disabled={busy || !input.trim()}

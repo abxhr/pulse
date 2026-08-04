@@ -30,6 +30,7 @@ export const api = {
   strength: (weeks = 8) => req(`/strength?weeks=${weeks}`),
   strengthThisWeek: () => req("/strength/this-week"),
   trainingLoad: (weeks = 12) => req(`/training-load?weeks=${weeks}`),
+  goalHistory: () => req("/weight/goal-history"),
   raceGoal: () => req("/training/race-goal"),
   setRaceGoal: (body) => req("/training/race-goal", { method: "POST", body: JSON.stringify(body) }),
   clearRaceGoal: () => req("/training/race-goal", { method: "DELETE" }),

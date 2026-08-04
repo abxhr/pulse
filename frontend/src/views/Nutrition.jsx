@@ -2,13 +2,15 @@ import { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useR
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil, ScanBarcode } from "lucide-react";
+import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil, ScanBarcode, Mic } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
 import { Panel, Loading, Chip } from "../components/primitives";
 import WeightCut from "../components/WeightCut";
 import Recipes from "../components/Recipes";
 import { FavoriteMeals, StreakBadge, ProteinTimingChart, HydrationCard } from "../components/NutritionExtras";
+import { useVoiceInput } from "../lib/useVoiceInput";
+import { enqueueMeal, getQueue, flushQueue } from "../lib/offlineQueue";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
@@ -116,6 +118,7 @@ function ScanMeal({ onEstimate, aiStatus }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [provider, setProvider] = useState(null); // null = server default
+  const voice = useVoiceInput((text) => setNotes((prev) => (prev ? `${prev} ${text}` : text)));
 
   const options = [
     { id: null, label: "Auto" },
@@ -177,9 +180,19 @@ function ScanMeal({ onEstimate, aiStatus }) {
         <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
       </label>
 
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-        placeholder="Optional details — e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil"
-        className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
+      <div className="relative">
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+          placeholder="Optional details — e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil"
+          className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 pr-10 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
+        {voice.supported && (
+          <button type="button" onClick={voice.toggle} title="Voice input"
+            className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-md transition ${
+              voice.listening ? "text-effort animate-pulse" : "text-faint hover:text-txt"
+            }`}>
+            <Mic size={14} />
+          </button>
+        )}
+      </div>
 
       {error && <p className="text-xs text-effort">{error}</p>}
 
@@ -250,8 +263,19 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
       satiety: form.satiety || null,
     };
     try {
-      if (editingId) await api.updateMeal(editingId, payload);
-      else await api.addMeal(payload);
+      if (editingId) {
+        await api.updateMeal(editingId, payload);
+      } else {
+        try {
+          await api.addMeal(payload);
+        } catch (err) {
+          if (!navigator.onLine) {
+            enqueueMeal(payload);
+          } else {
+            throw err;
+          }
+        }
+      }
       reset();
       onAdded();
     } finally {
@@ -412,6 +436,7 @@ export default function Nutrition({ aiStatus }) {
   const [today, setToday] = useState(null);
   const [trendData, setTrendData] = useState(null);
   const [burned, setBurned] = useState(null);
+  const [queued, setQueued] = useState(() => getQueue().length);
 
   const formRef = useRef(null);
 
@@ -419,8 +444,19 @@ export default function Nutrition({ aiStatus }) {
     api.nutritionToday().then(setToday).catch(() => setToday({ meals: [], totals: {}, goal: {} }));
     api.nutritionTrend(14).then(setTrendData).catch(() => setTrendData([]));
     api.dashboard().then((d) => setBurned(d.snapshot)).catch(() => setBurned(null));
+    setQueued(getQueue().length);
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    async function onOnline() {
+      const synced = await flushQueue();
+      if (synced) refresh();
+      else setQueued(getQueue().length);
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [refresh]);
 
   async function removeMeal(id) {
     await api.deleteMeal(id);
@@ -434,6 +470,12 @@ export default function Nutrition({ aiStatus }) {
 
   return (
     <div className="space-y-4">
+      {queued > 0 && (
+        <div className="rounded-xl border border-strength/30 bg-strength/10 px-4 py-2.5 text-xs text-strength">
+          {queued} meal{queued === 1 ? "" : "s"} logged offline — will sync automatically once you're back online.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {MACROS.map((m) => (
           <MacroBar key={m.key} label={m.label} unit={m.unit} color={m.color}
