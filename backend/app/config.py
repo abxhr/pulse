@@ -60,5 +60,11 @@ class Settings(BaseSettings):
     latitude: float | None = None     # set these to enable the weather card on the readiness panel
     longitude: float | None = None    # (Open-Meteo needs no API key, just a location)
 
+    # --- Push notifications (real background push via service worker + VAPID) ---
+    # Generate once with: python -m app.generate_vapid_keys
+    vapid_public_key: str | None = None
+    vapid_private_key_path: str = str(DATA_DIR / "vapid_private.pem")
+    vapid_subject: str = "mailto:admin@example.com"
+
 
 settings = Settings()

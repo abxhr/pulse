@@ -258,6 +258,28 @@ class Insight(Base):
     content: Mapped[str] = mapped_column(Text)
 
 
+class PushSubscription(Base):
+    """A browser's Push API subscription — lets the backend send notifications
+    even when the app tab isn't open (unlike the old foreground-only version)."""
+    __tablename__ = "push_subscription"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    endpoint: Mapped[str] = mapped_column(Text, unique=True)
+    p256dh: Mapped[str] = mapped_column(String(255))
+    auth: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PushLog(Base):
+    """Dedup guard so the scheduler doesn't re-send the same push notification
+    every time its check job runs (e.g. every 15 minutes) once already fired today."""
+    __tablename__ = "push_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    date: Mapped[date_t] = mapped_column(Date)
+
+
 class CoachMemory(Base):
     """Single-row freeform notes the Coach should remember across conversations
     (dietary restrictions, preferences) instead of re-explaining every time."""

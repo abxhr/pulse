@@ -1,4 +1,4 @@
-const CACHE = "pulse-shell-v2";
+const CACHE = "pulse-shell-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -34,5 +34,30 @@ self.addEventListener("fetch", (e) => {
         return res;
       })
       .catch(() => caches.match(e.request).then((cached) => cached || caches.match("/")))
+  );
+});
+
+// Real background push — fires even when no tab is open, unlike the old
+// foreground-only Notification() calls from useReminders.js.
+self.addEventListener("push", (e) => {
+  let payload = { title: "Pulse", body: "" };
+  try { payload = e.data.json(); } catch { /* non-JSON push, use default */ }
+  e.waitUntil(
+    self.registration.showNotification(payload.title || "Pulse", {
+      body: payload.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: payload.tag || "pulse",
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      for (const c of clients) if ("focus" in c) return c.focus();
+      if (self.clients.openWindow) return self.clients.openWindow("/");
+    })
   );
 });

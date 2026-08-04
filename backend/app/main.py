@@ -53,6 +53,18 @@ def _generate_daily_insight() -> None:
         db.close()
 
 
+def _run_push_checks() -> None:
+    from .db import SessionLocal
+    from .services import push
+    db = SessionLocal()
+    try:
+        push.run_checks(db)
+    except Exception as e:
+        log.warning("Push notification check failed: %s", e)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -67,6 +79,7 @@ async def lifespan(app: FastAPI):
             "interval", minutes=settings.sync_interval_minutes, id="pulse_sync",
         )
         scheduler.add_job(_generate_daily_insight, "cron", hour=6, minute=0, id="pulse_daily_insight")
+        scheduler.add_job(_run_push_checks, "interval", minutes=15, id="pulse_push_checks")
         scheduler.start()
         log.info("Scheduler started: quick sync (%sd) every %smin, daily insight at 06:00",
                   settings.quick_sync_days, settings.sync_interval_minutes)

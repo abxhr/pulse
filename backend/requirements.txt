@@ -9,6 +9,7 @@ python-multipart>=0.0.9
 requests>=2.32
 garminconnect>=0.2.25
 apscheduler>=3.10
+pywebpush>=2.0  # real background push notifications (service-worker + VAPID)
 youtube-transcript-api>=0.6  # recipe extraction from YouTube URLs
 # AI providers (install whichever you use; both listed so it just works)
 anthropic>=0.40

@@ -20,7 +20,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -851,3 +851,30 @@ def export_csv(table: str, db: Session = Depends(get_session)):
         content=csv_text, media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=pulse-{table}.csv"},
     )
+
+
+# ---------- push notifications ----------
+@router.get("/push/vapid-public-key")
+def push_vapid_public_key():
+    return {"key": settings.vapid_public_key}
+
+
+@router.post("/push/subscribe")
+def push_subscribe(body: dict = Body(...), db: Session = Depends(get_session)):
+    sub = body.get("subscription") or body
+    keys = sub.get("keys", {})
+    push_svc.add_subscription(db, sub["endpoint"], keys.get("p256dh", ""), keys.get("auth", ""))
+    return {"ok": True}
+
+
+@router.post("/push/unsubscribe")
+def push_unsubscribe(body: dict = Body(...), db: Session = Depends(get_session)):
+    push_svc.remove_subscription(db, body.get("endpoint", ""))
+    return {"ok": True}
+
+
+@router.post("/push/test")
+def push_test(db: Session = Depends(get_session)):
+    """Manual trigger for the settings UI's 'Send test notification' button."""
+    sent = push_svc.send_to_all(db, "Pulse", "Push notifications are working.", tag="test")
+    return {"sent": sent}
