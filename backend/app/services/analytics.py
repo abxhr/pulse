@@ -6,7 +6,7 @@ from collections import defaultdict
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from ..models import DailyHealth, Sleep, Activity, Workout
+from ..models import DailyHealth, Sleep, Activity, Workout, Meal
 
 
 def _avg(values):
@@ -171,6 +171,9 @@ def sleep_trend(db: Session, days: int = 30) -> list[dict]:
         "bedtime_hour": _bedtime_hour(r.start_time),
         "wake_hour": r.end_time.hour + r.end_time.minute / 60 if r.end_time else None,
         "score_feedback": r.score_feedback,
+        "nap_h": round((r.nap_seconds or 0) / 3600, 2) if r.nap_seconds else 0,
+        "start_time": r.start_time.isoformat() if r.start_time else None,
+        "end_time": r.end_time.isoformat() if r.end_time else None,
     } for r in rows]
 
 
@@ -474,6 +477,154 @@ def what_changed(db: Session, days: int = 7) -> dict | None:
         f"({best['today']}{best['unit']} vs {best['avg']}{best['unit']})"
     )
     return best
+
+
+def chronotype(db: Session, days: int = 60) -> dict | None:
+    """Classifies sleep-timing tendency from actual bedtime/wake distribution
+    rather than asking — useful for deciding whether to fight your schedule or
+    lean into it."""
+    c = sleep_consistency(db, days)
+    bt = c["avg_bedtime_hour"]
+    if bt is None or c["nights"] < 7:
+        return None
+    if bt < 22:
+        label, desc = "Early bird", "You naturally wind down early — training/eating late likely costs you sleep quality."
+    elif bt < 23.5:
+        label, desc = "Average", "Your bedtime sits close to the population average — no strong lean either way."
+    elif bt < 25:
+        label, desc = "Night owl leaning", "You consistently go down later than average — a late bedtime isn't a discipline problem, it's your rhythm."
+    else:
+        label, desc = "Strong night owl", "Your bedtime is well past midnight on average — fighting this with an early alarm is a recurring sleep-debt source."
+    return {"label": label, "description": desc, "avg_bedtime_hour": bt, "avg_wake_hour": c["avg_wake_hour"]}
+
+
+def _pearson(pairs: list[tuple[float, float]]) -> float | None:
+    n = len(pairs)
+    if n < 5:
+        return None
+    xs, ys = [p[0] for p in pairs], [p[1] for p in pairs]
+    mx, my = sum(xs) / n, sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in pairs)
+    dx = sum((x - mx) ** 2 for x in xs) ** 0.5
+    dy = sum((y - my) ** 2 for y in ys) ** 0.5
+    if dx == 0 or dy == 0:
+        return None
+    return round(num / (dx * dy), 2)
+
+
+def sleep_performance_correlation(db: Session, days: int = 90) -> dict:
+    """Correlates last night's sleep score with next-day readiness, strength
+    volume, and run pace — the actual payoff question for someone optimizing
+    training around recovery, not just eyeballing two separate charts."""
+    start = date.today() - timedelta(days=days)
+    sleep_rows = {r.date: r.sleep_score for r in db.execute(
+        select(Sleep).where(Sleep.date >= start, Sleep.sleep_score.isnot(None))
+    ).scalars().all()}
+    health_rows = {r.date: r.training_readiness for r in db.execute(
+        select(DailyHealth).where(DailyHealth.date >= start, DailyHealth.training_readiness.isnot(None))
+    ).scalars().all()}
+    wkos = db.execute(select(Workout).where(Workout.date >= start)).scalars().all()
+    vol_by_day: dict = defaultdict(float)
+    for w in wkos:
+        if w.date:
+            vol_by_day[w.date] += w.volume_kg or 0
+    acts = db.execute(
+        select(Activity).where(Activity.date >= start, Activity.avg_pace_s_per_km.isnot(None))
+    ).scalars().all()
+    pace_by_day: dict = {}
+    for a in acts:
+        if a.date:
+            pace_by_day.setdefault(a.date, a.avg_pace_s_per_km)
+
+    readiness_pairs, volume_pairs, pace_pairs = [], [], []
+    scatter = []
+    for d, score in sleep_rows.items():
+        nxt = d + timedelta(days=1)
+        r = health_rows.get(nxt)
+        v = vol_by_day.get(nxt)
+        p = pace_by_day.get(nxt)
+        if r is not None:
+            readiness_pairs.append((score, r))
+        if v:
+            volume_pairs.append((score, v))
+        if p:
+            pace_pairs.append((score, -p))  # lower seconds/km = faster = "better", flip sign for intuitive correlation direction
+        if r is not None:
+            scatter.append({"date": nxt.isoformat(), "sleep_score": score, "next_day_readiness": r})
+
+    return {
+        "readiness_corr": _pearson(readiness_pairs),
+        "strength_volume_corr": _pearson(volume_pairs),
+        "run_pace_corr": _pearson(pace_pairs),
+        "n_nights": len(sleep_rows),
+        "scatter": sorted(scatter, key=lambda x: x["date"]),
+    }
+
+
+def bedtime_recommendation(db: Session, target_hours: float = 8.0) -> dict | None:
+    """A concrete "go to bed by X" suggestion, not just a debt number — spreads
+    clearing half the current deficit over the next 3 nights."""
+    debt = sleep_debt(db, target_hours=target_hours)
+    c = sleep_consistency(db, 14)
+    if debt["debt_hours"] <= 0 or c["avg_bedtime_hour"] is None:
+        return None
+    extra_per_night = min(debt["debt_hours"] / 2 / 3, 2.0)  # cap the nudge at 2h/night — anything more isn't realistic
+    suggested = c["avg_bedtime_hour"] - extra_per_night
+    hh = int(suggested % 24)
+    mm = int(round((suggested % 24 - hh) * 60))
+    period = "PM" if 12 <= hh < 24 else "AM"
+    h12 = hh % 12 or 12
+    return {
+        "debt_hours": debt["debt_hours"],
+        "suggested_bedtime": f"{h12}:{mm:02d} {period}",
+        "extra_minutes": round(extra_per_night * 60),
+        "clears_by_nights": 3,
+    }
+
+
+def why_last_night_bad(db: Session) -> dict | None:
+    """When last night's sleep looks bad relative to baseline, pulls in same-day
+    context (late workout, late meal) that might explain it instead of leaving
+    the user to guess."""
+    rows = db.execute(select(Sleep).order_by(Sleep.date.desc()).limit(15)).scalars().all()
+    if len(rows) < 5:
+        return None
+    latest, *history = rows
+    if latest.sleep_score is None:
+        return None
+    baseline = [r.sleep_score for r in history if r.sleep_score is not None]
+    if len(baseline) < 4:
+        return None
+    mean = sum(baseline) / len(baseline)
+    sd = _std(baseline)
+    if not sd or latest.sleep_score >= mean - 0.75 * sd:
+        return None  # last night wasn't notably bad — nothing to explain
+
+    def _clock(dt) -> str:
+        h12 = dt.hour % 12 or 12
+        return f"{h12}:{dt.minute:02d} {'PM' if dt.hour >= 12 else 'AM'}"
+
+    d = latest.date
+    reasons = []
+    wkos = db.execute(select(Workout).where(Workout.date == d)).scalars().all()
+    for w in wkos:
+        if w.end_time and latest.start_time and w.end_time > latest.start_time - timedelta(hours=3):
+            reasons.append(f"Strength session ended late ({_clock(w.end_time)}), close to bedtime")
+    meals = db.execute(select(Meal).where(Meal.date == d)).scalars().all()
+    for m in meals:
+        if m.time and latest.start_time and m.time > latest.start_time - timedelta(hours=2):
+            reasons.append(f"Meal logged close to bedtime ({_clock(m.time)}: {m.name})")
+    if latest.avg_stress and latest.avg_stress > 30:
+        reasons.append(f"Elevated overnight stress (avg {latest.avg_stress})")
+    if (latest.awake_count or 0) >= 5:
+        reasons.append(f"Restless night — {latest.awake_count} awakenings")
+
+    return {
+        "date": d.isoformat(),
+        "score": latest.sleep_score,
+        "baseline_mean": round(mean, 1),
+        "reasons": reasons or ["No obvious same-day cause found in logged data — could be untracked (travel, alcohol, illness)."],
+    }
 
 
 def training_load_ratio(db: Session) -> dict | None:

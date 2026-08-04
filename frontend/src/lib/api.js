@@ -19,6 +19,7 @@ export const api = {
   healthTrend: (days = 30) => req(`/health/trend?days=${days}`),
   sleepTrend: (days = 30) => req(`/sleep/trend?days=${days}`),
   sleepConsistency: (days = 30) => req(`/sleep/consistency?days=${days}`),
+  sleepExtra: () => req("/sleep/extra"),
   activities: (limit = 20) => req(`/activities?limit=${limit}`),
   activityDetail: (id) => req(`/activities/${id}`),
   activityRoute: (id) => req(`/activities/${id}/route`),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Moon, AlertCircle, BedDouble } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, ScatterChart, Scatter,
   XAxis, YAxis, Tooltip, CartesianGrid,
@@ -121,15 +121,86 @@ function SleepCoach() {
   );
 }
 
+function ChronotypeCard({ data }) {
+  if (!data) return null;
+  return (
+    <Panel accent={COLORS.sleep} title="Chronotype" sub="from your actual bedtime pattern">
+      <div className="flex items-center gap-3">
+        <Moon size={22} className="text-sleep" />
+        <div>
+          <div className="font-display text-sm font-semibold text-txt">{data.label}</div>
+          <p className="mt-0.5 text-xs text-faint">{data.description}</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function BedtimeRecCard({ data }) {
+  if (!data) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-sleep/30 bg-sleep/10 px-4 py-3">
+      <BedDouble size={18} className="text-sleep shrink-0" />
+      <p className="text-xs text-txt">
+        <span className="font-medium">Go to bed by {data.suggested_bedtime} tonight</span> — that's
+        {" "}{data.extra_minutes} min earlier than your recent average, and would clear about half your
+        {" "}{fmtNum(data.debt_hours, 1)}h sleep debt over the next {data.clears_by_nights} nights.
+      </p>
+    </div>
+  );
+}
+
+function WhyBadNightCard({ data }) {
+  if (!data) return null;
+  return (
+    <Panel accent={COLORS.effort} title="Why was last night off?" sub={`${fmtDate(data.date)} · score ${data.score} vs baseline ${data.baseline_mean}`}>
+      <ul className="space-y-1.5">
+        {data.reasons.map((r, i) => (
+          <li key={i} className="flex items-start gap-2 text-xs text-muted">
+            <AlertCircle size={13} className="mt-0.5 shrink-0 text-effort" /> {r}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function CorrelationCard({ data }) {
+  if (!data || data.n_nights < 5) return null;
+  const rows = [
+    { label: "→ Next-day readiness", v: data.readiness_corr },
+    { label: "→ Next-day lift volume", v: data.strength_volume_corr },
+    { label: "→ Next-day run pace", v: data.run_pace_corr },
+  ].filter((r) => r.v != null);
+  if (!rows.length) return null;
+  const strength = (v) => Math.abs(v) >= 0.5 ? "strong" : Math.abs(v) >= 0.3 ? "moderate" : "weak";
+  return (
+    <Panel accent={COLORS.recovery} title="Sleep score → next-day performance" sub={`correlation · ${data.n_nights} nights`}>
+      <div className="space-y-2">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between">
+            <span className="text-xs text-muted">{r.label}</span>
+            <span className="font-mono text-xs tnum" style={{ color: r.v > 0 ? COLORS.recovery : COLORS.effort }}>
+              {r.v > 0 ? "+" : ""}{r.v} <span className="text-faint">({strength(r.v)})</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
 export default function Sleep() {
   const [data, setData] = useState(null);
   const [consistency, setConsistency] = useState(null);
+  const [extra, setExtra] = useState(null);
   const stagesToggle = useSeriesToggle();
   const scoreHrvToggle = useSeriesToggle();
   const hrSpo2Toggle = useSeriesToggle();
   useEffect(() => {
     api.sleepTrend(30).then(setData).catch(() => setData([]));
     api.sleepConsistency(30).then(setConsistency).catch(() => setConsistency(null));
+    api.sleepExtra().then(setExtra).catch(() => {});
   }, []);
   if (!data) return <Loading label="Reading sleep archive…" />;
   if (!data.length) return <Empty title="No sleep data yet" body="Sync Garmin to import your sleep history." />;
@@ -139,9 +210,12 @@ export default function Sleep() {
     const v = data.map((r) => r[k]).filter((x) => x != null);
     return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
   };
+  const totalNaps = data.reduce((s, r) => s + (r.nap_h || 0), 0);
 
   return (
     <div className="space-y-4">
+      {extra?.bedtime_recommendation && <BedtimeRecCard data={extra.bedtime_recommendation} />}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Avg score" value={fmtNum(avg("score"))} color={COLORS.sleep} />
         <StatTile label="Avg duration" value={fmtNum(avg("total_h"), 1)} unit="h" color={COLORS.sleep} />
@@ -151,7 +225,20 @@ export default function Sleep() {
         <StatTile label="Avg SpO2" value={fmtNum(avg("avg_spo2"))} unit="%" color={COLORS.cardio} />
         <StatTile label="Respiration" value={fmtNum(avg("avg_respiration"), 1)} unit="br/min" color={COLORS.recovery} />
         <StatTile label="Awakenings" value={fmtNum(avg("awake_count"), 1)} color={COLORS.muted} />
+        {totalNaps > 0 && (
+          <StatTile label="Naps (30d)" value={fmtNum(totalNaps, 1)} unit="h" color={COLORS.sleep}
+            hint={`${data.filter((r) => r.nap_h > 0).length} days napped`} />
+        )}
       </div>
+
+      {extra?.why_last_night_bad && <WhyBadNightCard data={extra.why_last_night_bad} />}
+
+      {(extra?.chronotype || extra?.correlation) && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ChronotypeCard data={extra.chronotype} />
+          <CorrelationCard data={extra.correlation} />
+        </div>
+      )}
 
       {consistency && (consistency.bedtime_variability_h != null || consistency.wake_variability_h != null) && (
         <Panel accent={COLORS.sleep} title="Sleep consistency" sub="bedtime & wake time · last 30 nights">

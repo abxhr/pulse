@@ -21,7 +21,7 @@ _PENDING_COLUMNS = {
     "daily_health": {"fitness_age": "REAL", "chronological_age": "INTEGER"},
     "sleep": {
         "start_time": "DATETIME", "end_time": "DATETIME", "avg_hr": "INTEGER",
-        "awake_count": "INTEGER", "score_feedback": "VARCHAR(64)",
+        "awake_count": "INTEGER", "score_feedback": "VARCHAR(64)", "nap_seconds": "INTEGER",
     },
 }
 

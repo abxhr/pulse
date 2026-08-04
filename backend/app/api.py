@@ -130,6 +130,16 @@ def sleep_consistency(days: int = 30, db: Session = Depends(get_session)):
     return analytics.sleep_consistency(db, days)
 
 
+@router.get("/sleep/extra")
+def sleep_extra(db: Session = Depends(get_session)):
+    return {
+        "chronotype": analytics.chronotype(db),
+        "correlation": analytics.sleep_performance_correlation(db),
+        "bedtime_recommendation": analytics.bedtime_recommendation(db, target_hours=settings.sleep_target_hours),
+        "why_last_night_bad": analytics.why_last_night_bad(db),
+    }
+
+
 @router.get("/activities")
 def activities(limit: int = 20, db: Session = Depends(get_session)):
     return analytics.recent_activities(db, limit)
