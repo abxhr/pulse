@@ -4,14 +4,16 @@ import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Sparkles, Settings2 } from "lucide-react";
+import { Sparkles, Settings2, Trash2, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading } from "../components/primitives";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const today = () => new Date().toISOString().slice(0, 10);
 
 function LogWeight({ onLogged }) {
+  const [date, setDate] = useState(today());
   const [weight, setWeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,8 +23,8 @@ function LogWeight({ onLogged }) {
     if (!weight) return;
     setBusy(true);
     try {
-      await api.logWeight({ weight_kg: Number(weight), body_fat_pct: bodyFat ? Number(bodyFat) : null });
-      setWeight(""); setBodyFat("");
+      await api.logWeight({ date, weight_kg: Number(weight), body_fat_pct: bodyFat ? Number(bodyFat) : null });
+      setDate(today()); setWeight(""); setBodyFat("");
       onLogged();
     } finally {
       setBusy(false);
@@ -30,7 +32,12 @@ function LogWeight({ onLogged }) {
   }
 
   return (
-    <form onSubmit={submit} className="flex items-end gap-2">
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+      <div className="w-36">
+        <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Date</label>
+        <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)}
+          className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
+      </div>
       <div className="flex-1">
         <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Weight (kg)</label>
         <input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 78.4"
@@ -45,7 +52,41 @@ function LogWeight({ onLogged }) {
         className="rounded-lg bg-nutrition px-4 py-2 text-sm font-semibold text-ink transition disabled:opacity-50">
         {busy ? "…" : "Log"}
       </button>
+      <p className="w-full text-[10px] text-faint">Backdate it if you're catching up on past weigh-ins — that unlocks the trend chart faster.</p>
     </form>
+  );
+}
+
+function WeightHistory({ trend, onChanged }) {
+  const [open, setOpen] = useState(false);
+  if (!trend.length) return null;
+  const rows = [...trend].reverse(); // newest first
+
+  async function remove(d) {
+    await api.deleteWeight(d);
+    onChanged();
+  }
+
+  return (
+    <div>
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+        <ChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        {trend.length} weigh-in{trend.length === 1 ? "" : "s"} logged
+      </button>
+      {open && (
+        <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-line bg-ink p-2">
+          {rows.map((r) => (
+            <div key={r.date} className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-panel2/60">
+              <span className="text-muted">{fmtDate(r.date)}</span>
+              <span className="font-mono text-txt tnum">
+                {fmtNum(r.weight_kg, 1)}kg{r.body_fat_pct != null ? ` · ${fmtNum(r.body_fat_pct, 1)}% BF` : ""}
+              </span>
+              <button onClick={() => remove(r.date)} className="text-faint hover:text-effort"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -185,7 +226,7 @@ export default function WeightCut() {
           </div>
         )}
 
-        {trend.length >= 2 && (
+        {trend.length >= 2 ? (
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={trend} margin={{ left: -8, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
@@ -199,7 +240,13 @@ export default function WeightCut() {
               <Line type="monotone" dataKey="weight_kg" name="Weight" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 2 }} />
             </LineChart>
           </ResponsiveContainer>
-        )}
+        ) : trend.length === 1 ? (
+          <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-faint">
+            One weigh-in logged — log at least one more (any date) to see a trend line.
+          </p>
+        ) : null}
+
+        <WeightHistory trend={trend} onChanged={refresh} />
 
         <GoalForm goal={goal} onSaved={refresh} />
 
