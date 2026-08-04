@@ -22,6 +22,7 @@ _PENDING_COLUMNS = {
     "sleep": {
         "start_time": "DATETIME", "end_time": "DATETIME", "avg_hr": "INTEGER",
         "awake_count": "INTEGER", "score_feedback": "VARCHAR(64)", "nap_seconds": "INTEGER",
+        "sleep_need_min": "INTEGER",
     },
     "activity": {"shoe_id": "INTEGER", "route_points": "JSON"},
     "meal": {"satiety": "VARCHAR(16)"},

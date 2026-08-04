@@ -426,10 +426,24 @@ def _week_key(d: date) -> str:
     return f"{iso[0]}-W{iso[1]:02d}"
 
 
-def sleep_debt(db: Session, days: int = 14, target_hours: float = 8.0) -> dict:
+def personalized_sleep_target(db: Session) -> float | None:
+    """Garmin adaptively computes your actual nightly sleep need (age, recent
+    sleep history, training load, HRV) rather than a flat 8h — pulling that
+    instead of a hardcoded default personalizes the debt tracker per-user
+    with zero extra input."""
+    row = db.execute(
+        select(Sleep.sleep_need_min).where(Sleep.sleep_need_min.isnot(None))
+        .order_by(Sleep.date.desc()).limit(1)
+    ).scalar_one_or_none()
+    return round(row / 60, 2) if row else None
+
+
+def sleep_debt(db: Session, days: int = 14, target_hours: float | None = None) -> dict:
     """Running deficit/surplus vs. nightly sleep need over a trailing window.
     A single bad night is normal; a growing debt across two weeks is the thing
     worth actually flagging."""
+    if target_hours is None:
+        target_hours = personalized_sleep_target(db) or 8.0
     trend = sleep_trend(db, days)
     nights = [r for r in trend if r["total_h"]]
     daily = [
@@ -439,6 +453,7 @@ def sleep_debt(db: Session, days: int = 14, target_hours: float = 8.0) -> dict:
     debt_h = round(sum(-d["delta_h"] for d in daily), 1) if daily else 0.0
     return {
         "target_hours": target_hours,
+        "personalized": personalized_sleep_target(db) is not None,
         "nights_tracked": len(daily),
         "debt_hours": debt_h,  # positive = behind on sleep, negative = ahead
         "avg_hours": _avg([d["slept_h"] for d in daily]),

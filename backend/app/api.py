@@ -84,7 +84,7 @@ def dashboard_extra(db: Session = Depends(get_session)):
     """Secondary Overview widgets that are a bit heavier to compute — split out
     of /dashboard so the main hero panel stays fast."""
     return {
-        "sleep_debt": analytics.sleep_debt(db, target_hours=settings.sleep_target_hours),
+        "sleep_debt": analytics.sleep_debt(db, target_hours=analytics.personalized_sleep_target(db) or settings.sleep_target_hours),
         "anomalies": analytics.anomaly_alerts(db),
         "what_changed": analytics.what_changed(db),
         "training_load_ratio": analytics.training_load_ratio(db),
@@ -139,7 +139,7 @@ def sleep_extra(db: Session = Depends(get_session)):
     return {
         "chronotype": analytics.chronotype(db),
         "correlation": analytics.sleep_performance_correlation(db),
-        "bedtime_recommendation": analytics.bedtime_recommendation(db, target_hours=settings.sleep_target_hours),
+        "bedtime_recommendation": analytics.bedtime_recommendation(db, target_hours=analytics.personalized_sleep_target(db) or settings.sleep_target_hours),
         "why_last_night_bad": analytics.why_last_night_bad(db),
     }
 

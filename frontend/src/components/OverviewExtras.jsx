@@ -37,7 +37,7 @@ export function SleepDebtCard({ data }) {
   if (!data || !data.nights_tracked) return null;
   const behind = data.debt_hours > 0;
   return (
-    <Panel accent={COLORS.sleep} title="Sleep debt" sub={`vs ${fmtNum(data.target_hours, 1)}h target · last ${data.nights_tracked} nights`}>
+    <Panel accent={COLORS.sleep} title="Sleep debt" sub={`vs ${fmtNum(data.target_hours, 1)}h ${data.personalized ? "personalized" : ""} target · last ${data.nights_tracked} nights`}>
       <div className="grid grid-cols-2 gap-3">
         <StatTile label={behind ? "Behind by" : "Ahead by"} value={fmtNum(Math.abs(data.debt_hours), 1)} unit="h"
           color={behind ? COLORS.effort : COLORS.recovery} />

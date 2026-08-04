@@ -179,6 +179,7 @@ def fetch_sleep(client, day: date) -> dict | None:
         "awake_count": dto.get("awakeCount"),
         "score_feedback": dto.get("sleepScoreFeedback"),
         "nap_seconds": dto.get("napTimeSeconds"),
+        "sleep_need_min": _g(dto, "sleepNeed", "actual"),
         "body_battery_change": s.get("bodyBatteryChange"),
         "raw": {"sleep": {k: v for k, v in s.items() if k != "sleepMovement"}},
     }
