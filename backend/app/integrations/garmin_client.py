@@ -380,6 +380,23 @@ def fetch_splits(client, activity_id: str) -> list[dict] | None:
     return out
 
 
+def fetch_hydration(client, day: date) -> dict | None:
+    """Garmin's logged/estimated fluid intake — captured on the device/app but
+    not previously surfaced anywhere in Pulse."""
+    try:
+        d = client.get_hydration_data(day.isoformat())
+    except Exception as e:
+        log.debug("hydration %s: %s", day, e)
+        return None
+    if not d:
+        return None
+    return {
+        "intake_ml": d.get("valueInML"),
+        "goal_ml": d.get("goalInML"),
+        "sweat_loss_ml": d.get("sweatLossInML"),
+    }
+
+
 def make_client():
     """Public entry: returns a logged-in client or raises GarminUnavailable."""
     return _client()

@@ -8,6 +8,7 @@ import { Sparkles, Settings2, Trash2, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading } from "../components/primitives";
+import { RefeedNudge, TdeeConfidence } from "./NutritionExtras";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -247,9 +248,26 @@ export default function WeightCut() {
           </p>
         ) : null}
 
+        {trend.some((r) => r.body_fat_pct != null) && (
+          <div>
+            <div className="mb-1 text-[10.5px] uppercase tracking-wider text-faint">Body fat %</div>
+            <ResponsiveContainer width="100%" height={120}>
+              <LineChart data={trend.filter((r) => r.body_fat_pct != null)} margin={{ left: -8, right: 8, top: 6 }}>
+                <CartesianGrid stroke="#1c2230" vertical={false} />
+                <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
+                <YAxis tick={axis} axisLine={false} tickLine={false} width={30} domain={["dataMin - 1", "dataMax + 1"]} />
+                <Tooltip content={<Tip />} />
+                <Line type="monotone" dataKey="body_fat_pct" name="Body fat %" stroke={COLORS.strength} strokeWidth={2} dot={{ r: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
         <WeightHistory trend={trend} onChanged={refresh} />
 
         <GoalForm goal={goal} onSaved={refresh} />
+
+        <RefeedNudge data={rec?.refeed_nudge} />
 
         {rec && (
           <div className="rounded-xl border border-line bg-panel2/60 p-3">
@@ -274,6 +292,9 @@ export default function WeightCut() {
                   className="mt-2 w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-1.5 text-[11px] font-semibold text-nutrition">
                   Use as my nutrition target
                 </button>
+                <div className="mt-2">
+                  <TdeeConfidence data={rec.tdee_confidence} />
+                </div>
               </>
             ) : (
               <p className="text-xs text-muted">{rec.reason}</p>

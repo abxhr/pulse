@@ -142,6 +142,7 @@ class Meal(Base):
     fat_g: Mapped[float | None] = mapped_column(Float)
     fiber_g: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
+    satiety: Mapped[str | None] = mapped_column(String(16))  # hungry|satisfied|very_full — quick adherence tag
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -154,6 +155,7 @@ class NutritionGoal(Base):
     protein_g: Mapped[float | None] = mapped_column(Float)
     carbs_g: Mapped[float | None] = mapped_column(Float)
     fat_g: Mapped[float | None] = mapped_column(Float)
+    fiber_g: Mapped[float | None] = mapped_column(Float)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

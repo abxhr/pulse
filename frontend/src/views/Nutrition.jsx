@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useR
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil } from "lucide-react";
+import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil, ScanBarcode } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
 import { Panel, Loading, Chip } from "../components/primitives";
 import WeightCut from "../components/WeightCut";
 import Recipes from "../components/Recipes";
+import { FavoriteMeals, StreakBadge, ProteinTimingChart, HydrationCard } from "../components/NutritionExtras";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
@@ -48,7 +49,47 @@ function defaultMealType() {
   if (h >= 17 && h < 21.5) return "dinner";
   return "snack";
 }
-const emptyMeal = () => ({ name: "", meal_type: defaultMealType(), calories: "", protein_g: "", carbs_g: "", fat_g: "" });
+const emptyMeal = () => ({ name: "", meal_type: defaultMealType(), calories: "", protein_g: "", carbs_g: "", fat_g: "", satiety: null });
+const SATIETY_OPTIONS = [
+  { key: "hungry", label: "Still hungry" },
+  { key: "satisfied", label: "Satisfied" },
+  { key: "very_full", label: "Very full" },
+];
+
+function BarcodeLookup({ onFound }) {
+  const [upc, setUpc] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function lookup() {
+    if (!upc.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const p = await api.nutritionBarcode(upc.trim());
+      onFound(p);
+      setUpc("");
+    } catch {
+      setErr("Not found — try manual entry.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <ScanBarcode size={15} className="shrink-0 text-faint" />
+      <input value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="Barcode / UPC number"
+        inputMode="numeric"
+        className="flex-1 rounded-lg border border-line bg-ink px-2 py-1.5 text-xs text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
+      <button type="button" onClick={lookup} disabled={busy || !upc.trim()}
+        className="rounded-lg border border-line bg-panel2 px-2.5 py-1.5 text-xs text-muted transition hover:border-nutrition/40 disabled:opacity-50">
+        {busy ? "…" : "Look up"}
+      </button>
+      {err && <span className="text-[10px] text-effort">{err}</span>}
+    </div>
+  );
+}
 
 function MacroInputs({ form, onChange }) {
   return (
@@ -163,7 +204,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
       setForm({
         name: meal.name || "", meal_type: meal.meal_type || "lunch",
         calories: meal.calories ?? "", protein_g: meal.protein_g ?? "",
-        carbs_g: meal.carbs_g ?? "", fat_g: meal.fat_g ?? "",
+        carbs_g: meal.carbs_g ?? "", fat_g: meal.fat_g ?? "", satiety: meal.satiety ?? null,
       });
       setEditingId(meal.id);
       setEstimate(null);
@@ -206,6 +247,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
       protein_g: form.protein_g ? Number(form.protein_g) : null,
       carbs_g: form.carbs_g ? Number(form.carbs_g) : null,
       fat_g: form.fat_g ? Number(form.fat_g) : null,
+      satiety: form.satiety || null,
     };
     try {
       if (editingId) await api.updateMeal(editingId, payload);
@@ -219,15 +261,18 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
 
   if (!open) {
     return (
-      <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("manual"); }}
-          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
-          <Plus size={16} /> Log a meal
-        </button>
-        <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("scan"); }}
-          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
-          <Camera size={16} /> Scan a meal
-        </button>
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("manual"); }}
+            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
+            <Plus size={16} /> Log a meal
+          </button>
+          <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("scan"); }}
+            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
+            <Camera size={16} /> Scan a meal
+          </button>
+        </div>
+        <FavoriteMeals onRelog={onAdded} />
       </div>
     );
   }
@@ -276,7 +321,25 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
             ))}
           </div>
 
+          <BarcodeLookup onFound={(p) => setForm((f) => ({
+            ...f,
+            name: f.name || p.name,
+            calories: p.calories ?? f.calories, protein_g: p.protein_g ?? f.protein_g,
+            carbs_g: p.carbs_g ?? f.carbs_g, fat_g: p.fat_g ?? f.fat_g,
+          }))} />
+
           <MacroInputs form={form} onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
+
+          <div className="flex flex-wrap gap-1.5">
+            {SATIETY_OPTIONS.map((o) => (
+              <button key={o.key} type="button" onClick={() => setForm((f) => ({ ...f, satiety: f.satiety === o.key ? null : o.key }))}
+                className={`rounded-full px-2.5 py-1 text-[11px] transition ${
+                  form.satiety === o.key ? "bg-recovery/20 text-recovery border border-recovery/40" : "bg-panel text-faint border border-line"
+                }`}>
+                {o.label}
+              </button>
+            ))}
+          </div>
 
           <button type="submit" disabled={busy || !form.name.trim()}
             className="w-full rounded-lg bg-nutrition py-2.5 text-sm font-semibold text-ink transition disabled:opacity-50">
@@ -301,6 +364,7 @@ function GoalEditor({ goal, onSaved }) {
       protein_g: form.protein_g ? Number(form.protein_g) : null,
       carbs_g: form.carbs_g ? Number(form.carbs_g) : null,
       fat_g: form.fat_g ? Number(form.fat_g) : null,
+      fiber_g: form.fiber_g ? Number(form.fiber_g) : null,
     });
     setOpen(false);
     onSaved();
@@ -316,6 +380,11 @@ function GoalEditor({ goal, onSaved }) {
         <form onSubmit={submit} className="mt-2 space-y-2 rounded-xl border border-line bg-panel2/60 p-3">
           <MacroInputs form={{ calories: form?.calories ?? "", protein_g: form?.protein_g ?? "", carbs_g: form?.carbs_g ?? "", fat_g: form?.fat_g ?? "" }}
             onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-faint">Fiber target (g, optional)</label>
+            <input inputMode="numeric" value={form?.fiber_g ?? ""} onChange={(e) => setForm((f) => ({ ...f, fiber_g: e.target.value }))}
+              className="w-20 rounded-lg border border-line bg-ink px-2 py-1 text-center text-xs text-txt focus:outline-none" />
+          </div>
           <button type="submit" className="w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-2 text-xs font-semibold text-nutrition">
             Save targets
           </button>
@@ -372,6 +441,17 @@ export default function Nutrition({ aiStatus }) {
         ))}
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        {goal?.fiber_g ? (
+          <MacroBar label="Fiber" unit="g" color={COLORS.recovery} value={totals?.fiber_g ?? 0} goal={goal.fiber_g} />
+        ) : <div />}
+        <HydrationCard />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <StreakBadge />
+      </div>
+
       {burned?.calories_total != null && (
         <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
           <div className="text-center">
@@ -411,6 +491,7 @@ export default function Nutrition({ aiStatus }) {
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium text-txt">{m.name}</span>
                     {m.meal_type && <Chip color={COLORS.nutrition}>{m.meal_type}</Chip>}
+                    {m.satiety && <Chip color={COLORS.muted}>{m.satiety.replace("_", " ")}</Chip>}
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-faint tnum">
                     {fmtNum(m.calories)} kcal · P{fmtNum(m.protein_g)} · C{fmtNum(m.carbs_g)} · F{fmtNum(m.fat_g)}
@@ -429,6 +510,8 @@ export default function Nutrition({ aiStatus }) {
           </div>
         )}
       </Panel>
+
+      <ProteinTimingChart />
 
       <Recipes aiStatus={aiStatus} />
 

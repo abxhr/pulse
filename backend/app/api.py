@@ -7,6 +7,8 @@ import os
 import sys
 import time
 
+import requests
+
 from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -463,6 +465,61 @@ def nutrition_day(d: str, db: Session = Depends(get_session)):
 @router.get("/nutrition/trend")
 def nutrition_trend(days: int = 14, db: Session = Depends(get_session)):
     return nutrition.trend(db, days)
+
+
+@router.get("/nutrition/favorites")
+def nutrition_favorites(db: Session = Depends(get_session)):
+    return nutrition.favorite_meals(db)
+
+
+@router.get("/nutrition/streak")
+def nutrition_streak(db: Session = Depends(get_session)):
+    return nutrition.days_on_target_streak(db)
+
+
+@router.get("/nutrition/protein-timing")
+def nutrition_protein_timing(d: str | None = None, db: Session = Depends(get_session)):
+    day = date.fromisoformat(d) if d else date.today()
+    return nutrition.protein_timing(db, day)
+
+
+@router.get("/nutrition/hydration")
+def nutrition_hydration(d: str | None = None):
+    day = date.fromisoformat(d) if d else date.today()
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    data = gc.fetch_hydration(client, day)
+    if not data:
+        raise HTTPException(status_code=404, detail="no hydration data for this date")
+    return data
+
+
+@router.get("/nutrition/barcode/{upc}")
+def nutrition_barcode(upc: str):
+    """Look up packaged-food macros by barcode via Open Food Facts (free, no key)."""
+    try:
+        res = requests.get(f"https://world.openfoodfacts.org/api/v0/product/{upc}.json", timeout=6)
+        res.raise_for_status()
+        data = res.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="barcode lookup failed")
+    if data.get("status") != 1:
+        raise HTTPException(status_code=404, detail="product not found")
+    p = data["product"]
+    nutr = p.get("nutriments", {})
+    return {
+        "name": p.get("product_name") or p.get("generic_name") or "Unknown product",
+        "brand": p.get("brands"),
+        "serving_size": p.get("serving_size"),
+        "calories": nutr.get("energy-kcal_serving") or nutr.get("energy-kcal_100g"),
+        "protein_g": nutr.get("proteins_serving") or nutr.get("proteins_100g"),
+        "carbs_g": nutr.get("carbohydrates_serving") or nutr.get("carbohydrates_100g"),
+        "fat_g": nutr.get("fat_serving") or nutr.get("fat_100g"),
+        "fiber_g": nutr.get("fiber_serving") or nutr.get("fiber_100g"),
+        "per": "serving" if nutr.get("energy-kcal_serving") else "100g",
+    }
 
 
 @router.post("/nutrition/meals")

@@ -197,6 +197,46 @@ def _garmin_calories_tdee(db: Session, days: int = 14) -> float | None:
     return round(sum(r.calories_total for r in rows) / len(rows))
 
 
+def _tdee_confidence(db: Session, tdee_source: str | None) -> dict:
+    """How much data actually backs the current TDEE number — so the user can
+    judge how much to trust it, and see it visibly firm up over time instead
+    of just trusting an opaque figure."""
+    if tdee_source == "energy_balance":
+        end = date.today() - timedelta(days=1)
+        start = end - timedelta(days=21)
+        meals = db.execute(select(Meal).where(Meal.date >= start, Meal.date <= end)).scalars().all()
+        logged_days = len({m.date for m in meals})
+        target = 21
+        label = "high" if logged_days >= target else "medium" if logged_days >= MIN_DAYS_FOR_ENERGY_BALANCE else "low"
+        return {
+            "method": "your logged calories + weight change — the most personally-accurate estimate",
+            "logged_days": logged_days, "days_for_higher_confidence": max(0, target - logged_days),
+            "confidence": label,
+        }
+    if tdee_source == "garmin_estimate":
+        return {
+            "method": "Garmin's burned-calories estimate — used until enough weight+nutrition history builds up",
+            "logged_days": None, "days_for_higher_confidence": None, "confidence": "medium",
+        }
+    return {"method": None, "logged_days": None, "days_for_higher_confidence": None, "confidence": "none"}
+
+
+def refeed_nudge(db: Session) -> dict | None:
+    """Evidence-based cuts benefit from periodic maintenance weeks — nudges every
+    ~6 weeks into a sustained cut, not a hard rule, just a reminder to consider it."""
+    goal = get_goal(db)
+    if not goal or not goal.get("start_date") or (goal.get("weekly_rate_kg") or 0) >= 0:
+        return None
+    weeks_in = (date.today() - date.fromisoformat(goal["start_date"])).days // 7
+    if weeks_in < 6 or weeks_in % 6 != 0:
+        return None
+    return {
+        "weeks_in": weeks_in,
+        "message": f"You're {weeks_in} weeks into this cut — consider a maintenance/refeed week "
+                   "to support training performance and adherence before continuing.",
+    }
+
+
 def macro_recommendation(db: Session) -> dict:
     weights = trend(db, 90)
     current_weight = weights[-1]["weight_kg"] if weights else None
@@ -237,5 +277,7 @@ def macro_recommendation(db: Session) -> dict:
         "protein_g": protein_g,
         "carbs_g": carbs_g,
         "fat_g": fat_g,
+        "tdee_confidence": _tdee_confidence(db, tdee_source),
+        "refeed_nudge": refeed_nudge(db),
         "projection": weight_projection(db),
     }

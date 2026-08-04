@@ -55,6 +55,11 @@ export const api = {
   nutritionToday: () => req("/nutrition/today"),
   nutritionDay: (d) => req(`/nutrition/day?d=${d}`),
   nutritionTrend: (days = 14) => req(`/nutrition/trend?days=${days}`),
+  nutritionFavorites: () => req("/nutrition/favorites"),
+  nutritionStreak: () => req("/nutrition/streak"),
+  nutritionProteinTiming: (d) => req(`/nutrition/protein-timing${d ? `?d=${d}` : ""}`),
+  nutritionHydration: (d) => req(`/nutrition/hydration${d ? `?d=${d}` : ""}`),
+  nutritionBarcode: (upc) => req(`/nutrition/barcode/${upc}`),
   addMeal: (payload) => req("/nutrition/meals", { method: "POST", body: JSON.stringify(payload) }),
   analyzeMeal: async (file, notes, provider) => {
     const fd = new FormData();
