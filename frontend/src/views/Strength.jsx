@@ -7,6 +7,7 @@ import { COLORS, fmtNum, fmtDate, fmtDuration, axisLabelStyle } from "../lib/for
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
+import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from "../components/StrengthExtras";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
@@ -139,11 +140,13 @@ export default function Strength() {
   const [week, setWeek] = useState(null);
   const [wkos, setWkos] = useState([]);
   const [openId, setOpenId] = useState(null);
+  const [health, setHealth] = useState([]);
 
   useEffect(() => {
     api.strength(8).then(setS).catch(() => setS({ by_muscle: [], top_exercises: [], weekly_volume: [] }));
     api.strengthThisWeek().then(setWeek).catch(() => setWeek(null));
     api.workouts(200).then(setWkos).catch(() => setWkos([]));
+    api.healthTrend(30).then(setHealth).catch(() => setHealth([]));
   }, []);
 
   if (!s) return <Loading label="Reading strength log…" />;
@@ -160,6 +163,18 @@ export default function Strength() {
       </div>
 
       <WeekHeatmap week={week} />
+
+      <RestDayRec week={week} health={health} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PRFeed wkos={wkos} />
+        <PlateauList wkos={wkos} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <VolumeLandmarks wkos={wkos} />
+        <SymmetryCheck wkos={wkos} />
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.strength} title="Weekly volume" sub="total kg moved · 8 weeks">
