@@ -1,6 +1,34 @@
-import { TrendingUp, TrendingDown, AlertTriangle, Moon, Gauge, CloudSun, CloudRain, CloudFog, Cloud, Sun, CloudSnow, CloudLightning } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Moon, Gauge, CloudSun, CloudRain, CloudFog, Cloud, Sun, CloudSnow, CloudLightning, ShieldAlert } from "lucide-react";
 import { COLORS, fmtNum } from "../lib/format";
 import { Panel, StatTile } from "./primitives";
+
+const RISK_COLOR = { "Low risk": COLORS.recovery, "Moderate risk": COLORS.sleep, "Elevated risk": COLORS.strength, "High risk": COLORS.effort };
+
+export function OvertrainingRiskCard({ data }) {
+  if (!data || data.score < 10) return null; // low enough it's not worth a dedicated card
+  const color = RISK_COLOR[data.label] || COLORS.muted;
+  return (
+    <Panel accent={color} title="Illness / overtraining risk" sub="composite score — HRV, resting HR, sleep debt, training load">
+      <div className="flex items-center gap-4">
+        <ShieldAlert size={26} style={{ color }} />
+        <div>
+          <div className="font-mono text-2xl font-semibold tnum" style={{ color }}>{data.score}<span className="text-sm text-faint">/100</span></div>
+          <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color }}>{data.label}</div>
+        </div>
+      </div>
+      {data.factors.length > 0 && (
+        <div className="mt-2 space-y-1">
+          {data.factors.map((f) => (
+            <div key={f.factor} className="flex items-center justify-between text-xs">
+              <span className="text-muted">{f.factor}</span>
+              <span className="font-mono text-faint tnum">+{f.points}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
 
 export function WhatChangedBanner({ data }) {
   if (!data) return null;

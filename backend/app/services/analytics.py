@@ -696,6 +696,59 @@ def why_last_night_bad(db: Session) -> dict | None:
     }
 
 
+def overtraining_risk(db: Session) -> dict | None:
+    """Composite illness/overtraining risk — a single weighted score instead
+    of separate single-metric anomaly checks. The real value of combining
+    signals: each one alone might sit within normal noise, but several
+    *mildly* off at once (HRV a bit low, RHR a bit up, behind on sleep, load
+    spiking) is a much stronger signal than any single metric crossing a
+    threshold in isolation."""
+    trend = health_trend(db, 31)
+    if len(trend) < 10:
+        return None
+    *history, latest = trend
+    factors = []
+    score = 0.0
+
+    hrv_hist = [r["hrv"] for r in history if r["hrv"] is not None]
+    if latest["hrv"] is not None and len(hrv_hist) >= 7:
+        mean, sd = sum(hrv_hist) / len(hrv_hist), _std(hrv_hist)
+        if sd:
+            z = (latest["hrv"] - mean) / sd
+            pts = max(0, min(30, -z * 15))  # low HRV vs baseline is bad
+            if pts > 3:
+                factors.append({"factor": "HRV below baseline", "points": round(pts)})
+            score += pts
+
+    rhr_hist = [r["resting_hr"] for r in history if r["resting_hr"] is not None]
+    if latest["resting_hr"] is not None and len(rhr_hist) >= 7:
+        mean, sd = sum(rhr_hist) / len(rhr_hist), _std(rhr_hist)
+        if sd:
+            z = (latest["resting_hr"] - mean) / sd
+            pts = max(0, min(20, z * 10))  # elevated resting HR is bad
+            if pts > 3:
+                factors.append({"factor": "Resting HR elevated", "points": round(pts)})
+            score += pts
+
+    debt = sleep_debt(db, days=7)
+    if debt["nights_tracked"] >= 4 and debt["debt_hours"] > 0:
+        pts = max(0, min(25, debt["debt_hours"] * 2.5))
+        if pts > 3:
+            factors.append({"factor": "Sleep debt", "points": round(pts)})
+        score += pts
+
+    load = training_load_ratio(db)
+    if load and load["ratio"] > 1.3:
+        pts = max(0, min(25, (load["ratio"] - 1.3) * 50))
+        if pts > 3:
+            factors.append({"factor": "Training load spike (ACWR)", "points": round(pts)})
+        score += pts
+
+    score = round(min(100, score))
+    label = "Low risk" if score < 25 else "Moderate risk" if score < 50 else "Elevated risk" if score < 75 else "High risk"
+    return {"score": score, "label": label, "factors": sorted(factors, key=lambda f: -f["points"])}
+
+
 def training_stress_balance(db: Session, days: int = 180) -> list[dict]:
     """Banister impulse-response model (the same math behind TrainingPeaks'
     Performance Management Chart): daily training load exponentially decayed
