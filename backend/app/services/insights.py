@@ -4,7 +4,7 @@ and sends ONLY that summary (not raw records) to Claude or GPT.
 Switch providers with AI_PROVIDER=anthropic|openai in .env.
 """
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 
@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
-from ..models import Insight
+from ..models import Insight, CoachMemory
 from . import analytics, nutrition, weight as weight_svc
 
 log = logging.getLogger("pulse.insights")
@@ -297,12 +297,31 @@ def extract_recipe_from_text(text: str, provider: str | None = None) -> dict:
     return analyze_recipe([], text, provider)
 
 
+def get_memory(db: Session) -> str:
+    row = db.get(CoachMemory, 1)
+    return row.notes if row and row.notes else ""
+
+
+def set_memory(db: Session, notes: str) -> str:
+    row = db.get(CoachMemory, 1)
+    if not row:
+        row = CoachMemory(id=1)
+        db.add(row)
+    row.notes = notes
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    return row.notes
+
+
 def generate_insight(db: Session, question: str | None = None, scope: str = "chat",
                      history: list[dict] | None = None, provider: str | None = None) -> dict:
     """Ask the model for analysis. `history` is prior [{role, content}] turns."""
     context = build_context(db)
+    memory = get_memory(db)
+    memory_block = f"\n\nThings I've told you to remember about me: {memory}" if memory else ""
     user_msg = (
-        f"Here is my data summary:\n```json\n{json.dumps(context, default=str)}\n```\n\n"
+        f"Here is my data summary:\n```json\n{json.dumps(context, default=str)}\n```"
+        f"{memory_block}\n\n"
         + (question or "Give me a full analysis of my current form, recovery, "
                        "sleep, and training. What should I do this week?")
     )
@@ -353,3 +372,36 @@ def get_or_generate_daily(db: Session, force: bool = False) -> dict:
                 "model": existing.model, "created_at": existing.created_at.isoformat(),
             }
     return generate_insight(db, question=DAILY_QUESTION, scope=DAILY_SCOPE)
+
+
+WEEKLY_SCOPE = "weekly_digest"
+WEEKLY_QUESTION = (
+    "Give me a proactive weekly digest, not a reactive answer: looking at the past 7 days vs. the "
+    "7 before that, what changed in my training load, recovery, sleep, and nutrition adherence? "
+    "What's the ONE thing you'd change about my approach next week, and why? Be specific and "
+    "quantitative — this is a standing weekly check-in, not an on-demand chat reply."
+)
+
+
+def _iso_week_start(d: datetime) -> datetime:
+    monday = d.date() - timedelta(days=d.weekday())
+    return datetime.combine(monday, datetime.min.time())
+
+
+def get_or_generate_weekly(db: Session, force: bool = False) -> dict:
+    """One proactive digest per ISO week, cached like the daily briefing —
+    ready when you check in, not something you have to remember to ask for."""
+    if not force:
+        week_start = _iso_week_start(datetime.utcnow())
+        existing = db.execute(
+            select(Insight)
+            .where(Insight.scope == WEEKLY_SCOPE, Insight.role == "assistant", Insight.created_at >= week_start)
+            .order_by(Insight.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if existing:
+            return {
+                "id": existing.id, "content": existing.content, "provider": existing.provider,
+                "model": existing.model, "created_at": existing.created_at.isoformat(),
+            }
+    return generate_insight(db, question=WEEKLY_QUESTION, scope=WEEKLY_SCOPE)

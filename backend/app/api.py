@@ -436,6 +436,34 @@ def refresh_daily_insight(db: Session = Depends(get_session)):
         raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
 
 
+@router.get("/insights/weekly")
+def weekly_digest(db: Session = Depends(get_session)):
+    """Cached once-a-week proactive digest — a standing check-in rather than
+    only ever responding to on-demand chat questions."""
+    try:
+        return insights.get_or_generate_weekly(db)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
+
+
+@router.post("/insights/weekly/refresh")
+def refresh_weekly_digest(db: Session = Depends(get_session)):
+    try:
+        return insights.get_or_generate_weekly(db, force=True)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"AI call failed: {e}")
+
+
+@router.get("/insights/memory")
+def get_coach_memory(db: Session = Depends(get_session)):
+    return {"notes": insights.get_memory(db)}
+
+
+@router.put("/insights/memory")
+def put_coach_memory(body: dict = Body(...), db: Session = Depends(get_session)):
+    return {"notes": insights.set_memory(db, body.get("notes") or "")}
+
+
 @router.get("/insights/history")
 def insight_history(limit: int = 40, db: Session = Depends(get_session)):
     rows = db.execute(

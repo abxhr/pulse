@@ -241,3 +241,13 @@ class Insight(Base):
     provider: Mapped[str | None] = mapped_column(String(32))
     model: Mapped[str | None] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
+
+
+class CoachMemory(Base):
+    """Single-row freeform notes the Coach should remember across conversations
+    (dietary restrictions, preferences) instead of re-explaining every time."""
+    __tablename__ = "coach_memory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

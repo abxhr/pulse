@@ -100,6 +100,10 @@ export const api = {
   dailyInsight: () => req("/insights/daily"),
   refreshDailyInsight: () => req("/insights/daily/refresh", { method: "POST" }),
   insightHistory: () => req("/insights/history"),
+  weeklyDigest: () => req("/insights/weekly"),
+  refreshWeeklyDigest: () => req("/insights/weekly/refresh", { method: "POST" }),
+  coachMemory: () => req("/insights/memory"),
+  setCoachMemory: (notes) => req("/insights/memory", { method: "PUT", body: JSON.stringify({ notes }) }),
   weeklyReport: (weeks = 1, withAi = true) =>
     req(`/reports/weekly?weeks=${weeks}&with_ai=${withAi}`, { method: "POST" }),
 };

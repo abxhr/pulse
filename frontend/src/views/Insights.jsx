@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles, BookmarkPlus, Check } from "lucide-react";
+import { Send, Sparkles, BookmarkPlus, Check, RefreshCw, ChevronDown, BrainCircuit } from "lucide-react";
 import { api } from "../lib/api";
 
 const SUGGESTIONS = [
@@ -10,7 +10,80 @@ const SUGGESTIONS = [
   "Is my sleep affecting my readiness?",
   "What should my training focus be next week?",
   "Analyze my strength progress and suggest progression.",
+  "What if I cut carbs 20% — how would that affect my training capacity?",
+  "What if I added a third strength session per week — model the recovery tradeoff.",
 ];
+
+function WeeklyDigest() {
+  const [digest, setDigest] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.weeklyDigest().then(setDigest).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function refresh() {
+    setBusy(true);
+    setErr(null);
+    try { setDigest(await api.refreshWeeklyDigest()); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  if (err || !digest) return null;
+  return (
+    <div className="border-b border-line">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between px-5 py-3">
+        <span className="flex items-center gap-2 text-sm font-medium text-txt">
+          <Sparkles size={14} className="text-recovery" /> This week's digest
+        </span>
+        <div className="flex items-center gap-2">
+          {open && (
+            <span onClick={(e) => { e.stopPropagation(); refresh(); }}
+              className="flex items-center gap-1 text-[11px] text-faint hover:text-txt">
+              <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> refresh
+            </span>
+          )}
+          <ChevronDown size={14} className={`text-faint transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+      {open && <div className="md px-5 pb-4 text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{digest.content}</ReactMarkdown></div>}
+    </div>
+  );
+}
+
+function MemoryEditor() {
+  const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { api.coachMemory().then((r) => setNotes(r.notes || "")).catch(() => {}); }, []);
+
+  async function save() {
+    await api.setCoachMemory(notes);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="border-b border-line px-5 py-2.5">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+        <BrainCircuit size={12} /> {open ? "Hide preferences" : "Coach preferences"}
+      </button>
+      {open && (
+        <div className="mt-2">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+            placeholder="e.g. I don't eat pork, prefer high-protein swaps, training for a half marathon in October…"
+            className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2 text-xs text-txt placeholder:text-faint focus:border-recovery/50 focus:outline-none" />
+          <button onClick={save} className="mt-1.5 rounded-lg border border-recovery/40 bg-recovery/10 px-3 py-1 text-[11px] font-medium text-recovery">
+            {saved ? "Saved" : "Save"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Insights({ aiStatus }) {
   const [messages, setMessages] = useState([]);
@@ -90,6 +163,9 @@ export default function Insights({ aiStatus }) {
           </div>
         </div>
       </header>
+
+      <WeeklyDigest />
+      <MemoryEditor />
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
         {messages.length === 0 && (
