@@ -138,10 +138,14 @@ def weight_projection(db: Session, days: int = 28) -> dict | None:
 
 def _energy_balance_tdee(db: Session, days: int = 21) -> float | None:
     """TDEE from actual logged calories vs. actual weight change — the most
-    personally-accurate estimate available, once there's enough history."""
-    start = date.today() - timedelta(days=days)
+    personally-accurate estimate available, once there's enough history.
+    Only ever looks at fully-completed days (never "today") — a partial day's
+    calories keep changing as it goes, which made this recommendation visibly
+    shift every time the page was opened."""
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=days)
     weights = db.execute(
-        select(BodyWeight).where(BodyWeight.date >= start).order_by(BodyWeight.date)
+        select(BodyWeight).where(BodyWeight.date >= start, BodyWeight.date <= end).order_by(BodyWeight.date)
     ).scalars().all()
     if len(weights) < 2:
         return None
@@ -167,10 +171,15 @@ def _energy_balance_tdee(db: Session, days: int = 21) -> float | None:
 
 
 def _garmin_calories_tdee(db: Session, days: int = 14) -> float | None:
-    """Fallback: Garmin's own total-calories-burned estimate, averaged."""
-    start = date.today() - timedelta(days=days)
+    """Fallback: Garmin's own total-calories-burned estimate, averaged over fully-
+    completed days only (excludes today, which is still accumulating and would
+    otherwise make this shift every time the page loads)."""
+    end = date.today() - timedelta(days=1)
+    start = end - timedelta(days=days)
     rows = db.execute(
-        select(DailyHealth).where(DailyHealth.date >= start, DailyHealth.calories_total.isnot(None))
+        select(DailyHealth).where(
+            DailyHealth.date >= start, DailyHealth.date <= end, DailyHealth.calories_total.isnot(None)
+        )
     ).scalars().all()
     if not rows:
         return None
