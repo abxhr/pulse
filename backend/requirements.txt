@@ -14,6 +14,8 @@ youtube-transcript-api>=0.6  # recipe extraction from YouTube URLs
 anthropic>=0.40
 openai>=1.40
 # Optional: automated free-account Hevy sync (unofficial private API).
-# Only needed if HEVY_MODE=unofficial. Lightweight (no browser) variant:
+# Only needed if HEVY_MODE=unofficial. Requires a one-time browser login —
+# see backend/app/hevy_auth.py — which needs the Playwright browser binary too:
 #   pip install 'hevy-unofficial[core]'
+#   python -m playwright install chromium
 # hevy-unofficial[core]>=0.0.2a0

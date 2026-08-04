@@ -47,27 +47,36 @@ Pulse ingests it three ways:
 The parser groups rows into workouts -> exercises -> sets, computes volume, and infers a
 muscle group per exercise so the by-muscle charts work.
 
-### `unofficial` (fully automated, experimental)
+### `unofficial` (fully automated)
 Uses the `hevy-unofficial` client — the same private `api.hevyapp.com` endpoints the Hevy
-**web app** uses, which work on a free account. Hands-off recurring sync, no manual export.
+**web app** uses, which work on a free account. Hands-off recurring sync, no manual export,
+no CSV step ever again — the scheduler picks up new workouts automatically.
 
 > Trade-off: it's an alpha library hitting undocumented endpoints, so it can break. If it
 > does, `csv` mode still works. Use at your own risk and respect Hevy's terms.
 
-Setup:
+Setup — run once, interactively, in your own terminal (opens a real browser window):
 ```bash
-pip install 'hevy-unofficial[core]'      # lightweight, no browser needed
+pip install 'hevy-unofficial[core]'
+python -m playwright install chromium   # one-time browser binary download (~150MB)
+cd backend && python -m app.hevy_auth
 ```
-Hevy's login has a reCAPTCHA, so you grab tokens **once** from a logged-in hevy.com browser
-session (DevTools -> Application -> Cookies / Network — the auth token + refresh token),
-then put them in `.env`:
+A Chrome window opens on hevy.com — log in there normally (your password goes straight to
+Hevy's real site, never through this app). Once logged in, your session tokens are captured
+and saved to `backend/data/hevy_tokens.json` (gitignored). The client auto-refreshes them and
+re-persists the refreshed pair after that — no token to manually rotate, ever.
+
+Then set in `.env`:
 ```
 HEVY_MODE=unofficial
-HEVY_ACCESS_TOKEN=...
-HEVY_REFRESH_TOKEN=...
+HEVY_EMAIL=you@example.com   # whatever you entered during the browser login — the storage key
 ```
-After that the client auto-refreshes the tokens, so the scheduler keeps pulling new
-workouts with no further input.
+Restart the server and hit **Sync** — from then on the 30-minute scheduler keeps your
+workouts current with zero manual steps.
+
+(Legacy fallback: set `HEVY_ACCESS_TOKEN` / `HEVY_REFRESH_TOKEN` directly in `.env`, grabbed
+from hevy.com's DevTools, if you'd rather skip the browser-login flow. These don't
+auto-persist on refresh the way the browser-login flow does.)
 
 ### `pro`
 If you ever get Hevy Pro: `HEVY_MODE=pro` + `HEVY_API_KEY=...` from

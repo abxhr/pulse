@@ -31,9 +31,10 @@ class Settings(BaseSettings):
     hevy_import_dir: str = str(DATA_DIR / "imports")
     hevy_api_key: str | None = None          # pro mode
     hevy_base_url: str = "https://api.hevyapp.com"
-    hevy_access_token: str | None = None     # unofficial mode
-    hevy_refresh_token: str | None = None    # unofficial mode
-    hevy_email: str | None = None
+    hevy_token_store: str = str(DATA_DIR / "hevy_tokens.json")  # unofficial mode — set up via `python -m app.hevy_auth`
+    hevy_access_token: str | None = None     # unofficial mode legacy fallback (paste tokens directly)
+    hevy_refresh_token: str | None = None    # unofficial mode legacy fallback
+    hevy_email: str | None = None            # unofficial mode — key into hevy_token_store
 
     # --- AI provider: "anthropic" or "openai" ---
     ai_provider: str = "anthropic"

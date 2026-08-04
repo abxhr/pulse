@@ -40,7 +40,9 @@ def status(db: Session = Depends(get_session)):
     if mode == "pro":
         hevy_ready = bool(settings.hevy_api_key)
     elif mode == "unofficial":
-        hevy_ready = bool(settings.hevy_access_token and settings.hevy_refresh_token)
+        hevy_ready = bool(settings.hevy_access_token and settings.hevy_refresh_token) or (
+            bool(settings.hevy_email) and Path(settings.hevy_token_store).exists()
+        )
     else:  # csv
         hevy_ready = counts["workouts"] > 0 or any(Path(settings.hevy_import_dir).glob("*.csv"))
     logs = db.execute(select(SyncLog).order_by(SyncLog.started_at.desc()).limit(6)).scalars().all()
