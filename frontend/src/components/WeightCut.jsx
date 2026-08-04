@@ -13,23 +13,35 @@ import { RefeedNudge, TdeeConfidence } from "./NutritionExtras";
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const today = () => new Date().toISOString().slice(0, 10);
 
-function LogWeight({ onLogged }) {
+function LogWeight({ onLogged, trendKg }) {
   const [date, setDate] = useState(today());
   const [weight, setWeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
-  async function submit(e) {
-    e.preventDefault();
-    if (!weight) return;
+  // Flags a likely typo (e.g. 175 instead of 75, or a stray extra digit) before
+  // it distorts the EMA — >8% off the current trend on a single entry is well
+  // outside normal day-to-day water-weight swings.
+  const pctOff = trendKg ? Math.abs(Number(weight) - trendKg) / trendKg : 0;
+  const looksOff = weight && trendKg && pctOff > 0.08;
+
+  async function save() {
     setBusy(true);
     try {
       await api.logWeight({ date, weight_kg: Number(weight), body_fat_pct: bodyFat ? Number(bodyFat) : null });
-      setDate(today()); setWeight(""); setBodyFat("");
+      setDate(today()); setWeight(""); setBodyFat(""); setConfirming(false);
       onLogged();
     } finally {
       setBusy(false);
     }
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!weight) return;
+    if (looksOff && !confirming) { setConfirming(true); return; }
+    save();
   }
 
   return (
@@ -41,8 +53,10 @@ function LogWeight({ onLogged }) {
       </div>
       <div className="flex-1">
         <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Weight (kg)</label>
-        <input inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="e.g. 78.4"
-          className="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
+        <input inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setConfirming(false); }} placeholder="e.g. 78.4"
+          className={`w-full rounded-lg border bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:outline-none ${
+            looksOff ? "border-effort/60 focus:border-effort" : "border-line focus:border-nutrition/50"
+          }`} />
       </div>
       <div className="w-24">
         <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Body fat %</label>
@@ -50,9 +64,14 @@ function LogWeight({ onLogged }) {
           className="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
       </div>
       <button type="submit" disabled={busy || !weight}
-        className="rounded-lg bg-nutrition px-4 py-2 text-sm font-semibold text-ink transition disabled:opacity-50">
-        {busy ? "…" : "Log"}
+        className={`rounded-lg px-4 py-2 text-sm font-semibold text-ink transition disabled:opacity-50 ${confirming ? "bg-effort" : "bg-nutrition"}`}>
+        {busy ? "…" : confirming ? "Log anyway" : "Log"}
       </button>
+      {looksOff && (
+        <p className="w-full text-[11px] text-effort">
+          That's {fmtNum(pctOff * 100, 0)}% off your recent trend ({fmtNum(trendKg, 1)}kg) — typo? Click "Log anyway" to confirm.
+        </p>
+      )}
       <p className="w-full text-[10px] text-faint">Backdate it if you're catching up on past weigh-ins — that unlocks the trend chart faster.</p>
     </form>
   );
@@ -251,7 +270,7 @@ export default function WeightCut() {
       ? `target ${fmtNum(goal.target_weight_kg, 1)}kg · ${fmtNum(goal.weekly_rate_kg, 2)}kg/wk`
       : "track your weight to unlock macro recommendations"}>
       <div className="space-y-4">
-        <LogWeight onLogged={refresh} />
+        <LogWeight onLogged={refresh} trendKg={latest?.trend_kg} />
 
         {trend.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
