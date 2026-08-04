@@ -736,3 +736,25 @@ def macro_recommendation(db: Session = Depends(get_session)):
 @router.post("/reports/weekly")
 def weekly_report(weeks: int = 1, with_ai: bool = True, db: Session = Depends(get_session)):
     return reports.weekly_report(db, weeks=weeks, with_ai=with_ai)
+
+
+@router.get("/reports/scheduled")
+def scheduled_report(db: Session = Depends(get_session)):
+    """Auto-generated weekly report, cached once per ISO week."""
+    try:
+        return reports.get_or_generate_scheduled(db)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"report generation failed: {e}")
+
+
+@router.post("/reports/scheduled/refresh")
+def refresh_scheduled_report(db: Session = Depends(get_session)):
+    try:
+        return reports.get_or_generate_scheduled(db, force=True)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"report generation failed: {e}")
+
+
+@router.get("/reports/comparison")
+def comparison_report(weeks: int = 4, db: Session = Depends(get_session)):
+    return reports.comparison_report(db, weeks)

@@ -106,4 +106,7 @@ export const api = {
   setCoachMemory: (notes) => req("/insights/memory", { method: "PUT", body: JSON.stringify({ notes }) }),
   weeklyReport: (weeks = 1, withAi = true) =>
     req(`/reports/weekly?weeks=${weeks}&with_ai=${withAi}`, { method: "POST" }),
+  scheduledReport: () => req("/reports/scheduled"),
+  refreshScheduledReport: () => req("/reports/scheduled/refresh", { method: "POST" }),
+  comparisonReport: (weeks = 4) => req(`/reports/comparison?weeks=${weeks}`),
 };

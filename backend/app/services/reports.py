@@ -2,11 +2,15 @@
 for a chosen period. The frontend renders it and can print to PDF; you can also
 wire in reportlab/weasyprint later for server-side PDF (see build_pdf stub)."""
 from __future__ import annotations
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..models import Insight
 from . import analytics, insights
+
+SCHEDULED_SCOPE = "weekly_report_auto"
 
 
 def _fmt_hm(seconds):
@@ -87,6 +91,67 @@ def _render_markdown(s, strength, acts, ai_text, weeks) -> str:
             f"- {a['date']} · {a['type']} · {a['distance_km']} km · {a['duration_min']} min · avg HR {a['avg_hr'] or '—'}"
         )
     return "\n".join(lines)
+
+
+def get_or_generate_scheduled(db: Session, force: bool = False) -> dict:
+    """Auto-generated weekly report, cached once per ISO week — ready Monday
+    morning without having to remember to click Generate. Reuses the Insight
+    table (scope-tagged) so no extra schema is needed for the cached markdown."""
+    if not force:
+        monday = date.today() - timedelta(days=date.today().weekday())
+        week_start = datetime.combine(monday, datetime.min.time())
+        existing = db.execute(
+            select(Insight)
+            .where(Insight.scope == SCHEDULED_SCOPE, Insight.role == "assistant", Insight.created_at >= week_start)
+            .order_by(Insight.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if existing:
+            return {"markdown": existing.content, "created_at": existing.created_at.isoformat(), "cached": True}
+    report = weekly_report(db, weeks=1, with_ai=True)
+    row = Insight(scope=SCHEDULED_SCOPE, role="assistant", content=report["markdown"])
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"markdown": report["markdown"], "created_at": row.created_at.isoformat(), "cached": False}
+
+
+def comparison_report(db: Session, weeks: int = 4) -> dict:
+    """This window vs. the equal-length window immediately before it — a
+    single snapshot doesn't show direction, this does."""
+    days = weeks * 7
+
+    def _window_summary(offset_days: int) -> dict:
+        end = date.today() - timedelta(days=offset_days)
+        start = end - timedelta(days=days)
+        health = [r for r in analytics.health_trend(db, offset_days + days) if start.isoformat() <= r["date"] < end.isoformat()]
+        sleep = [r for r in analytics.sleep_trend(db, offset_days + days) if start.isoformat() <= r["date"] < end.isoformat()]
+        acts = [a for a in analytics.recent_activities(db, 500) if a["date"] and start.isoformat() <= a["date"] < end.isoformat()]
+        run_km = round(sum(a["distance_km"] for a in acts if "run" in (a["type"] or "")), 1)
+
+        def avg(rows, key):
+            vals = [r[key] for r in rows if r.get(key) is not None]
+            return round(sum(vals) / len(vals), 1) if vals else None
+
+        return {
+            "avg_sleep_hours": avg(sleep, "total_h"), "avg_readiness": avg(health, "readiness"),
+            "avg_resting_hr": avg(health, "resting_hr"), "avg_hrv": avg(health, "hrv"),
+            "run_km": run_km, "sessions": len(acts),
+        }
+
+    current = _window_summary(0)
+    previous = _window_summary(days)
+
+    def delta(key):
+        c, p = current.get(key), previous.get(key)
+        if c is None or p is None:
+            return None
+        return round(c - p, 1)
+
+    return {
+        "weeks": weeks, "current": current, "previous": previous,
+        "delta": {k: delta(k) for k in current},
+    }
 
 
 def build_pdf(markdown_text: str) -> bytes | None:
