@@ -93,6 +93,7 @@ class Activity(Base):
     vo2max: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(16), default="garmin")
     shoe_id: Mapped[int | None] = mapped_column(Integer)
+    route_points: Mapped[list | None] = mapped_column(JSON)  # cached [{lat,lon},...] for the route heatmap
     raw: Mapped[dict | None] = mapped_column(JSON)
 
 

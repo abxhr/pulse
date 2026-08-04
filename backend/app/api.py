@@ -164,6 +164,57 @@ def karvonen_sessions_route(days: int = 90, db: Session = Depends(get_session)):
     return analytics.sessions_by_karvonen_zone(db, days)
 
 
+@router.get("/activities/route-heatmap")
+def route_heatmap(db: Session = Depends(get_session)):
+    """Every cached route overlaid on one map. Routes are cached lazily (see
+    /sync below and single-activity route views) rather than fetched live here
+    — fetching dozens of live Garmin calls in one request would be far too slow.
+    Registered before /activities/{activity_id} — FastAPI matches path routes
+    in registration order, so a literal path here must come first or it'd be
+    swallowed by the {activity_id} route with activity_id="route-heatmap"."""
+    rows = db.execute(
+        select(Activity).where(Activity.route_points.isnot(None))
+    ).scalars().all()
+    total_runs = db.scalar(
+        select(func.count()).select_from(Activity).where(Activity.activity_type.ilike("%run%"))
+    )
+    return {
+        "routes": [{"id": a.id, "date": a.date.isoformat() if a.date else None, "points": a.route_points} for a in rows],
+        "cached_count": len(rows),
+        "total_runs": total_runs,
+    }
+
+
+@router.post("/activities/route-heatmap/sync")
+def route_heatmap_sync(batch_size: int = 8, db: Session = Depends(get_session)):
+    """Fetches+caches routes for a batch of runs that don't have one yet.
+    Call repeatedly from the UI (with a progress bar) until done=True —
+    keeps each request fast instead of one giant fetch-everything call."""
+    missing = db.execute(
+        select(Activity)
+        .where(Activity.route_points.is_(None), Activity.activity_type.ilike("%run%"))
+        .order_by(Activity.date.desc())
+        .limit(batch_size)
+    ).scalars().all()
+    if not missing:
+        return {"fetched": 0, "done": True}
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    fetched = 0
+    for a in missing:
+        points = gc.fetch_route(client, a.id)
+        a.route_points = points or []  # [] marks "checked, no GPS data" so we don't retry forever
+        fetched += 1
+    db.commit()
+    remaining = db.scalar(
+        select(func.count()).select_from(Activity)
+        .where(Activity.route_points.is_(None), Activity.activity_type.ilike("%run%"))
+    )
+    return {"fetched": fetched, "done": remaining == 0}
+
+
 @router.get("/workouts")
 def workouts(limit: int = 20, db: Session = Depends(get_session)):
     rows = db.execute(
@@ -232,6 +283,9 @@ def activity_route(activity_id: str, db: Session = Depends(get_session)):
     points = gc.fetch_route(client, activity_id)
     if not points:
         raise HTTPException(status_code=404, detail="no route data for this activity")
+    if not a.route_points:
+        a.route_points = points
+        db.commit()
     return {"points": points}
 
 

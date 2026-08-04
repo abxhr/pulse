@@ -23,7 +23,7 @@ _PENDING_COLUMNS = {
         "start_time": "DATETIME", "end_time": "DATETIME", "avg_hr": "INTEGER",
         "awake_count": "INTEGER", "score_feedback": "VARCHAR(64)", "nap_seconds": "INTEGER",
     },
-    "activity": {"shoe_id": "INTEGER"},
+    "activity": {"shoe_id": "INTEGER", "route_points": "JSON"},
     "meal": {"satiety": "VARCHAR(16)"},
     "nutrition_goal": {"fiber_g": "REAL"},
 }

@@ -24,6 +24,8 @@ export const api = {
   activityDetail: (id) => req(`/activities/${id}`),
   activityRoute: (id) => req(`/activities/${id}/route`),
   activitySplits: (id) => req(`/activities/${id}/splits`),
+  routeHeatmap: () => req("/activities/route-heatmap"),
+  syncRouteHeatmap: (batchSize = 8) => req(`/activities/route-heatmap/sync?batch_size=${batchSize}`, { method: "POST" }),
   workouts: (limit = 20) => req(`/workouts?limit=${limit}`),
   workoutDetail: (id) => req(`/workouts/${id}`),
   pushWorkoutToGarmin: (id) => req(`/workouts/${id}/push-to-garmin`, { method: "POST" }),

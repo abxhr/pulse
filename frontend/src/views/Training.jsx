@@ -11,6 +11,7 @@ import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
 import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard } from "../components/CardioExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
+import RouteHeatmap from "../components/RouteHeatmap";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
@@ -180,6 +181,8 @@ export default function Training() {
           ) : <Empty title="No pace data yet" body="Outdoor runs with GPS populate this." />}
         </Panel>
       </div>
+
+      <RouteHeatmap />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <RepeatRoutes />
