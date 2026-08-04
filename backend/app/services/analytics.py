@@ -681,6 +681,48 @@ def why_last_night_bad(db: Session) -> dict | None:
     }
 
 
+def training_stress_balance(db: Session, days: int = 180) -> list[dict]:
+    """Banister impulse-response model (the same math behind TrainingPeaks'
+    Performance Management Chart): daily training load exponentially decayed
+    into Fitness (CTL, 42-day time constant), Fatigue (ATL, 7-day time
+    constant), and Form (TSB = CTL - ATL). Positive form means you're fresh
+    and ready for a hard effort or a race; deeply negative form for weeks is
+    the classic overtraining signature — a single number that actually
+    integrates the whole training history instead of just this week's ACWR."""
+    lookback = days + 60  # extra history so day-1's EWMA isn't starting from zero
+    start = date.today() - timedelta(days=lookback)
+    acts = db.execute(select(Activity).where(Activity.date >= start)).scalars().all()
+    wkos = db.execute(select(Workout).where(Workout.date >= start)).scalars().all()
+
+    daily_load: dict = defaultdict(float)
+    for a in acts:
+        if a.date:
+            daily_load[a.date] += (a.distance_m or 0) / 1000 * 10
+    for w in wkos:
+        if w.date:
+            daily_load[w.date] += (w.volume_kg or 0) / 100
+
+    if not daily_load:
+        return []
+
+    first_day = min(daily_load.keys())
+    total_days = (date.today() - first_day).days + 1
+    ctl_alpha, atl_alpha = 2 / 43, 2 / 8
+    ctl = atl = 0.0
+    series = []
+    for i in range(total_days):
+        d = first_day + timedelta(days=i)
+        load = daily_load.get(d, 0.0)
+        ctl = load * ctl_alpha + ctl * (1 - ctl_alpha)
+        atl = load * atl_alpha + atl * (1 - atl_alpha)
+        if d >= date.today() - timedelta(days=days):
+            series.append({
+                "date": d.isoformat(), "load": round(load, 1),
+                "fitness": round(ctl, 1), "fatigue": round(atl, 1), "form": round(ctl - atl, 1),
+            })
+    return series
+
+
 def training_load_ratio(db: Session) -> dict | None:
     """Acute:chronic workload ratio (7-day load ÷ 28-day-average-as-a-week) — the
     standard sports-science injury-risk heuristic. >1.5 means recent load has

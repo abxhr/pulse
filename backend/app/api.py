@@ -382,6 +382,11 @@ def delete_race_goal(db: Session = Depends(get_session)):
     return {"ok": True}
 
 
+@router.get("/training/stress-balance")
+def training_stress_balance_route(days: int = 180, db: Session = Depends(get_session)):
+    return analytics.training_stress_balance(db, days)
+
+
 @router.get("/training/overload-warnings")
 def overload_warnings(weeks: int = 8, db: Session = Depends(get_session)):
     return cardio_extras.overload_warnings(db, weeks)

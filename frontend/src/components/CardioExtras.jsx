@@ -1,8 +1,78 @@
 import { useEffect, useState } from "react";
+import {
+  ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
+} from "recharts";
 import { Flag, Footprints, AlertTriangle, Route, Plus, X } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, fmtNum, fmtPace, fmtDate } from "../lib/format";
+import { COLORS, fmtNum, fmtPace, fmtDate, axisLabelStyle } from "../lib/format";
 import { Panel } from "./primitives";
+
+const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+
+function FormTip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload;
+  if (!p) return null;
+  return (
+    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
+      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+      <div className="text-xs text-recovery">Fitness (CTL) {p.fitness}</div>
+      <div className="text-xs text-effort">Fatigue (ATL) {p.fatigue}</div>
+      <div className="text-xs text-sleep">Form (TSB) {p.form}</div>
+    </div>
+  );
+}
+
+export function TrainingStressBalance() {
+  const [series, setSeries] = useState(null);
+  useEffect(() => { api.trainingStressBalance(180).then(setSeries).catch(() => setSeries([])); }, []);
+  if (!series?.length) return null;
+  const latest = series[series.length - 1];
+  const formLabel = latest.form > 5 ? "Fresh — ready for a hard effort" : latest.form < -20 ? "Deeply fatigued — overtraining risk" : latest.form < -10 ? "Building fatigue" : "Balanced";
+  const formColor = latest.form > 5 ? COLORS.recovery : latest.form < -20 ? COLORS.effort : latest.form < -10 ? COLORS.strength : COLORS.sleep;
+
+  return (
+    <Panel accent={COLORS.sleep} title="Training stress balance" sub="Fitness / Fatigue / Form (Banister model) · 180 days">
+      <div className="mb-3 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
+          <div className="text-[10px] uppercase tracking-wide text-faint">Fitness</div>
+          <div className="font-mono text-xl font-semibold text-recovery tnum">{latest.fitness}</div>
+        </div>
+        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
+          <div className="text-[10px] uppercase tracking-wide text-faint">Fatigue</div>
+          <div className="font-mono text-xl font-semibold text-effort tnum">{latest.fatigue}</div>
+        </div>
+        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
+          <div className="text-[10px] uppercase tracking-wide text-faint">Form</div>
+          <div className="font-mono text-xl font-semibold tnum" style={{ color: formColor }}>{latest.form}</div>
+        </div>
+      </div>
+      <p className="mb-3 text-xs" style={{ color: formColor }}>{formLabel}</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={series} margin={{ left: -8, right: 8, top: 6 }}>
+          <defs>
+            <linearGradient id="tsbForm" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={COLORS.sleep} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#1c2230" vertical={false} />
+          <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
+          <YAxis tick={axis} axisLine={false} tickLine={false} width={36} label={{ value: "load", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+          <Tooltip content={<FormTip />} />
+          <ReferenceLine y={0} stroke="#3a4152" />
+          <Area type="monotone" dataKey="form" name="Form" stroke={COLORS.sleep} strokeWidth={2} fill="url(#tsbForm)" />
+          <Line type="monotone" dataKey="fitness" name="Fitness" stroke={COLORS.recovery} strokeWidth={1.5} dot={false} />
+          <Line type="monotone" dataKey="fatigue" name="Fatigue" stroke={COLORS.effort} strokeWidth={1.5} dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+      <p className="mt-2 text-[11px] text-faint">
+        Fitness/Fatigue are exponentially-weighted training load (42d / 7d time constants). Form = Fitness − Fatigue —
+        positive means fresh, sustained negative means accumulating fatigue.
+      </p>
+    </Panel>
+  );
+}
 
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 

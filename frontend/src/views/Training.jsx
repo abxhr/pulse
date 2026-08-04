@@ -9,7 +9,7 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
-import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard } from "../components/CardioExtras";
+import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard, TrainingStressBalance } from "../components/CardioExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
 import RouteHeatmap from "../components/RouteHeatmap";
 
@@ -90,6 +90,7 @@ export default function Training() {
       </div>
 
       <RaceGoalCard />
+      <TrainingStressBalance />
       <OverloadWarnings />
 
       <RacePredictions data={predictions} />

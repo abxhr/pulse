@@ -41,6 +41,7 @@ export const api = {
   setRaceGoal: (body) => req("/training/race-goal", { method: "POST", body: JSON.stringify(body) }),
   clearRaceGoal: () => req("/training/race-goal", { method: "DELETE" }),
   overloadWarnings: (weeks = 8) => req(`/training/overload-warnings?weeks=${weeks}`),
+  trainingStressBalance: (days = 180) => req(`/training/stress-balance?days=${days}`),
   repeatRoutes: () => req("/training/repeat-routes"),
   shoes: () => req("/shoes"),
   addShoe: (body) => req("/shoes", { method: "POST", body: JSON.stringify(body) }),
