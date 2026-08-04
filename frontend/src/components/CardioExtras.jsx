@@ -16,7 +16,7 @@ export function RaceGoalCard() {
   const [raceDate, setRaceDate] = useState("");
   const [dist, setDist] = useState("10k");
 
-  const refresh = () => api.raceGoal().then((r) => setRace(r?.name ? r : null)).catch(() => setRace(null));
+  const refresh = () => { api.raceGoal().then((r) => setRace(r?.name ? r : null)).catch(() => setRace(null)); };
   useEffect(refresh, []);
 
   async function save(e) {
@@ -139,7 +139,7 @@ export function ShoeTracker() {
   const [name, setName] = useState("");
   const [target, setTarget] = useState(700);
 
-  const refresh = () => api.shoes().then(setShoes).catch(() => setShoes([]));
+  const refresh = () => { api.shoes().then(setShoes).catch(() => setShoes([])); };
   useEffect(refresh, []);
 
   async function add(e) {
