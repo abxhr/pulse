@@ -696,6 +696,22 @@ def why_last_night_bad(db: Session) -> dict | None:
     }
 
 
+def adaptive_step_goal(db: Session) -> dict | None:
+    """A step target that scales with your own trailing activity level instead
+    of a flat 10k — 10k is arbitrary and doesn't know if you're mid-taper or
+    mid-base-building. Targets 5% above your trailing 14-day average, so it
+    rises as you get more active and eases during legitimately lighter weeks
+    instead of reading as failure."""
+    trend = health_trend(db, 14)
+    steps = [r["steps"] for r in trend if r["steps"] is not None]
+    if len(steps) < 7:
+        return None
+    avg = sum(steps) / len(steps)
+    target = round(avg * 1.05 / 500) * 500
+    target = max(4000, min(20000, target))
+    return {"target": target, "trailing_avg": round(avg), "fixed_default": 10000}
+
+
 def overtraining_risk(db: Session) -> dict | None:
     """Composite illness/overtraining risk — a single weighted score instead
     of separate single-metric anomaly checks. The real value of combining

@@ -162,7 +162,9 @@ export default function Dashboard() {
             <StatTile label="Stress now" value={current?.stress ?? s.stress} color={COLORS.strength}
               hint={current?.stress != null ? `today's avg ${s.stress ?? "—"}` : "today's avg"} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
-              hint={s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
+              hint={extra?.adaptive_step_goal
+                ? `adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}`
+                : s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
@@ -266,7 +268,8 @@ export default function Dashboard() {
 
     steps_intraday: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.muted} title="Steps" sub="daily · 30 days">
+        <Panel accent={COLORS.muted} title="Steps"
+          sub={extra?.adaptive_step_goal ? `daily · 30 days · adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}` : "daily · 30 days"}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
@@ -276,13 +279,14 @@ export default function Dashboard() {
               <Tooltip content={<ChartTip />} cursor={{ fill: "#ffffff08" }} />
               <Bar dataKey="steps" name="Steps" radius={[3, 3, 0, 0]} maxBarSize={16}>
                 {d.health_trend.map((r, i) => (
-                  <Cell key={i} fill={(r.steps || 0) >= 10000 ? COLORS.recovery : COLORS.muted} />
+                  <Cell key={i} fill={(r.steps || 0) >= (extra?.adaptive_step_goal?.target || 10000) ? COLORS.recovery : COLORS.muted} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
           <p className="mt-2 text-center text-[11px] text-faint">
-            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} /> 10k+ goal met
+            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} />
+            {extra?.adaptive_step_goal ? `${fmtNum(extra.adaptive_step_goal.target)}+ adaptive goal met` : "10k+ goal met"}
           </p>
         </Panel>
 

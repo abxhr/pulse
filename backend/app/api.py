@@ -90,6 +90,7 @@ def dashboard_extra(db: Session = Depends(get_session)):
         "training_load_ratio": analytics.training_load_ratio(db),
         "weather": weather_svc.current_weather(),
         "overtraining_risk": analytics.overtraining_risk(db),
+        "adaptive_step_goal": analytics.adaptive_step_goal(db),
     }
 
 
