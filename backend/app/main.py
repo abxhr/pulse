@@ -93,12 +93,32 @@ def healthcheck():
     return {"ok": True, "service": "pulse"}
 
 
+class _NoCacheHTMLStaticFiles(StaticFiles):
+    """StaticFiles that never lets the browser cache index.html without revalidating.
+
+    Vite's hashed /assets/*.js files are safe to cache forever (a new build gets a
+    new filename), but index.html references those hashes by name. With no
+    Cache-Control header at all, browsers apply heuristic caching to index.html and
+    can silently keep serving a stale document (with old asset hashes that 404 after
+    a new build) for a long time with zero revalidation — this is what caused the
+    old bundle to keep loading in fresh tabs even after the SW fix and a restart.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if path in ("", "index.html") or response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["Cache-Control"] = "no-cache"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 # Serve the built frontend if present (frontend/dist). This gives you a SINGLE
 # process / single URL — ideal for a Raspberry Pi. During dev you can instead run
 # Vite separately on :5173. Build it with:  cd frontend && npm run build
 _dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if settings.serve_frontend and _dist.exists():
-    app.mount("/", StaticFiles(directory=str(_dist), html=True), name="static")
+    app.mount("/", _NoCacheHTMLStaticFiles(directory=str(_dist), html=True), name="static")
     log.info("Serving frontend from %s", _dist)
 
 

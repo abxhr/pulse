@@ -13,6 +13,7 @@ import Nutrition from "./views/Nutrition";
 import Insights from "./views/Insights";
 import Reports from "./views/Reports";
 import Changelog from "./components/Changelog";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
@@ -177,12 +178,14 @@ export default function App() {
           </div>
         </header>
 
-        <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6" key={view}>
-          {view === "insights"
-            ? <Insights aiStatus={conn?.ai} />
-            : view === "nutrition"
-            ? <Nutrition aiStatus={conn?.ai} />
-            : Current && <Current />}
+        <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+          <ErrorBoundary key={view} resetKey={view}>
+            {view === "insights"
+              ? <Insights aiStatus={conn?.ai} />
+              : view === "nutrition"
+              ? <Nutrition aiStatus={conn?.ai} />
+              : Current && <Current />}
+          </ErrorBoundary>
         </main>
       </div>
 

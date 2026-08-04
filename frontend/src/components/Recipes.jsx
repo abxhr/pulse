@@ -236,7 +236,7 @@ function RecipeCard({ r, onChanged }) {
 
 export default function Recipes({ aiStatus }) {
   const [list, setList] = useState(null);
-  const refresh = () => api.recipes().then(setList).catch(() => setList([]));
+  const refresh = () => { api.recipes().then(setList).catch(() => setList([])); };
   useEffect(refresh, []);
 
   return (

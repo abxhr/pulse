@@ -40,7 +40,15 @@ function MacroBar({ label, value, goal, unit, color }) {
   );
 }
 
-const EMPTY_MEAL = { name: "", meal_type: "lunch", calories: "", protein_g: "", carbs_g: "", fat_g: "" };
+function defaultMealType() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return "breakfast";
+  if (h >= 11 && h < 15) return "lunch";
+  if (h >= 15 && h < 17) return "snack";
+  if (h >= 17 && h < 21.5) return "dinner";
+  return "snack";
+}
+const emptyMeal = () => ({ name: "", meal_type: defaultMealType(), calories: "", protein_g: "", carbs_g: "", fat_g: "" });
 
 function MacroInputs({ form, onChange }) {
   return (
@@ -146,7 +154,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState("manual"); // manual | scan
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState(EMPTY_MEAL);
+  const [form, setForm] = useState(emptyMeal);
   const [estimate, setEstimate] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
@@ -180,7 +188,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
   }
 
   function reset() {
-    setForm(EMPTY_MEAL);
+    setForm(emptyMeal());
     setEstimate(null);
     setEditingId(null);
     setMode("manual");
@@ -212,11 +220,11 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
   if (!open) {
     return (
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => { setOpen(true); setMode("manual"); }}
+        <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("manual"); }}
           className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
           <Plus size={16} /> Log a meal
         </button>
-        <button onClick={() => { setOpen(true); setMode("scan"); }}
+        <button onClick={() => { setForm(emptyMeal()); setOpen(true); setMode("scan"); }}
           className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
           <Camera size={16} /> Scan a meal
         </button>

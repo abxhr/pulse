@@ -1,4 +1,4 @@
-const CACHE = "pulse-shell-v1";
+const CACHE = "pulse-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -15,13 +15,19 @@ self.addEventListener("activate", (e) => {
 
 // Network-first for everything (API calls must never serve stale cache); falls back
 // to the cached shell only when fully offline, so the app still opens.
+//
+// `cache: "no-store"` is the important part here — without it, `fetch()` can be
+// silently satisfied from the *browser's own* HTTP cache (not our Cache Storage),
+// which happily returns a stale index.html/JS bundle referencing an old build even
+// though this handler "looks" network-first. That let a genuinely fixed crash bug
+// keep reappearing after every deploy until a hard refresh — this is why.
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
   if (url.pathname.startsWith("/api/")) return; // never cache API responses
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: "no-store" })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));

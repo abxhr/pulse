@@ -58,7 +58,18 @@ def trend(db: Session, days: int = 90) -> list[dict]:
     rows = db.execute(
         select(BodyWeight).where(BodyWeight.date >= start).order_by(BodyWeight.date)
     ).scalars().all()
-    return [_serialize(r) for r in rows]
+    out = [_serialize(r) for r in rows]
+
+    # A raw day-to-day weight line is dominated by water/food/sodium noise (1-2kg
+    # swings are normal) and makes the trend illegible. Add a 7-day-equivalent EMA
+    # (alpha = 2/(7+1)) alongside the raw points so the UI can plot a smoothed line
+    # without hiding the actual logged values.
+    alpha = 2 / (7 + 1)
+    ema = None
+    for r in out:
+        ema = r["weight_kg"] if ema is None else alpha * r["weight_kg"] + (1 - alpha) * ema
+        r["trend_kg"] = round(ema, 2)
+    return out
 
 
 def get_goal(db: Session) -> dict | None:

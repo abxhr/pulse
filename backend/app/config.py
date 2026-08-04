@@ -55,5 +55,10 @@ class Settings(BaseSettings):
     serve_frontend: bool = True    # serve the built frontend from FastAPI (single process, one URL)
     cors_origins: str = "*"        # with single-process serving, same-origin; "*" is fine on a home LAN
 
+    # --- Overview extras ---
+    sleep_target_hours: float = 8.0   # nightly sleep need used for the sleep-debt tracker
+    latitude: float | None = None     # set these to enable the weather card on the readiness panel
+    longitude: float | None = None    # (Open-Meteo needs no API key, just a location)
+
 
 settings = Settings()

@@ -367,3 +367,153 @@ def race_predictions(db: Session) -> dict | None:
 def _week_key(d: date) -> str:
     iso = d.isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"
+
+
+def sleep_debt(db: Session, days: int = 14, target_hours: float = 8.0) -> dict:
+    """Running deficit/surplus vs. nightly sleep need over a trailing window.
+    A single bad night is normal; a growing debt across two weeks is the thing
+    worth actually flagging."""
+    trend = sleep_trend(db, days)
+    nights = [r for r in trend if r["total_h"]]
+    daily = [
+        {"date": r["date"], "slept_h": r["total_h"], "delta_h": round(r["total_h"] - target_hours, 2)}
+        for r in nights
+    ]
+    debt_h = round(sum(-d["delta_h"] for d in daily), 1) if daily else 0.0
+    return {
+        "target_hours": target_hours,
+        "nights_tracked": len(daily),
+        "debt_hours": debt_h,  # positive = behind on sleep, negative = ahead
+        "avg_hours": _avg([d["slept_h"] for d in daily]),
+        "daily": daily,
+    }
+
+
+def _std(vals: list[float]) -> float | None:
+    if len(vals) < 2:
+        return None
+    m = sum(vals) / len(vals)
+    return (sum((v - m) ** 2 for v in vals) / len(vals)) ** 0.5
+
+
+def anomaly_alerts(db: Session, days: int = 30) -> list[dict]:
+    """Flags today's resting HR / HRV as anomalous when they deviate >1.5 SD from
+    the trailing baseline (today excluded from the baseline itself, so a bad day
+    doesn't dilute its own reference point)."""
+    trend = health_trend(db, days + 1)
+    if len(trend) < 8:
+        return []
+    *history, latest = trend
+    alerts = []
+    for key, label, higher_is_bad in (("resting_hr", "Resting HR", True), ("hrv", "HRV", False)):
+        baseline = [r[key] for r in history if r[key] is not None]
+        today_val = latest[key]
+        if today_val is None or len(baseline) < 7:
+            continue
+        mean = sum(baseline) / len(baseline)
+        sd = _std(baseline)
+        if not sd:
+            continue
+        z = (today_val - mean) / sd
+        if abs(z) < 1.5:
+            continue
+        bad = (z > 0) if higher_is_bad else (z < 0)
+        alerts.append({
+            "metric": key,
+            "label": label,
+            "value": today_val,
+            "baseline_mean": round(mean, 1),
+            "baseline_sd": round(sd, 1),
+            "z_score": round(z, 2),
+            "direction": "up" if z > 0 else "down",
+            "severity": "warn" if bad else "info",
+        })
+    return alerts
+
+
+_WHAT_CHANGED_METRICS = [
+    ("resting_hr", "Resting HR", "bpm", False),
+    ("hrv", "HRV", "ms", True),
+    ("readiness", "Readiness", "", True),
+    ("stress", "Stress", "", False),
+    ("steps", "Steps", "", True),
+]
+
+
+def what_changed(db: Session, days: int = 7) -> dict | None:
+    """One-line callout for the single metric that moved the most vs. its own
+    trailing average — a cheap way to surface the day's most notable signal
+    without the user having to scan every chart themselves."""
+    trend = health_trend(db, days + 1)
+    if len(trend) < 4:
+        return None
+    *history, latest = trend
+    best = None
+    for key, label, unit, higher_is_good in _WHAT_CHANGED_METRICS:
+        hist_vals = [r[key] for r in history if r[key] is not None]
+        today_val = latest[key]
+        if today_val is None or len(hist_vals) < 3:
+            continue
+        avg = sum(hist_vals) / len(hist_vals)
+        if avg == 0:
+            continue
+        pct = (today_val - avg) / abs(avg) * 100
+        if best is None or abs(pct) > abs(best["pct_change"]):
+            best = {
+                "metric": key, "label": label, "unit": unit,
+                "today": today_val, "avg": round(avg, 1),
+                "pct_change": round(pct, 1),
+                "direction": "up" if pct > 0 else "down",
+                "good": (pct > 0) == higher_is_good,
+            }
+    if not best or abs(best["pct_change"]) < 5:
+        return None
+    arrow = "up" if best["direction"] == "up" else "down"
+    best["summary"] = (
+        f"{best['label']} is {arrow} {abs(best['pct_change'])}% vs your {days}-day average "
+        f"({best['today']}{best['unit']} vs {best['avg']}{best['unit']})"
+    )
+    return best
+
+
+def training_load_ratio(db: Session) -> dict | None:
+    """Acute:chronic workload ratio (7-day load ÷ 28-day-average-as-a-week) — the
+    standard sports-science injury-risk heuristic. >1.5 means recent load has
+    spiked well past what the body's adapted to; <0.8 means detraining."""
+    start = date.today() - timedelta(days=28)
+    acts = db.execute(select(Activity).where(Activity.date >= start)).scalars().all()
+    wkos = db.execute(select(Workout).where(Workout.date >= start)).scalars().all()
+
+    def _load_for(d0: date, d1: date) -> float:
+        # A simple composite: running distance (km) weighted like a light session,
+        # plus strength volume scaled down to a comparable magnitude.
+        load = 0.0
+        for a in acts:
+            if a.date and d0 <= a.date <= d1:
+                load += (a.distance_m or 0) / 1000 * 10
+        for w in wkos:
+            if w.date and d0 <= w.date <= d1:
+                load += (w.volume_kg or 0) / 100
+        return load
+
+    today = date.today()
+    acute = _load_for(today - timedelta(days=6), today)
+    chronic_total = _load_for(today - timedelta(days=27), today)
+    chronic_weekly_avg = chronic_total / 4
+    if chronic_weekly_avg <= 0:
+        return None
+    ratio = round(acute / chronic_weekly_avg, 2)
+    if ratio < 0.8:
+        zone = "undertraining"
+    elif ratio <= 1.3:
+        zone = "sweet_spot"
+    elif ratio <= 1.5:
+        zone = "caution"
+    else:
+        zone = "high_risk"
+    return {
+        "acute_7d": round(acute, 0),
+        "chronic_28d_weekly_avg": round(chronic_weekly_avg, 0),
+        "ratio": ratio,
+        "zone": zone,
+    }

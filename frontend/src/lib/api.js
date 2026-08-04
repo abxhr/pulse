@@ -15,6 +15,7 @@ async function req(path, opts = {}) {
 export const api = {
   status: () => req("/status"),
   dashboard: () => req("/dashboard"),
+  dashboardExtra: () => req("/dashboard/extra"),
   healthTrend: (days = 30) => req(`/health/trend?days=${days}`),
   sleepTrend: (days = 30) => req(`/sleep/trend?days=${days}`),
   sleepConsistency: (days = 30) => req(`/sleep/consistency?days=${days}`),

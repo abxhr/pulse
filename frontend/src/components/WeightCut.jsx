@@ -215,7 +215,7 @@ export default function WeightCut() {
 
         {trend.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="Current" value={fmtNum(latest.weight_kg, 1)} unit="kg" color={COLORS.effort} />
+            <StatTile label="Trend" value={fmtNum(latest.trend_kg, 1)} unit="kg" color={COLORS.effort} />
             {rec?.projection && (
               <>
                 <StatTile label="Trend rate" value={fmtNum(rec.projection.weekly_rate_kg, 2)} unit="kg/wk"
@@ -237,7 +237,8 @@ export default function WeightCut() {
               {goal?.target_weight_kg && (
                 <ReferenceLine y={goal.target_weight_kg} stroke={COLORS.recovery} strokeDasharray="4 4" label={{ value: "goal", fill: COLORS.recovery, fontSize: 10 }} />
               )}
-              <Line type="monotone" dataKey="weight_kg" name="Weight" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="linear" dataKey="weight_kg" name="Weight (logged)" stroke={COLORS.effort} strokeWidth={1} strokeOpacity={0.35} dot={{ r: 2, fillOpacity: 0.5 }} connectNulls />
+              <Line type="monotone" dataKey="trend_kg" name="Trend (7d)" stroke={COLORS.effort} strokeWidth={2.5} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         ) : trend.length === 1 ? (

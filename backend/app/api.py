@@ -16,7 +16,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -72,6 +72,19 @@ def dashboard(db: Session = Depends(get_session)):
         "activities": analytics.recent_activities(db, 8),
         "training_load": analytics.training_load(db, 12),
         "strength": analytics.strength_summary(db, 8),
+    }
+
+
+@router.get("/dashboard/extra")
+def dashboard_extra(db: Session = Depends(get_session)):
+    """Secondary Overview widgets that are a bit heavier to compute — split out
+    of /dashboard so the main hero panel stays fast."""
+    return {
+        "sleep_debt": analytics.sleep_debt(db, target_hours=settings.sleep_target_hours),
+        "anomalies": analytics.anomaly_alerts(db),
+        "what_changed": analytics.what_changed(db),
+        "training_load_ratio": analytics.training_load_ratio(db),
+        "weather": weather_svc.current_weather(),
     }
 
 

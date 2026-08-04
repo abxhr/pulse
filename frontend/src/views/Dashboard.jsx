@@ -12,6 +12,9 @@ import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives"
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import IntradayChart from "../components/IntradayChart";
+import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, WeatherChip } from "../components/OverviewExtras";
+import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
+import { useDashboardLayout } from "../lib/useDashboardLayout";
 
 function DailyInsight() {
   const [insight, setInsight] = useState(null);
@@ -87,13 +90,27 @@ function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate 
   );
 }
 
+const SECTIONS = [
+  { id: "briefing", label: "Today's briefing" },
+  { id: "hero", label: "Readiness + Vitals" },
+  { id: "insights", label: "Sleep debt, load ratio & alerts" },
+  { id: "recovery_sleep", label: "Recovery & Sleep charts" },
+  { id: "steps_intraday", label: "Steps & intraday" },
+  { id: "readiness_trend", label: "Training readiness trend" },
+  { id: "training_load", label: "Training load & recent sessions" },
+];
+const DEFAULT_ORDER = SECTIONS.map((s) => s.id);
+
 export default function Dashboard() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
   const [current, setCurrent] = useState(null);
+  const [extra, setExtra] = useState(null);
+  const [showLayout, setShowLayout] = useState(false);
 
   useEffect(() => {
     api.dashboard().then(setD).catch((e) => setErr(String(e)));
+    api.dashboardExtra().then(setExtra).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -106,6 +123,7 @@ export default function Dashboard() {
   const recoveryToggle = useSeriesToggle();
   const sleepToggle = useSeriesToggle();
   const loadToggle = useSeriesToggle();
+  const layout = useDashboardLayout(DEFAULT_ORDER);
 
   if (err) return <Empty title="Couldn't load dashboard" body={err} />;
   if (!d) return <Loading />;
@@ -113,13 +131,13 @@ export default function Dashboard() {
   const s = d.snapshot;
   const bb = s.body_battery_high;
 
-  return (
-    <div className="space-y-4">
-      <DailyInsight />
+  const sections = {
+    briefing: <DailyInsight />,
 
-      {/* hero */}
+    hero: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
-        <Panel accent={COLORS.recovery} title="Today" sub={s.date || "no data yet"}>
+        <Panel accent={COLORS.recovery} title="Today" sub={s.date || "no data yet"}
+          right={extra?.weather ? <WeatherChip data={extra.weather} /> : null}>
           <div className="flex items-center justify-center py-2">
             <ReadinessRing
               score={s.training_readiness}
@@ -178,8 +196,20 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>
+    ),
 
-      {/* trends row */}
+    insights: extra ? (
+      <div className="space-y-3">
+        <WhatChangedBanner data={extra.what_changed} />
+        <AnomalyAlerts alerts={extra.anomalies} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <SleepDebtCard data={extra.sleep_debt} />
+          <LoadRatioCard data={extra.training_load_ratio} />
+        </div>
+      </div>
+    ) : null,
+
+    recovery_sleep: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.recovery} title="Recovery" sub="HRV vs resting HR · 30 days">
           <ResponsiveContainer width="100%" height={200}>
@@ -231,7 +261,9 @@ export default function Dashboard() {
           ]} {...sleepToggle} />
         </Panel>
       </div>
+    ),
 
+    steps_intraday: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.muted} title="Steps" sub="daily · 30 days">
           <ResponsiveContainer width="100%" height={200}>
@@ -255,7 +287,9 @@ export default function Dashboard() {
 
         <IntradayChart />
       </div>
+    ),
 
+    readiness_trend: (
       <Panel accent={COLORS.recovery} title="Training readiness" sub="30 days">
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
@@ -274,8 +308,9 @@ export default function Dashboard() {
           </AreaChart>
         </ResponsiveContainer>
       </Panel>
+    ),
 
-      {/* training load + activities */}
+    training_load: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Panel accent={COLORS.cardio} title="Training load" sub="weekly run km + strength volume · 12 weeks">
           <ResponsiveContainer width="100%" height={220}>
@@ -327,6 +362,19 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>
+    ),
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <CustomizeButton onClick={() => setShowLayout(true)} />
+      </div>
+      <LayoutSettings open={showLayout} onClose={() => setShowLayout(false)} sections={SECTIONS} layout={layout} />
+
+      {layout.order.filter((id) => !layout.hidden.includes(id)).map((id) => (
+        <div key={id}>{sections[id]}</div>
+      ))}
     </div>
   );
 }

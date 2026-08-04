@@ -198,7 +198,11 @@ def fetch_activities(client, start: date, end: date) -> list[dict]:
         dur = a.get("duration")
         atype = _g(a, "activityType", "typeKey")
         pace = None
-        if dist and dur and dist > 0:
+        # Below ~300m the recorded distance is almost always a GPS/footpod glitch
+        # (treadmill runs without a footpod, indoor activities logged with near-zero
+        # distance) rather than a real short effort — dividing by it produces
+        # nonsense paces like "1192:19/km". Leave pace unset rather than lie.
+        if dist and dur and dist >= 300:
             pace = dur / (dist / 1000.0)  # seconds per km
         out.append({
             "id": str(a.get("activityId")),

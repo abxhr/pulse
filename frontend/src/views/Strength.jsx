@@ -35,6 +35,7 @@ function WeekHeatmap({ week }) {
 
 function ExerciseProgression({ wkos }) {
   const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
 
   const byExercise = useMemo(() => {
     const map = new Map();
@@ -51,7 +52,7 @@ function ExerciseProgression({ wkos }) {
           const e1rm = weight * (1 + reps / 30); // Epley formula
           if (e1rm > best.e1rm) best = { weight_kg: weight, reps, e1rm };
         }
-        if (!map.has(ex.title)) map.set(ex.title, { entries: [], totalVolume: 0 });
+        if (!map.has(ex.title)) map.set(ex.title, { entries: [], totalVolume: 0, muscle: ex.muscle_group || "other" });
         const rec = map.get(ex.title);
         rec.entries.push({ date: w.date, best_kg: best.weight_kg, e1rm: Math.round(best.e1rm), volume });
         rec.totalVolume += volume;
@@ -61,22 +62,49 @@ function ExerciseProgression({ wkos }) {
     return map;
   }, [wkos]);
 
-  const options = useMemo(
+  // Grouped by muscle (each group sorted by volume) when not searching; a flat
+  // volume-sorted, name-filtered list when searching — 40+ exercises in one flat
+  // alphabetical dropdown was unusable once your log got long.
+  const groups = useMemo(() => {
+    const byMuscle = new Map();
+    for (const [name, rec] of byExercise.entries()) {
+      if (!byMuscle.has(rec.muscle)) byMuscle.set(rec.muscle, []);
+      byMuscle.get(rec.muscle).push({ name, totalVolume: rec.totalVolume });
+    }
+    for (const list of byMuscle.values()) list.sort((a, b) => b.totalVolume - a.totalVolume);
+    return [...byMuscle.entries()].sort((a, b) =>
+      Math.max(...b[1].map((x) => x.totalVolume)) - Math.max(...a[1].map((x) => x.totalVolume))
+    );
+  }, [byExercise]);
+
+  const flatOptions = useMemo(
     () => [...byExercise.entries()].sort((a, b) => b[1].totalVolume - a[1].totalVolume).map(([name]) => name),
     [byExercise]
   );
-  const active = selected && byExercise.has(selected) ? selected : options[0];
+  const filtered = search.trim()
+    ? flatOptions.filter((n) => n.toLowerCase().includes(search.trim().toLowerCase()))
+    : null;
+
+  const active = selected && byExercise.has(selected) ? selected : flatOptions[0];
   const entries = active ? byExercise.get(active).entries : [];
   const last = entries[entries.length - 1];
   const first = entries[0];
 
-  if (!options.length) return null;
+  if (!flatOptions.length) return null;
 
   return (
     <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley) · best set weight per session">
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercises…"
+        className="mb-2 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-strength/50 focus:outline-none" />
       <select value={active} onChange={(e) => setSelected(e.target.value)}
         className="mb-3 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt focus:border-strength/50 focus:outline-none">
-        {options.map((name) => <option key={name} value={name}>{name}</option>)}
+        {filtered
+          ? filtered.map((name) => <option key={name} value={name}>{name}</option>)
+          : groups.map(([muscle, list]) => (
+              <optgroup key={muscle} label={muscle}>
+                {list.map(({ name }) => <option key={name} value={name}>{name}</option>)}
+              </optgroup>
+            ))}
       </select>
 
       {entries.length >= 2 ? (
