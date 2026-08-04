@@ -335,6 +335,51 @@ def fetch_route(client, activity_id: str) -> list[dict] | None:
     ]
 
 
+def _minetti_cost(grade: float) -> float:
+    """Energy cost of running (J/kg/m) at a given gradient — Minetti et al. 2002,
+    the standard basis for grade-adjusted pace calculators. grade is a decimal
+    (0.05 = 5% incline)."""
+    i = max(-0.45, min(0.45, grade))  # model is only validated in this range
+    return 155.4 * i**5 - 30.4 * i**4 - 43.3 * i**3 + 46.3 * i**2 + 19.5 * i + 3.6
+
+
+def fetch_splits(client, activity_id: str) -> list[dict] | None:
+    """Per-km/mile splits for one activity — fetched on demand like the route,
+    not stored in bulk sync. Includes grade-adjusted pace (GAP): the flat-ground
+    pace that would cost the same effort, via the Minetti running-cost model —
+    raw pace alone is misleading on hilly splits."""
+    try:
+        data = client.get_activity_splits(activity_id)
+    except Exception as e:
+        log.debug("activity_splits %s: %s", activity_id, e)
+        return None
+    splits = data.get("lapDTOs") if isinstance(data, dict) else None
+    if not splits:
+        return None
+    flat_cost = _minetti_cost(0)
+    out = []
+    for i, s in enumerate(splits):
+        dist, dur = s.get("distance"), s.get("duration")
+        pace = (dur / (dist / 1000)) if dist and dur else None
+        gap = None
+        if pace and dist:
+            gain, loss = s.get("elevationGain") or 0, s.get("elevationLoss") or 0
+            grade = (gain - loss) / dist
+            cost = _minetti_cost(grade)
+            gap = round(pace * cost / flat_cost) if cost > 0 else pace
+        out.append({
+            "index": i + 1,
+            "distance_m": dist,
+            "duration_s": dur,
+            "pace_s_per_km": pace,
+            "gap_s_per_km": gap,
+            "avg_hr": s.get("averageHR"),
+            "elevation_gain_m": s.get("elevationGain"),
+            "elevation_loss_m": s.get("elevationLoss"),
+        })
+    return out
+
+
 def make_client():
     """Public entry: returns a logged-in client or raises GarminUnavailable."""
     return _client()

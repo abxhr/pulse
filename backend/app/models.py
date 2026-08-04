@@ -92,6 +92,7 @@ class Activity(Base):
     anaerobic_te: Mapped[float | None] = mapped_column(Float)
     vo2max: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(16), default="garmin")
+    shoe_id: Mapped[int | None] = mapped_column(Integer)
     raw: Mapped[dict | None] = mapped_column(JSON)
 
 
@@ -180,6 +181,31 @@ class CutGoal(Base):
     weekly_rate_kg: Mapped[float | None] = mapped_column(Float)  # negative = losing, positive = gaining
     active: Mapped[bool] = mapped_column(default=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RaceGoal(Base):
+    """A target race — drives the countdown badge and taper plan on Cardio."""
+    __tablename__ = "race_goal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    race_date: Mapped[date_t] = mapped_column(Date)
+    distance_type: Mapped[str] = mapped_column(String(16))  # 5k|10k|half_marathon|marathon
+    target_time_s: Mapped[int | None] = mapped_column(Integer)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Shoe(Base):
+    """A pair of running shoes, for cumulative mileage tracking."""
+    __tablename__ = "shoe"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    start_date: Mapped[date_t] = mapped_column(Date)
+    target_km: Mapped[float] = mapped_column(Float, default=700.0)
+    retired: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Recipe(Base):

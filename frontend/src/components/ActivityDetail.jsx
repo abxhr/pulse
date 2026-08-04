@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Sparkles } from "lucide-react";
+import { Sparkles, ListOrdered, Footprints, Thermometer } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta } from "../lib/format";
 import { Modal, StatTile, Chip, Loading } from "./primitives";
@@ -39,6 +39,86 @@ function ExplainRun({ a }) {
   );
 }
 
+function SplitsTable({ activityId }) {
+  const [splits, setSplits] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  function toggle() {
+    if (!open && !splits) {
+      api.activitySplits(activityId).then((r) => setSplits(r.splits)).catch(() => setSplits([]));
+    }
+    setOpen((o) => !o);
+  }
+
+  return (
+    <div>
+      <button onClick={toggle}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-line py-2 text-xs text-muted transition hover:border-cardio/40 hover:text-cardio">
+        <ListOrdered size={13} /> {open ? "Hide splits" : "Show splits"}
+      </button>
+      {open && (
+        splits === null ? (
+          <p className="mt-2 text-center text-xs text-faint">loading…</p>
+        ) : splits.length ? (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                  <th className="py-1.5 pr-2 font-medium">#</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">Dist</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">Pace</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">GAP</th>
+                  <th className="py-1.5 text-right font-medium">HR</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono tnum">
+                {splits.map((s) => (
+                  <tr key={s.index} className="border-b border-line/40">
+                    <td className="py-1.5 pr-2 text-muted">{s.index}</td>
+                    <td className="py-1.5 pr-2 text-right text-txt">{fmtNum((s.distance_m || 0) / 1000, 2)}</td>
+                    <td className="py-1.5 pr-2 text-right text-cardio">{s.pace_s_per_km ? fmtPace(s.pace_s_per_km) : "—"}</td>
+                    <td className="py-1.5 pr-2 text-right text-recovery">{s.gap_s_per_km ? fmtPace(s.gap_s_per_km) : "—"}</td>
+                    <td className="py-1.5 text-right text-effort">{s.avg_hr ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-2 text-center text-xs text-faint">No split data for this activity.</p>
+        )
+      )}
+    </div>
+  );
+}
+
+function ShoePicker({ activityId, shoeId }) {
+  const [shoes, setShoes] = useState(null);
+  const [current, setCurrent] = useState(shoeId);
+  useEffect(() => { api.shoes().then(setShoes).catch(() => setShoes([])); }, []);
+  useEffect(() => setCurrent(shoeId), [shoeId]);
+
+  async function change(e) {
+    const val = e.target.value ? Number(e.target.value) : null;
+    setCurrent(val);
+    await api.assignShoe(activityId, val);
+  }
+
+  if (!shoes?.length) return null;
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted">
+      <Footprints size={14} className="text-faint" />
+      <select value={current ?? ""} onChange={change}
+        className="rounded-lg border border-line bg-ink px-2 py-1 text-xs text-txt focus:outline-none">
+        <option value="">No shoe assigned</option>
+        {shoes.filter((s) => !s.retired || s.id === current).map((s) => (
+          <option key={s.id} value={s.id}>{s.name}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function ActivityDetail({ id, onClose }) {
   const [a, setA] = useState(null);
   useEffect(() => {
@@ -71,6 +151,9 @@ export default function ActivityDetail({ id, onClose }) {
             <StatTile label="Distance" value={a.distance_km || "—"} unit="km" color={COLORS.cardio} />
             <StatTile label="Duration" value={fmtDuration((a.moving_duration_min || a.duration_min) * 60)} color={COLORS.cardio} />
             <StatTile label="Pace" value={a.pace_per_km ? fmtPace(a.pace_per_km) : "—"} color={COLORS.cardio} />
+            {a.gap_pace_per_km != null && a.gap_pace_per_km !== a.pace_per_km && (
+              <StatTile label="Grade-adj. pace" value={fmtPace(a.gap_pace_per_km)} color={COLORS.recovery} hint="flat-effort equivalent" />
+            )}
             <StatTile label="Avg HR" value={a.avg_hr} unit="bpm" color={COLORS.effort} />
             <StatTile label="Max HR" value={a.max_hr} unit="bpm" color={COLORS.effort} />
             <StatTile label="Calories" value={fmtNum(a.calories)} color={COLORS.strength} />
@@ -110,15 +193,26 @@ export default function ActivityDetail({ id, onClose }) {
             </div>
           )}
 
-          {(a.min_temperature != null || a.lap_count) && (
+          {(a.min_temperature != null || a.lap_count || a.weather) && (
             <div className="flex flex-wrap gap-4 border-t border-line pt-3 text-xs text-muted">
               {a.lap_count && <span>{a.lap_count} laps</span>}
               {a.min_temperature != null && <span>{fmtNum(a.min_temperature)}–{fmtNum(a.max_temperature)}°C</span>}
               {(a.moderate_intensity_min || a.vigorous_intensity_min) && (
                 <span>{fmtNum(a.moderate_intensity_min)}m moderate · {fmtNum(a.vigorous_intensity_min)}m vigorous</span>
               )}
+              {a.weather && (
+                <span className="flex items-center gap-1">
+                  <Thermometer size={12} /> {fmtNum(a.weather.temperature_c, 0)}°C
+                  {a.weather.humidity_pct != null && ` · ${fmtNum(a.weather.humidity_pct, 0)}% humidity`}
+                  {a.weather.temperature_c >= 32 && <span className="text-effort"> — hot effort, pace naturally suffers</span>}
+                </span>
+              )}
             </div>
           )}
+
+          {(a.type || "").includes("run") && <ShoePicker activityId={a.id} shoeId={a.shoe_id} />}
+
+          {(a.type || "").includes("run") && a.distance_km > 0 && <SplitsTable activityId={a.id} />}
 
           {(a.type || "").includes("run") && <ExplainRun a={a} />}
         </div>

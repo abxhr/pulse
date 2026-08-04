@@ -9,6 +9,7 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
+import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker } from "../components/CardioExtras";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
@@ -83,6 +84,9 @@ export default function Training() {
         <StatTile label="Current VO₂max" value={vo2.length ? fmtNum(vo2[vo2.length - 1].vo2max, 1) : "—"} color={COLORS.recovery} />
         <StatTile label="Avg HR (runs)" value={fmtNum(runs.reduce((s, a) => s + (a.avg_hr || 0), 0) / (runs.length || 1))} unit="bpm" color={COLORS.effort} />
       </div>
+
+      <RaceGoalCard />
+      <OverloadWarnings />
 
       <RacePredictions data={predictions} />
 
@@ -170,6 +174,11 @@ export default function Training() {
             </ResponsiveContainer>
           ) : <Empty title="No pace data yet" body="Outdoor runs with GPS populate this." />}
         </Panel>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <RepeatRoutes />
+        <ShoeTracker />
       </div>
 
       <IntradayChart />

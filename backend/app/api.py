@@ -16,7 +16,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -172,6 +172,11 @@ def activity_detail(activity_id: str, db: Session = Depends(get_session)):
     zones = {
         f"zone_{i}_min": round((raw.get(f"hrTimeInZone_{i}") or 0) / 60, 1) for i in range(1, 6)
     }
+    gap_pace = None
+    if a.avg_pace_s_per_km and a.distance_m:
+        grade = ((a.elevation_gain_m or 0) - (raw.get("elevationLoss") or 0)) / a.distance_m
+        cost, flat = gc._minetti_cost(grade), gc._minetti_cost(0)
+        gap_pace = round(a.avg_pace_s_per_km * cost / flat) if cost > 0 else None
     return {
         "id": a.id, "date": a.date.isoformat() if a.date else None,
         "start_time": a.start_time.isoformat() if a.start_time else None,
@@ -180,7 +185,7 @@ def activity_detail(activity_id: str, db: Session = Depends(get_session)):
         "duration_min": round((a.duration_s or 0) / 60, 1),
         "moving_duration_min": round((a.moving_duration_s or 0) / 60, 1) if a.moving_duration_s else None,
         "avg_hr": a.avg_hr, "max_hr": a.max_hr,
-        "pace_per_km": a.avg_pace_s_per_km, "avg_speed_mps": a.avg_speed_mps,
+        "pace_per_km": a.avg_pace_s_per_km, "gap_pace_per_km": gap_pace, "avg_speed_mps": a.avg_speed_mps,
         "calories": a.calories, "elevation_gain_m": a.elevation_gain_m,
         "avg_cadence": a.avg_cadence, "aerobic_te": a.aerobic_te, "anaerobic_te": a.anaerobic_te,
         "vo2max": a.vo2max, "source": a.source,
@@ -196,6 +201,8 @@ def activity_detail(activity_id: str, db: Session = Depends(get_session)):
         "hr_zones_min": zones,
         "splits": raw.get("splitSummaries") or [],
         "has_route": bool(raw.get("hasPolyline")),
+        "shoe_id": a.shoe_id,
+        "weather": weather_svc.historical_weather(a.date) if a.date and "run" in (a.activity_type or "") else None,
     }
 
 
@@ -212,6 +219,21 @@ def activity_route(activity_id: str, db: Session = Depends(get_session)):
     if not points:
         raise HTTPException(status_code=404, detail="no route data for this activity")
     return {"points": points}
+
+
+@router.get("/activities/{activity_id}/splits")
+def activity_splits_route(activity_id: str, db: Session = Depends(get_session)):
+    a = db.get(Activity, activity_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="activity not found")
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    splits = gc.fetch_splits(client, activity_id)
+    if not splits:
+        raise HTTPException(status_code=404, detail="no split data for this activity")
+    return {"splits": splits}
 
 
 @router.get("/workouts/{workout_id}")
@@ -271,6 +293,62 @@ def training_load(weeks: int = 12, db: Session = Depends(get_session)):
 @router.get("/training/race-predictions")
 def race_predictions(db: Session = Depends(get_session)):
     return analytics.race_predictions(db) or {}
+
+
+@router.get("/training/race-goal")
+def get_race_goal(db: Session = Depends(get_session)):
+    return cardio_extras.taper_plan(db) or {}
+
+
+@router.post("/training/race-goal")
+def post_race_goal(body: dict = Body(...), db: Session = Depends(get_session)):
+    return cardio_extras.set_race_goal(
+        db, body["name"], date.fromisoformat(body["race_date"]), body["distance_type"],
+        body.get("target_time_s"),
+    )
+
+
+@router.delete("/training/race-goal")
+def delete_race_goal(db: Session = Depends(get_session)):
+    cardio_extras.clear_race_goal(db)
+    return {"ok": True}
+
+
+@router.get("/training/overload-warnings")
+def overload_warnings(weeks: int = 8, db: Session = Depends(get_session)):
+    return cardio_extras.overload_warnings(db, weeks)
+
+
+@router.get("/training/repeat-routes")
+def repeat_routes(db: Session = Depends(get_session)):
+    return cardio_extras.repeat_routes(db)
+
+
+@router.get("/shoes")
+def list_shoes(db: Session = Depends(get_session)):
+    return cardio_extras.list_shoes(db)
+
+
+@router.post("/shoes")
+def add_shoe(body: dict = Body(...), db: Session = Depends(get_session)):
+    return cardio_extras.add_shoe(
+        db, body["name"], date.fromisoformat(body.get("start_date") or date.today().isoformat()),
+        float(body.get("target_km") or 700),
+    )
+
+
+@router.post("/shoes/{shoe_id}/retire")
+def retire_shoe(shoe_id: int, db: Session = Depends(get_session)):
+    if not cardio_extras.retire_shoe(db, shoe_id):
+        raise HTTPException(status_code=404, detail="shoe not found")
+    return {"ok": True}
+
+
+@router.post("/activities/{activity_id}/shoe")
+def assign_shoe(activity_id: str, body: dict = Body(...), db: Session = Depends(get_session)):
+    if not cardio_extras.assign_shoe(db, activity_id, body.get("shoe_id")):
+        raise HTTPException(status_code=404, detail="activity not found")
+    return {"ok": True}
 
 
 # ---------- system ----------
