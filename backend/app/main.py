@@ -53,6 +53,14 @@ def _generate_daily_insight() -> None:
         db.close()
 
 
+def _run_backup() -> None:
+    from .services import backup
+    try:
+        backup.run_backup()
+    except Exception as e:
+        log.warning("Database backup failed: %s", e)
+
+
 def _run_push_checks() -> None:
     from .db import SessionLocal
     from .services import push
@@ -80,6 +88,7 @@ async def lifespan(app: FastAPI):
         )
         scheduler.add_job(_generate_daily_insight, "cron", hour=6, minute=0, id="pulse_daily_insight")
         scheduler.add_job(_run_push_checks, "interval", minutes=15, id="pulse_push_checks")
+        scheduler.add_job(_run_backup, "cron", hour=3, minute=30, id="pulse_backup")
         scheduler.start()
         log.info("Scheduler started: quick sync (%sd) every %smin, daily insight at 06:00",
                   settings.quick_sync_days, settings.sync_interval_minutes)

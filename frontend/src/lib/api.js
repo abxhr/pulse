@@ -122,4 +122,6 @@ export const api = {
   scheduledReport: () => req("/reports/scheduled"),
   refreshScheduledReport: () => req("/reports/scheduled/refresh", { method: "POST" }),
   comparisonReport: (weeks = 4) => req(`/reports/comparison?weeks=${weeks}`),
+  backups: () => req("/backups"),
+  runBackup: () => req("/backups/run", { method: "POST" }),
 };

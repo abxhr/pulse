@@ -20,7 +20,7 @@ from datetime import date
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -861,6 +861,19 @@ def export_json(db: Session = Depends(get_session)):
         content=json.dumps(data, indent=2), media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=pulse-export.json"},
     )
+
+
+@router.get("/backups")
+def list_backups():
+    return backup_svc.list_backups()
+
+
+@router.post("/backups/run")
+def run_backup_now():
+    path = backup_svc.run_backup()
+    if not path:
+        raise HTTPException(status_code=400, detail="backup not applicable (non-SQLite database)")
+    return {"ok": True, "file": path.name}
 
 
 @router.get("/export/csv/{table}")

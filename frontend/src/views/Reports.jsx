@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, TrendingDown, ImageDown, Download } from "lucide-react";
+import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, TrendingDown, ImageDown, Download, DatabaseBackup } from "lucide-react";
 import { api } from "../lib/api";
 import { Panel, StatTile, Chip } from "../components/primitives";
 import { COLORS, fmtNum } from "../lib/format";
@@ -109,6 +109,48 @@ function DataExportPanel() {
   );
 }
 
+function BackupsPanel() {
+  const [backups, setBackups] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.backups().then(setBackups).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function runNow() {
+    setBusy(true); setErr(null);
+    try { await api.runBackup(); await load(); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <Panel accent={COLORS.muted} title="Database backups" sub="nightly snapshot at 3:30am · last 14 kept"
+      right={
+        <button onClick={runNow} disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt disabled:opacity-50">
+          <DatabaseBackup size={13} className={busy ? "animate-pulse" : ""} /> {busy ? "Backing up…" : "Back up now"}
+        </button>
+      }>
+      {err && <p className="text-xs text-effort">{err}</p>}
+      {backups && backups.length === 0 && <p className="text-xs text-muted">No backups yet.</p>}
+      {backups && backups.length > 0 && (
+        <div className="space-y-1">
+          {backups.map((b) => (
+            <div key={b.name} className="flex items-center justify-between rounded-lg border border-line bg-panel2/40 px-3 py-1.5 text-xs">
+              <span className="font-mono text-txt">{b.name}</span>
+              <span className="flex items-center gap-3 text-faint">
+                <span>{b.size_mb} MB</span>
+                <span>{new Date(b.created_at).toLocaleString()}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function ShareImageButton({ summary, weeks }) {
   const canvasRef = useRef(null);
 
@@ -178,6 +220,7 @@ export default function Reports() {
       <ActivityCalendar />
       <ComparisonPanel weeks={weeks} />
       <DataExportPanel />
+      <BackupsPanel />
 
       <Panel accent={COLORS.strength} title="Generate report" sub="performance summary + AI narrative">
         <div className="flex flex-wrap items-center gap-3">
