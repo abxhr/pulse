@@ -44,6 +44,7 @@ export const api = {
   overloadWarnings: (weeks = 8) => req(`/training/overload-warnings?weeks=${weeks}`),
   trainingStressBalance: (days = 180) => req(`/training/stress-balance?days=${days}`),
   correlations: (days = 90) => req(`/analytics/correlations?days=${days}`),
+  activityCalendar: (days = 365) => req(`/analytics/calendar?days=${days}`),
   repeatRoutes: () => req("/training/repeat-routes"),
   shoes: () => req("/shoes"),
   addShoe: (body) => req("/shoes", { method: "POST", body: JSON.stringify(body) }),

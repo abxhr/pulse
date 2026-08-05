@@ -5,6 +5,7 @@ import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, Trendin
 import { api } from "../lib/api";
 import { Panel, StatTile, Chip } from "../components/primitives";
 import { COLORS, fmtNum } from "../lib/format";
+import ActivityCalendar from "../components/ActivityCalendar";
 
 const RANGES = [
   { label: "1 week", weeks: 1 },
@@ -174,6 +175,7 @@ export default function Reports() {
   return (
     <div className="space-y-4">
       <ScheduledReportPanel />
+      <ActivityCalendar />
       <ComparisonPanel weeks={weeks} />
       <DataExportPanel />
 

@@ -94,6 +94,11 @@ def dashboard_extra(db: Session = Depends(get_session)):
     }
 
 
+@router.get("/analytics/calendar")
+def activity_calendar_route(days: int = 365, db: Session = Depends(get_session)):
+    return analytics.activity_calendar(db, days)
+
+
 @router.get("/analytics/correlations")
 def correlation_miner_route(days: int = 90, db: Session = Depends(get_session)):
     return analytics.correlation_miner(db, days)

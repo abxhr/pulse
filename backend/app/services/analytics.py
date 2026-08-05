@@ -363,6 +363,38 @@ _TRACKED_MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "core",
                      "quadriceps", "hamstrings", "glutes", "calves"]
 
 
+def activity_calendar(db: Session, days: int = 365) -> list[dict]:
+    """GitHub-contributions-style daily log density across everything tracked
+    (cardio, strength, meals, weigh-ins) — a level 0-4 per day based on how
+    many different categories you logged, for a single at-a-glance view of
+    how consistently you're actually using the app vs. just on good weeks."""
+    start = date.today() - timedelta(days=days)
+    logged: dict = defaultdict(set)
+
+    for a in db.execute(select(Activity.date).where(Activity.date >= start)).scalars().all():
+        if a:
+            logged[a].add("cardio")
+    for w in db.execute(select(Workout.date).where(Workout.date >= start)).scalars().all():
+        if w:
+            logged[w].add("strength")
+    for m in db.execute(select(Meal.date).where(Meal.date >= start)).scalars().all():
+        if m:
+            logged[m].add("nutrition")
+    from ..models import BodyWeight
+    for bw in db.execute(select(BodyWeight.date).where(BodyWeight.date >= start)).scalars().all():
+        if bw:
+            logged[bw].add("weight")
+
+    out = []
+    d = start
+    today = date.today()
+    while d <= today:
+        cats = logged.get(d, set())
+        out.append({"date": d.isoformat(), "level": len(cats), "categories": sorted(cats)})
+        d += timedelta(days=1)
+    return out
+
+
 def muscle_recency(db: Session, days: int = 60) -> dict:
     """Days since each muscle group was last trained, and a 0-1 'overdue'
     intensity (capped at 10 days) for reusing the same heatmap body diagram —
