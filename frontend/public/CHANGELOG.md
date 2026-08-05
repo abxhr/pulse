@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0 — Intelligence pass: stats/ML features across the app
+
+**Added**
+- Training Stress Balance chart (Fitness/Fatigue/Form) using a Banister impulse-response model, same math as TrainingPeaks' PMC
+- Composite illness/overtraining risk score blending HRV, resting HR, sleep debt, and acute:chronic training load
+- Personalized HR zones (Karvonen method, using your actual resting HR) plus sessions bucketed into them
+- All-time GPS route heatmap across every run, with a background sync button to backfill older routes
+- Cross-metric correlation miner — automatically surfaces statistically meaningful relationships between sleep, training, nutrition, and recovery metrics (e.g. body battery vs. resting HR)
+- Personalized sleep need pulled from Garmin's own adaptive sleep-need field, replacing the flat 8h default
+- Bayesian/EWMA-smoothed TDEE estimate — blends new readings with prior estimate instead of hard-replacing it
+- Adaptive step goal — trailing 14-day average +5%, instead of a fixed 10k
+- Muscle days-since-trained heatmap (toggle alongside the existing weekly volume heatmap) on Strength
+- GitHub-style activity calendar heatmap (12 months, cardio/strength/nutrition/weight logging density) on Reports
+- Real background push notifications (body battery low, weight not logged) via the Web Push API — works even when the app isn't open, replacing the old foreground-only reminders
+- Weight-entry outlier guard — warns and requires confirmation if a new entry deviates sharply from your trend
+- Nightly database backup with 14-day rotation, viewable/triggerable from Reports
+- Route/HR data now filtered against physiologically plausible ranges to drop sensor glitches (bad cadence, absurd HR spikes)
+
+**Changed**
+- Frontend now code-splits by route — initial load dropped from ~1.2MB to ~11KB gzipped, with chart libraries loading only when a chart page opens
+
 ## 0.4.0 — Cardio, strength, cut tracking, daily briefing
 
 **Added**
