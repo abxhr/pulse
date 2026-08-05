@@ -360,6 +360,11 @@ def strength_this_week(db: Session = Depends(get_session)):
     return analytics.strength_this_week(db)
 
 
+@router.get("/strength/muscle-recency")
+def muscle_recency_route(db: Session = Depends(get_session)):
+    return analytics.muscle_recency(db)
+
+
 @router.get("/training-load")
 def training_load(weeks: int = 12, db: Session = Depends(get_session)):
     return analytics.training_load(db, weeks)

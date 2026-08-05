@@ -15,20 +15,45 @@ const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#
 
 function WeekHeatmap({ week }) {
   const [hover, setHover] = useState(null);
+  const [mode, setMode] = useState("volume"); // volume | recency
+  const [recency, setRecency] = useState(null);
+
+  useEffect(() => {
+    if (mode === "recency" && !recency) api.muscleRecency().then(setRecency).catch(() => setRecency({}));
+  }, [mode, recency]);
+
   if (!week) return null;
-  const intensities = Object.fromEntries((week.by_muscle || []).map((m) => [m.muscle, m.intensity]));
-  const hoveredData = hover && (week.by_muscle || []).find((m) => m.muscle.toLowerCase() === hover.toLowerCase());
+  const volumeIntensities = Object.fromEntries((week.by_muscle || []).map((m) => [m.muscle, m.intensity]));
+  const recencyIntensities = recency ? Object.fromEntries(Object.entries(recency).map(([m, r]) => [m, r.intensity])) : {};
+  const intensities = mode === "recency" ? recencyIntensities : volumeIntensities;
+
+  const hoveredVolume = hover && (week.by_muscle || []).find((m) => m.muscle.toLowerCase() === hover.toLowerCase());
+  const hoveredRecency = hover && recency?.[hover.toLowerCase()];
 
   return (
     <Panel accent={COLORS.strength} title="Muscles hit this week"
-      sub={`Mon ${fmtDate(week.week_start)} – Sun ${fmtDate(week.week_end)} · ${week.workout_count} session${week.workout_count === 1 ? "" : "s"}`}>
+      sub={mode === "volume"
+        ? `Mon ${fmtDate(week.week_start)} – Sun ${fmtDate(week.week_end)} · ${week.workout_count} session${week.workout_count === 1 ? "" : "s"}`
+        : "darker = longer since last trained · 60 days"}
+      right={
+        <div className="flex gap-1 rounded-full bg-ink p-0.5">
+          {[["volume", "Volume"], ["recency", "Recency"]].map(([m, label]) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${mode === m ? "bg-strength text-ink" : "text-muted"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      }>
       <MuscleBody intensities={intensities} onHover={setHover} />
       <div className="mt-2 flex min-h-[18px] items-center justify-center font-mono text-xs text-muted">
         {hover
-          ? `${hover}${hoveredData ? ` · ${fmtNum(hoveredData.volume_kg)}kg · ${hoveredData.sets} sets` : " · not hit yet"}`
+          ? mode === "volume"
+            ? `${hover}${hoveredVolume ? ` · ${fmtNum(hoveredVolume.volume_kg)}kg · ${hoveredVolume.sets} sets` : " · not hit yet"}`
+            : `${hover}${hoveredRecency?.days_since != null ? ` · ${hoveredRecency.days_since}d ago` : " · not trained in 60d"}`
           : "hover a region"}
       </div>
-      {!week.workout_count && (
+      {mode === "volume" && !week.workout_count && (
         <p className="mt-2 text-center text-xs text-faint">No workouts logged yet this week.</p>
       )}
     </Panel>

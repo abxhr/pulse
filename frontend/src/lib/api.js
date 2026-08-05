@@ -35,6 +35,7 @@ export const api = {
   pushWorkoutToGarmin: (id) => req(`/workouts/${id}/push-to-garmin`, { method: "POST" }),
   strength: (weeks = 8) => req(`/strength?weeks=${weeks}`),
   strengthThisWeek: () => req("/strength/this-week"),
+  muscleRecency: () => req("/strength/muscle-recency"),
   trainingLoad: (weeks = 12) => req(`/training-load?weeks=${weeks}`),
   goalHistory: () => req("/weight/goal-history"),
   raceGoal: () => req("/training/race-goal"),

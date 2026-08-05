@@ -359,6 +359,43 @@ def strength_summary(db: Session, weeks: int = 8) -> dict:
     }
 
 
+_TRACKED_MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "core",
+                     "quadriceps", "hamstrings", "glutes", "calves"]
+
+
+def muscle_recency(db: Session, days: int = 60) -> dict:
+    """Days since each muscle group was last trained, and a 0-1 'overdue'
+    intensity (capped at 10 days) for reusing the same heatmap body diagram —
+    this week's volume alone doesn't tell you a muscle's been neglected for
+    three weeks if it just happened to get hit once this Monday."""
+    start = date.today() - timedelta(days=days)
+    wkos = db.execute(
+        select(Workout).where(Workout.date >= start).order_by(Workout.date)
+    ).scalars().all()
+
+    last_trained: dict = {}
+    for w in wkos:
+        if not w.date:
+            continue
+        for ex in (w.exercises or []):
+            muscle = ex.get("muscle_group")
+            if muscle in _TRACKED_MUSCLES and (ex.get("sets")):
+                if muscle not in last_trained or w.date > last_trained[muscle]:
+                    last_trained[muscle] = w.date
+
+    today = date.today()
+    out = {}
+    for m in _TRACKED_MUSCLES:
+        d = last_trained.get(m)
+        days_since = (today - d).days if d else None
+        out[m] = {
+            "days_since": days_since,
+            "last_trained": d.isoformat() if d else None,
+            "intensity": round(min(1.0, (days_since or days) / 10), 2),
+        }
+    return out
+
+
 def strength_this_week(db: Session) -> dict:
     """Per-muscle-group volume + sets for the current Monday-Sunday week —
     feeds the muscle-heatmap body diagram."""
