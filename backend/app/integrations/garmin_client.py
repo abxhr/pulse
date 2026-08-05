@@ -64,9 +64,9 @@ def fetch_daily_health(client, day: date, include_fitness_age: bool = False) -> 
             "distance_m": stats.get("totalDistanceMeters"),
             "calories_total": stats.get("totalKilocalories"),
             "calories_active": stats.get("activeKilocalories"),
-            "resting_hr": stats.get("restingHeartRate"),
-            "max_hr": stats.get("maxHeartRate"),
-            "min_hr": stats.get("minHeartRate"),
+            "resting_hr": _sane(stats.get("restingHeartRate"), "avg_hr"),
+            "max_hr": _sane(stats.get("maxHeartRate"), "max_hr"),
+            "min_hr": _sane(stats.get("minHeartRate"), "avg_hr"),
             "avg_stress": stats.get("averageStressLevel"),
             "max_stress": stats.get("maxStressLevel"),
             "body_battery_high": stats.get("bodyBatteryHighestValue"),
@@ -167,7 +167,7 @@ def fetch_sleep(client, day: date) -> dict | None:
         "awake_seconds": dto.get("awakeSleepSeconds"),
         "sleep_score": _g(dto, "sleepScores", "overall", "value"),
         "sleep_quality": _g(dto, "sleepScores", "overall", "qualifierKey"),
-        "resting_hr": s.get("restingHeartRate"),
+        "resting_hr": _sane(s.get("restingHeartRate"), "avg_hr"),
         "avg_spo2": spo2.get("averageSPO2") or s.get("averageSpO2Value"),
         "lowest_spo2": spo2.get("lowestSPO2") or s.get("lowestSpO2Value"),
         "avg_respiration": avg_respiration,
@@ -175,7 +175,7 @@ def fetch_sleep(client, day: date) -> dict | None:
         "hrv_avg": s.get("avgOvernightHrv"),
         "start_time": _ms("sleepStartTimestampLocal"),
         "end_time": _ms("sleepEndTimestampLocal"),
-        "avg_hr": dto.get("avgHeartRate"),
+        "avg_hr": _sane(dto.get("avgHeartRate"), "avg_hr"),
         "awake_count": dto.get("awakeCount"),
         "score_feedback": dto.get("sleepScoreFeedback"),
         "nap_seconds": dto.get("napTimeSeconds"),
@@ -186,6 +186,26 @@ def fetch_sleep(client, day: date) -> dict | None:
 
 
 _RUN_TYPES = {"running", "trail_running", "treadmill_running", "track_running"}
+
+
+# Physiologically/sensor-implausible bounds — same principle as the pace fix
+# below: a glitched sensor reading is worse than no reading, since a bad
+# number silently pollutes every average/chart/PR check downstream while a
+# missing one is at least visibly absent. Bounds are deliberately generous
+# (anything a real human could plausibly produce) so genuine outlier efforts
+# aren't discarded, only sensor garbage.
+_PLAUSIBLE = {
+    "avg_hr": (30, 230), "max_hr": (30, 230),
+    "avg_cadence": (20, 250),
+    "elevation_gain_m": (0, 9000),  # negative gain is a barometer glitch, not real
+}
+
+
+def _sane(value, key):
+    if value is None:
+        return None
+    lo, hi = _PLAUSIBLE[key]
+    return value if lo <= value <= hi else None
 
 
 def fetch_activities(client, start: date, end: date) -> list[dict]:
@@ -215,13 +235,16 @@ def fetch_activities(client, start: date, end: date) -> list[dict]:
             "distance_m": dist,
             "duration_s": dur,
             "moving_duration_s": a.get("movingDuration"),
-            "avg_hr": a.get("averageHR"),
-            "max_hr": a.get("maxHR"),
+            "avg_hr": _sane(a.get("averageHR"), "avg_hr"),
+            "max_hr": _sane(a.get("maxHR"), "max_hr"),
             "avg_pace_s_per_km": pace,
             "avg_speed_mps": a.get("averageSpeed"),
             "calories": a.get("calories"),
-            "elevation_gain_m": a.get("elevationGain"),
-            "avg_cadence": a.get("averageRunningCadenceInStepsPerMinute") or a.get("averageBikingCadenceInRevPerMinute"),
+            "elevation_gain_m": _sane(a.get("elevationGain"), "elevation_gain_m"),
+            "avg_cadence": _sane(
+                a.get("averageRunningCadenceInStepsPerMinute") or a.get("averageBikingCadenceInRevPerMinute"),
+                "avg_cadence",
+            ),
             "aerobic_te": a.get("aerobicTrainingEffect"),
             "anaerobic_te": a.get("anaerobicTrainingEffect"),
             "vo2max": a.get("vO2MaxValue"),
