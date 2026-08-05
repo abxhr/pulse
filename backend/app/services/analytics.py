@@ -696,6 +696,88 @@ def why_last_night_bad(db: Session) -> dict | None:
     }
 
 
+_CORR_TRIVIAL_PAIRS = {
+    frozenset(("sleep_hours", "sleep_score")), frozenset(("deep_h", "sleep_score")),
+    frozenset(("rem_h", "sleep_score")), frozenset(("rem_h", "sleep_hours")),
+    frozenset(("deep_h", "sleep_hours")), frozenset(("deep_h", "rem_h")),
+}
+
+_CORR_LABELS = {
+    "resting_hr": "Resting HR", "hrv": "HRV", "readiness": "Readiness", "stress": "Stress",
+    "steps": "Steps", "body_battery_high": "Body battery", "sleep_score": "Sleep score",
+    "sleep_hours": "Sleep hours", "deep_h": "Deep sleep", "rem_h": "REM sleep",
+    "awake_count": "Awakenings", "avg_spo2": "SpO2", "avg_respiration": "Respiration",
+    "bedtime_hour": "Bedtime", "calories": "Calories eaten", "protein_g": "Protein eaten",
+    "run_km": "Run distance", "strength_kg": "Strength volume",
+}
+
+
+def correlation_miner(db: Session, days: int = 90, top_n: int = 6) -> list[dict]:
+    """Scans every pair of tracked daily metrics for the strongest correlations,
+    instead of only ever checking the one hardcoded pair (sleep -> next-day
+    readiness). Surfaces genuinely non-obvious relationships — e.g. "your
+    resting HR runs higher on days you eat less protein" — that nobody
+    thought to build a dedicated chart for."""
+    start = date.today() - timedelta(days=days)
+    by_date: dict = defaultdict(dict)
+
+    for r in health_trend(db, days):
+        d = r["date"]
+        for k in ("resting_hr", "hrv", "readiness", "stress", "steps", "body_battery_high"):
+            if r.get(k) is not None:
+                by_date[d][k] = r[k]
+
+    for r in sleep_trend(db, days):
+        d = r["date"]
+        if r.get("score") is not None:
+            by_date[d]["sleep_score"] = r["score"]
+        if r.get("total_h"):
+            by_date[d]["sleep_hours"] = r["total_h"]
+        for k in ("deep_h", "rem_h", "awake_count", "avg_spo2", "avg_respiration", "bedtime_hour"):
+            if r.get(k) is not None:
+                by_date[d][k] = r[k]
+
+    meals = db.execute(select(Meal).where(Meal.date >= start)).scalars().all()
+    meal_totals: dict = defaultdict(lambda: {"calories": 0.0, "protein_g": 0.0})
+    for m in meals:
+        meal_totals[m.date.isoformat()]["calories"] += m.calories or 0
+        meal_totals[m.date.isoformat()]["protein_g"] += m.protein_g or 0
+    for d, totals in meal_totals.items():
+        if totals["calories"]:
+            by_date[d]["calories"] = totals["calories"]
+        if totals["protein_g"]:
+            by_date[d]["protein_g"] = totals["protein_g"]
+
+    acts = db.execute(select(Activity).where(Activity.date >= start)).scalars().all()
+    for a in acts:
+        if a.date and "run" in (a.activity_type or ""):
+            d = a.date.isoformat()
+            by_date[d]["run_km"] = by_date[d].get("run_km", 0) + (a.distance_m or 0) / 1000
+    wkos = db.execute(select(Workout).where(Workout.date >= start)).scalars().all()
+    for w in wkos:
+        if w.date:
+            d = w.date.isoformat()
+            by_date[d]["strength_kg"] = by_date[d].get("strength_kg", 0) + (w.volume_kg or 0)
+
+    metrics = sorted({k for day in by_date.values() for k in day})
+    results = []
+    for i, a in enumerate(metrics):
+        for b in metrics[i + 1:]:
+            if frozenset((a, b)) in _CORR_TRIVIAL_PAIRS:
+                continue  # same underlying signal by construction — not an insight
+            pairs = [(day[a], day[b]) for day in by_date.values() if a in day and b in day]
+            if len(pairs) < 15:
+                continue  # too few overlapping days for the correlation to mean anything
+            r = _pearson(pairs)
+            if r is not None and abs(r) >= 0.3:
+                results.append({
+                    "a": _CORR_LABELS.get(a, a), "b": _CORR_LABELS.get(b, b),
+                    "r": r, "n": len(pairs),
+                })
+    results.sort(key=lambda x: -abs(x["r"]))
+    return results[:top_n]
+
+
 def adaptive_step_goal(db: Session) -> dict | None:
     """A step target that scales with your own trailing activity level instead
     of a flat 10k — 10k is arbitrary and doesn't know if you're mid-taper or

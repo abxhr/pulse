@@ -1,4 +1,6 @@
-import { TrendingUp, TrendingDown, AlertTriangle, Moon, Gauge, CloudSun, CloudRain, CloudFog, Cloud, Sun, CloudSnow, CloudLightning, ShieldAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TrendingUp, TrendingDown, AlertTriangle, Moon, Gauge, CloudSun, CloudRain, CloudFog, Cloud, Sun, CloudSnow, CloudLightning, ShieldAlert, Network } from "lucide-react";
+import { api } from "../lib/api";
 import { COLORS, fmtNum } from "../lib/format";
 import { Panel, StatTile } from "./primitives";
 
@@ -26,6 +28,31 @@ export function OvertrainingRiskCard({ data }) {
           ))}
         </div>
       )}
+    </Panel>
+  );
+}
+
+export function CorrelationMiner() {
+  const [data, setData] = useState(null);
+  useEffect(() => { api.correlations(90).then(setData).catch(() => setData([])); }, []);
+  if (!data?.length) return null;
+  const strength = (r) => Math.abs(r) >= 0.6 ? "strong" : Math.abs(r) >= 0.45 ? "moderate" : "weak";
+  return (
+    <Panel accent={COLORS.recovery} title="Patterns in your data" sub="strongest correlations across everything tracked · 90 days">
+      <div className="space-y-2">
+        {data.map((c, i) => (
+          <div key={i} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+            <span className="flex items-center gap-2 text-xs text-txt">
+              <Network size={13} className="text-faint shrink-0" />
+              {c.a} {c.r > 0 ? "↑ with" : "↓ with"} {c.b}
+            </span>
+            <span className="font-mono text-xs tnum" style={{ color: c.r > 0 ? COLORS.recovery : COLORS.effort }}>
+              {c.r > 0 ? "+" : ""}{c.r} <span className="text-faint">({strength(c.r)}, n={c.n})</span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-faint">Correlation, not causation — a starting point for what to dig into, not a conclusion.</p>
     </Panel>
   );
 }

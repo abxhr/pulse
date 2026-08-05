@@ -12,7 +12,7 @@ import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives"
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import IntradayChart from "../components/IntradayChart";
-import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, WeatherChip, OvertrainingRiskCard } from "../components/OverviewExtras";
+import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, WeatherChip, OvertrainingRiskCard, CorrelationMiner } from "../components/OverviewExtras";
 import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
 import { useDashboardLayout } from "../lib/useDashboardLayout";
 
@@ -209,6 +209,7 @@ export default function Dashboard() {
           <SleepDebtCard data={extra.sleep_debt} />
           <LoadRatioCard data={extra.training_load_ratio} />
         </div>
+        <CorrelationMiner />
       </div>
     ) : null,
 

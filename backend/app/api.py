@@ -94,6 +94,11 @@ def dashboard_extra(db: Session = Depends(get_session)):
     }
 
 
+@router.get("/analytics/correlations")
+def correlation_miner_route(days: int = 90, db: Session = Depends(get_session)):
+    return analytics.correlation_miner(db, days)
+
+
 @router.get("/health/trend")
 def health_trend(days: int = 30, db: Session = Depends(get_session)):
     return analytics.health_trend(db, days)
