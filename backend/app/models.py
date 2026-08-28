@@ -40,6 +40,17 @@ class DailyHealth(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class IntradayHealth(Base):
+    """Hourly stress/body-battery buckets cached from Garmin, one row per day."""
+    __tablename__ = "intraday_health"
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    avg_stress: Mapped[float | None] = mapped_column(Float)
+    max_stress: Mapped[float | None] = mapped_column(Float)
+    hourly: Mapped[list | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(16), default="garmin")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Sleep(Base):
     """One row per night, keyed by the calendar date the night ends on."""
     __tablename__ = "sleep"
@@ -64,6 +75,8 @@ class Sleep(Base):
     avg_hr: Mapped[int | None] = mapped_column(Integer)             # overnight avg HR
     awake_count: Mapped[int | None] = mapped_column(Integer)
     score_feedback: Mapped[str | None] = mapped_column(String(64))  # Garmin's own qualifier, e.g. NEGATIVE_LONG_BUT_DISCONTINUOUS
+    nap_seconds: Mapped[int | None] = mapped_column(Integer)
+    sleep_need_min: Mapped[int | None] = mapped_column(Integer)  # Garmin's own adaptive nightly need (minutes)
     raw: Mapped[dict | None] = mapped_column(JSON)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -91,6 +104,8 @@ class Activity(Base):
     anaerobic_te: Mapped[float | None] = mapped_column(Float)
     vo2max: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(16), default="garmin")
+    shoe_id: Mapped[int | None] = mapped_column(Integer)
+    route_points: Mapped[list | None] = mapped_column(JSON)  # cached [{lat,lon},...] for the route heatmap
     raw: Mapped[dict | None] = mapped_column(JSON)
 
 
@@ -140,6 +155,7 @@ class Meal(Base):
     fat_g: Mapped[float | None] = mapped_column(Float)
     fiber_g: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
+    satiety: Mapped[str | None] = mapped_column(String(16))  # hungry|satisfied|very_full — quick adherence tag
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -152,7 +168,102 @@ class NutritionGoal(Base):
     protein_g: Mapped[float | None] = mapped_column(Float)
     carbs_g: Mapped[float | None] = mapped_column(Float)
     fat_g: Mapped[float | None] = mapped_column(Float)
+    fiber_g: Mapped[float | None] = mapped_column(Float)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class NutritionDayStatus(Base):
+    """Explicit completeness prevents partial meal logs masquerading as deficits."""
+    __tablename__ = "nutrition_day_status"
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    complete: Mapped[bool] = mapped_column(default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BodyWeight(Base):
+    """Daily weigh-ins, manually logged (or pulled from Garmin body composition
+    if a bridged smart scale populates it)."""
+    __tablename__ = "body_weight"
+
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    body_fat_pct: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(16), default="manual")  # manual | garmin
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CutGoal(Base):
+    """Single-row table describing the current weight goal (e.g. a cut)."""
+    __tablename__ = "cut_goal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    start_date: Mapped[date_t | None] = mapped_column(Date)
+    start_weight_kg: Mapped[float | None] = mapped_column(Float)
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
+    weekly_rate_kg: Mapped[float | None] = mapped_column(Float)  # negative = losing, positive = gaining
+    active: Mapped[bool] = mapped_column(default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RaceGoal(Base):
+    """A target race — drives the countdown badge and taper plan on Cardio."""
+    __tablename__ = "race_goal"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    race_date: Mapped[date_t] = mapped_column(Date)
+    distance_type: Mapped[str] = mapped_column(String(16))  # 5k|10k|half_marathon|marathon
+    target_time_s: Mapped[int | None] = mapped_column(Integer)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Shoe(Base):
+    """A pair of running shoes, for cumulative mileage tracking."""
+    __tablename__ = "shoe"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    start_date: Mapped[date_t] = mapped_column(Date)
+    target_km: Mapped[float] = mapped_column(Float, default=700.0)
+    retired: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class GoalHistory(Base):
+    """Archived cut/bulk/maintenance phases — CutGoal only ever holds the
+    current one; this is the "you were cutting Jan-Mar, then maintained
+    through May" longer story."""
+    __tablename__ = "goal_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    start_date: Mapped[date_t] = mapped_column(Date)
+    end_date: Mapped[date_t | None] = mapped_column(Date)  # null = ongoing
+    target_weight_kg: Mapped[float | None] = mapped_column(Float)
+    weekly_rate_kg: Mapped[float | None] = mapped_column(Float)
+    phase: Mapped[str] = mapped_column(String(16))  # cut | bulk | maintain
+
+
+class Recipe(Base):
+    """A saved recipe with AI-extracted macros (per serving), sourced from
+    screenshots, a YouTube/Instagram URL, or pasted text."""
+    __tablename__ = "recipe"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255))
+    servings: Mapped[float | None] = mapped_column(Float, default=1)
+    ingredients: Mapped[str | None] = mapped_column(Text)   # newline-separated
+    instructions: Mapped[str | None] = mapped_column(Text)
+    calories: Mapped[float | None] = mapped_column(Float)   # per serving
+    protein_g: Mapped[float | None] = mapped_column(Float)
+    carbs_g: Mapped[float | None] = mapped_column(Float)
+    fat_g: Mapped[float | None] = mapped_column(Float)
+    fiber_g: Mapped[float | None] = mapped_column(Float)
+    source_type: Mapped[str | None] = mapped_column(String(16))  # screenshot | youtube | instagram | text
+    source_url: Mapped[str | None] = mapped_column(String(512))
+    notes: Mapped[str | None] = mapped_column(Text)  # AI's assumptions/confidence note
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Insight(Base):
@@ -165,3 +276,65 @@ class Insight(Base):
     provider: Mapped[str | None] = mapped_column(String(32))
     model: Mapped[str | None] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
+
+
+class PushSubscription(Base):
+    """A browser's Push API subscription — lets the backend send notifications
+    even when the app tab isn't open (unlike the old foreground-only version)."""
+    __tablename__ = "push_subscription"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    endpoint: Mapped[str] = mapped_column(Text, unique=True)
+    p256dh: Mapped[str] = mapped_column(String(255))
+    auth: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PushLog(Base):
+    """Dedup guard so the scheduler doesn't re-send the same push notification
+    every time its check job runs (e.g. every 15 minutes) once already fired today."""
+    __tablename__ = "push_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(32))
+    date: Mapped[date_t] = mapped_column(Date)
+
+
+class TdeeState(Base):
+    """Single-row Bayesian smoothing state for the TDEE estimate — blending
+    each new raw calculation with the prior smoothed value instead of
+    replacing it outright, so the macro recommendation doesn't visibly jump
+    around as new data arrives."""
+    __tablename__ = "tdee_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    smoothed_tdee: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CoachMemory(Base):
+    """Single-row freeform notes the Coach should remember across conversations
+    (dietary restrictions, preferences) instead of re-explaining every time."""
+    __tablename__ = "coach_memory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    notes: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AppAuth(Base):
+    """Single owner's scrypt password verifier; plaintext is never stored."""
+    __tablename__ = "app_auth"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    salt: Mapped[str] = mapped_column(String(128))
+    password_hash: Mapped[str] = mapped_column(String(128))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AuthSession(Base):
+    """Opaque browser sessions; only token hashes are persisted."""
+    __tablename__ = "auth_session"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

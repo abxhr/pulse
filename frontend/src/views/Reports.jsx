@@ -1,16 +1,201 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Printer, Loader2 } from "lucide-react";
+import { FileText, Printer, Loader2, ChevronDown, RefreshCw, TrendingUp, TrendingDown, ImageDown, Download, DatabaseBackup } from "lucide-react";
 import { api } from "../lib/api";
 import { Panel, StatTile, Chip } from "../components/primitives";
 import { COLORS, fmtNum } from "../lib/format";
+import ActivityCalendar from "../components/ActivityCalendar";
 
 const RANGES = [
   { label: "1 week", weeks: 1 },
   { label: "4 weeks", weeks: 4 },
   { label: "12 weeks", weeks: 12 },
 ];
+
+function ScheduledReportPanel() {
+  const [report, setReport] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.scheduledReport().then(setReport).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function refresh() {
+    setBusy(true);
+    try { setReport(await api.refreshScheduledReport()); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  if (err || !report) return null;
+  return (
+    <Panel accent={COLORS.strength} title="This week's report" sub="auto-generated · ready every Monday"
+      right={
+        <div className="flex items-center gap-2">
+          <button onClick={(e) => { e.stopPropagation(); refresh(); }}
+            className="flex items-center gap-1 text-[11px] text-faint hover:text-txt">
+            <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> refresh
+          </button>
+          <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
+            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      }>
+      {open && <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{report.markdown}</ReactMarkdown></div>}
+    </Panel>
+  );
+}
+
+const COMPARE_METRICS = [
+  { key: "avg_sleep_hours", label: "Avg sleep", unit: "h", higherIsGood: true },
+  { key: "avg_readiness", label: "Avg readiness", unit: "", higherIsGood: true },
+  { key: "avg_resting_hr", label: "Resting HR", unit: "bpm", higherIsGood: false },
+  { key: "avg_hrv", label: "HRV", unit: "ms", higherIsGood: true },
+  { key: "run_km", label: "Run distance", unit: "km", higherIsGood: true },
+  { key: "sessions", label: "Sessions", unit: "", higherIsGood: true },
+];
+
+function ComparisonPanel({ weeks }) {
+  const [cmp, setCmp] = useState(null);
+  useEffect(() => { api.comparisonReport(weeks).then(setCmp).catch(() => setCmp(null)); }, [weeks]);
+  if (!cmp) return null;
+  return (
+    <Panel accent={COLORS.cardio} title={`This ${weeks}-week window vs. previous`} sub="direction, not just a snapshot">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {COMPARE_METRICS.map((m) => {
+          const d = cmp.delta[m.key];
+          if (d == null) return null;
+          const good = d === 0 ? null : (d > 0) === m.higherIsGood;
+          const Icon = d > 0 ? TrendingUp : TrendingDown;
+          return (
+            <div key={m.key} className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5">
+              <div className="text-[10px] uppercase tracking-wide text-faint">{m.label}</div>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                <span className="font-mono text-lg font-semibold text-txt tnum">{cmp.current[m.key] ?? "—"}</span>
+                <span className="text-[11px] text-faint">{m.unit}</span>
+              </div>
+              {d !== 0 && (
+                <div className="mt-0.5 flex items-center gap-1 text-[11px]" style={{ color: good ? COLORS.recovery : COLORS.effort }}>
+                  <Icon size={11} /> {d > 0 ? "+" : ""}{d}{m.unit}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
+  );
+}
+
+function DataExportPanel() {
+  const csvTables = ["meals", "weights", "activities", "workouts"];
+  return (
+    <Panel accent={COLORS.muted} title="Export your data" sub="independent of the SQLite file — for backup or external analysis">
+      <div className="flex flex-wrap gap-2">
+        <a href="/api/export/json" download
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-xs text-txt transition hover:border-recovery/40">
+          <Download size={13} /> Full export (JSON)
+        </a>
+        {csvTables.map((t) => (
+          <a key={t} href={`/api/export/csv/${t}`} download
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs capitalize text-muted transition hover:text-txt">
+            <Download size={12} /> {t} (CSV)
+          </a>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function BackupsPanel() {
+  const [backups, setBackups] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.backups().then(setBackups).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function runNow() {
+    setBusy(true); setErr(null);
+    try { await api.runBackup(); await load(); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <Panel accent={COLORS.muted} title="Database backups" sub="nightly snapshot at 3:30am · last 14 kept"
+      right={
+        <button onClick={runNow} disabled={busy}
+          className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt disabled:opacity-50">
+          <DatabaseBackup size={13} className={busy ? "animate-pulse" : ""} /> {busy ? "Backing up…" : "Back up now"}
+        </button>
+      }>
+      {err && <p className="text-xs text-effort">{err}</p>}
+      {backups && backups.length === 0 && <p className="text-xs text-muted">No backups yet.</p>}
+      {backups && backups.length > 0 && (
+        <div className="space-y-1">
+          {backups.map((b) => (
+            <div key={b.name} className="flex items-center justify-between rounded-lg border border-line bg-panel2/40 px-3 py-1.5 text-xs">
+              <span className="font-mono text-txt">{b.name}</span>
+              <span className="flex items-center gap-3 text-faint">
+                <span>{b.size_mb} MB</span>
+                <span>{new Date(b.created_at).toLocaleString()}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ShareImageButton({ summary, weeks }) {
+  const canvasRef = useRef(null);
+
+  function draw() {
+    const c = canvasRef.current;
+    const ctx = c.getContext("2d");
+    c.width = 800; c.height = 500;
+    ctx.fillStyle = "#0B0E14"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = "#3DD68C"; ctx.font = "600 20px sans-serif";
+    ctx.fillText("PULSE", 40, 56);
+    ctx.fillStyle = "#8A93A6"; ctx.font = "13px monospace";
+    ctx.fillText(`${weeks}-week report · ${summary.generated}`, 40, 80);
+
+    const stats = [
+      ["Avg sleep", `${summary.avg_sleep_hours ?? "—"}h`],
+      ["Avg readiness", `${summary.avg_readiness ?? "—"}`],
+      ["Resting HR", `${summary.avg_resting_hr ?? "—"} bpm`],
+      ["HRV", `${summary.avg_hrv ?? "—"} ms`],
+      ["Run distance", `${summary.total_run_km ?? "—"} km`],
+      ["Strength volume", `${fmtNum(summary.strength_volume_kg)} kg`],
+    ];
+    stats.forEach(([label, value], i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = 40 + col * 380, y = 150 + row * 100;
+      ctx.fillStyle = "#171C28"; ctx.fillRect(x, y, 340, 80);
+      ctx.fillStyle = "#8A93A6"; ctx.font = "11px monospace"; ctx.fillText(label.toUpperCase(), x + 20, y + 28);
+      ctx.fillStyle = "#F4F6FB"; ctx.font = "600 28px monospace"; ctx.fillText(value, x + 20, y + 62);
+    });
+
+    const link = document.createElement("a");
+    link.download = `pulse-report-${summary.generated}.png`;
+    link.href = c.toDataURL("image/png");
+    link.click();
+  }
+
+  return (
+    <>
+      <button onClick={draw}
+        className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt">
+        <ImageDown size={14} /> Share image
+      </button>
+      <canvas ref={canvasRef} className="hidden" />
+    </>
+  );
+}
 
 export default function Reports() {
   const [weeks, setWeeks] = useState(4);
@@ -31,6 +216,12 @@ export default function Reports() {
 
   return (
     <div className="space-y-4">
+      <ScheduledReportPanel />
+      <ActivityCalendar />
+      <ComparisonPanel weeks={weeks} />
+      <DataExportPanel />
+      <BackupsPanel />
+
       <Panel accent={COLORS.strength} title="Generate report" sub="performance summary + AI narrative">
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex rounded-lg border border-line bg-panel2/60 p-1">
@@ -68,10 +259,13 @@ export default function Reports() {
             title={`${weeks}-week report`}
             accent={COLORS.strength}
             right={
-              <button onClick={() => window.print()}
-                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt">
-                <Printer size={14} /> Print / PDF
-              </button>
+              <div className="flex items-center gap-2">
+                <ShareImageButton summary={s} weeks={weeks} />
+                <button onClick={() => window.print()}
+                  className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt">
+                  <Printer size={14} /> Print / PDF
+                </button>
+              </div>
             }
           >
             <div className="md rounded-xl border border-line bg-panel2/40 p-5" id="report-body">

@@ -1,17 +1,28 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
-  RefreshCw, Circle, Menu, X, Upload, Power,
+  RefreshCw, Circle, Menu, X, Upload, Power, ScrollText, Search, Sun, Bell, BellOff,
+  MoreHorizontal,
+  LogOut,
 } from "lucide-react";
 import { api } from "./lib/api";
 import { COLORS } from "./lib/format";
-import Dashboard from "./views/Dashboard";
-import Sleep from "./views/Sleep";
-import Training from "./views/Training";
-import Strength from "./views/Strength";
-import Nutrition from "./views/Nutrition";
-import Insights from "./views/Insights";
-import Reports from "./views/Reports";
+import Changelog from "./components/Changelog";
+import ErrorBoundary from "./components/ErrorBoundary";
+import CommandPalette from "./components/CommandPalette";
+import { useReminders } from "./lib/useReminders";
+import { Loading } from "./components/primitives";
+import AuthGate from "./components/AuthGate";
+
+// Each view is its own chunk — the initial bundle only needs to ship the app
+// shell, not every page's charting/AI code before the user's even logged in.
+const Dashboard = lazy(() => import("./views/Dashboard"));
+const Sleep = lazy(() => import("./views/Sleep"));
+const Training = lazy(() => import("./views/Training"));
+const Strength = lazy(() => import("./views/Strength"));
+const Nutrition = lazy(() => import("./views/Nutrition"));
+const Insights = lazy(() => import("./views/Insights"));
+const Reports = lazy(() => import("./views/Reports"));
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
@@ -27,14 +38,29 @@ function Dot({ ok }) {
   return <Circle size={8} className={ok ? "fill-recovery text-recovery" : "fill-faint text-faint"} />;
 }
 
+function useTheme() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("pulse.theme") || "dark");
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme === "light" ? "light" : "dark");
+    localStorage.setItem("pulse.theme", theme);
+  }, [theme]);
+  return [theme, () => setTheme((t) => (t === "light" ? "dark" : "light"))];
+}
+
 export default function App() {
+  const [auth, setAuth] = useState(null);
   const [view, setView] = useState("dashboard");
+  const [theme, toggleTheme] = useTheme();
+  const reminders = useReminders();
   const [status, setStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const [mobileActions, setMobileActions] = useState(false);
 
   const refresh = useCallback(() => api.status().then(setStatus).catch(() => {}), []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const checkAuth = useCallback(() => api.authStatus().then(setAuth).catch(() => setAuth({ configured: true, authenticated: false, setup_allowed: false })), []);
+  useEffect(() => { checkAuth(); const lock=()=>checkAuth(); window.addEventListener("pulse:unauthorized", lock); return()=>window.removeEventListener("pulse:unauthorized", lock); }, [checkAuth]);
+  useEffect(() => { if (auth?.authenticated) refresh(); }, [refresh, auth?.authenticated]);
 
   // poll status while a sync is running
   useEffect(() => {
@@ -66,6 +92,7 @@ export default function App() {
   }
 
   const [restarting, setRestarting] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   async function handleRestart() {
     if (!window.confirm("Restart the Pulse server? It'll be back in a few seconds.")) return;
     setRestarting(true);
@@ -80,6 +107,7 @@ export default function App() {
       if (Date.now() - start > 30000) clearInterval(poll);
     }, 1000);
   }
+  async function handleLogout() { await api.authLogout().catch(() => {}); setStatus(null); checkAuth(); }
 
   const conn = status?.connections;
   const isDemo = status && status.recent_syncs?.length === 0 && (status.counts?.daily_health || 0) > 0;
@@ -87,8 +115,11 @@ export default function App() {
   const Views = { dashboard: Dashboard, sleep: Sleep, training: Training, strength: Strength, nutrition: Nutrition, reports: Reports };
   const Current = view === "insights" ? null : Views[view];
 
+  if (!auth) return <div className="flex min-h-screen items-center justify-center"><Loading /></div>;
+  if (!auth.authenticated) return <AuthGate status={auth} onAuthenticated={checkAuth} />;
+
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen min-w-0 overflow-x-hidden">
       {/* sidebar */}
       <aside className={`safe-top safe-bottom fixed inset-y-0 left-0 z-40 w-60 overflow-y-auto border-r border-line bg-ink/95 backdrop-blur-lg transition-transform lg:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-2.5 px-5 py-5">
@@ -139,13 +170,13 @@ export default function App() {
       </aside>
 
       {/* main */}
-      <div className="flex-1 lg:pl-60">
-        <header className="safe-top sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-ink/80 px-4 py-3 backdrop-blur-lg sm:px-6">
-          <button className="lg:hidden" onClick={() => setMobileNav(true)}><Menu size={20} /></button>
-          <h1 className="font-display text-base font-semibold capitalize">
+      <div className="min-w-0 flex-1 lg:pl-60">
+        <header className="safe-top sticky top-0 z-30 flex min-w-0 items-center gap-2 border-b border-line bg-ink/80 px-3 py-3 backdrop-blur-lg sm:gap-3 sm:px-6">
+          <button aria-label="Open navigation" className="shrink-0 rounded-lg p-2 lg:hidden" onClick={() => setMobileNav(true)}><Menu size={20} /></button>
+          <h1 className="min-w-0 truncate font-display text-base font-semibold capitalize">
             {NAV.find((n) => n.id === view)?.label}
           </h1>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {status && (
               <span className="hidden font-mono text-[11px] text-faint sm:inline tnum">
                 {status.counts.daily_health}d · {status.counts.activities} runs · {status.counts.workouts} lifts
@@ -158,29 +189,76 @@ export default function App() {
                 <input type="file" accept=".csv" className="hidden" onChange={onUpload} />
               </label>
             )}
-            <button onClick={runSync} disabled={syncing}
-              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40 disabled:opacity-60">
+            <button aria-label={syncing ? "Syncing health data" : "Sync health data"} onClick={runSync} disabled={syncing}
+              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-2 text-xs font-medium text-txt transition hover:border-recovery/40 disabled:opacity-60 sm:px-3 sm:py-1.5">
               <RefreshCw size={13} className={syncing ? "animate-spin text-recovery" : ""} />
-              {syncing ? "Syncing…" : "Sync"}
+              <span className="hidden sm:inline">{syncing ? "Syncing…" : "Sync"}</span>
             </button>
             <button onClick={handleRestart} disabled={restarting} title="Restart server"
-              className="flex items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-effort/40 disabled:opacity-60">
+              className="hidden items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-effort/40 disabled:opacity-60 sm:flex">
               <Power size={13} className={restarting ? "animate-pulse text-effort" : ""} />
               <span className="hidden sm:inline">{restarting ? "Restarting…" : "Restart"}</span>
             </button>
+            <button onClick={() => setShowChangelog(true)} title="What's new"
+              className="hidden items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40 sm:flex">
+              <ScrollText size={13} />
+            </button>
+            <button onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }))}
+              title="Search (Ctrl+K)"
+              className="hidden items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-faint transition hover:border-recovery/40 hover:text-txt sm:flex">
+              <Search size={13} /> <kbd className="text-[10px]">Ctrl K</kbd>
+            </button>
+            <button onClick={toggleTheme} title={theme === "light" ? "Switch to dark" : "Switch to light"}
+              className="hidden items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40 sm:flex">
+              {theme === "light" ? <Moon size={13} /> : <Sun size={13} />}
+            </button>
+            {reminders.supported && (
+              <button onClick={() => (reminders.enabled ? reminders.disable() : reminders.enable())}
+                title={reminders.enabled ? "Reminders on — click to disable" : "Enable weight/recovery reminders"}
+                className="hidden items-center gap-2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-xs font-medium text-txt transition hover:border-recovery/40 sm:flex">
+                {reminders.enabled ? <Bell size={13} className="text-recovery" /> : <BellOff size={13} />}
+              </button>
+            )}
+            <button onClick={handleLogout} title="Lock Pulse" aria-label="Lock Pulse"
+              className="hidden items-center rounded-lg border border-line bg-panel px-2.5 py-1.5 text-txt transition hover:border-effort/40 sm:flex"><LogOut size={13}/></button>
+            <button aria-label="More actions" onClick={() => setMobileActions((v) => !v)}
+              className="rounded-lg border border-line bg-panel p-2 text-txt sm:hidden">
+              <MoreHorizontal size={16} />
+            </button>
           </div>
+          {mobileActions && (
+            <div className="absolute right-3 top-[calc(100%+6px)] z-50 w-52 rounded-xl border border-line bg-panel p-2 shadow-2xl sm:hidden">
+              {conn?.hevy?.mode === "csv" && <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-panel2"><Upload size={15} /> Import Hevy CSV<input type="file" accept=".csv" className="hidden" onChange={(e) => { onUpload(e); setMobileActions(false); }} /></label>}
+              <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-panel2" onClick={() => { handleRestart(); setMobileActions(false); }}><Power size={15} /> Restart server</button>
+              <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-panel2" onClick={() => { setShowChangelog(true); setMobileActions(false); }}><ScrollText size={15} /> What's new</button>
+              <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-panel2" onClick={() => { toggleTheme(); setMobileActions(false); }}>{theme === "light" ? <Moon size={15} /> : <Sun size={15} />} Theme</button>
+              {reminders.supported && <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-panel2" onClick={() => { reminders.enabled ? reminders.disable() : reminders.enable(); setMobileActions(false); }}>{reminders.enabled ? <Bell size={15} /> : <BellOff size={15} />} {reminders.enabled ? "Disable reminders" : "Enable reminders"}</button>}
+              <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-effort hover:bg-panel2" onClick={handleLogout}><LogOut size={15}/> Lock Pulse</button>
+            </div>
+          )}
         </header>
 
-        <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6" key={view}>
-          {view === "insights"
-            ? <Insights aiStatus={conn?.ai} />
-            : view === "nutrition"
-            ? <Nutrition aiStatus={conn?.ai} />
-            : Current && <Current />}
+        <main className="mx-auto min-w-0 max-w-6xl overflow-x-hidden px-3 py-4 pb-24 sm:px-6 sm:py-5 lg:pb-5">
+          <ErrorBoundary key={view} resetKey={view}>
+            <Suspense fallback={<Loading />}>
+              {view === "insights"
+                ? <Insights aiStatus={conn?.ai} />
+                : view === "nutrition"
+                ? <Nutrition aiStatus={conn?.ai} />
+                : Current && <Current />}
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 
       {mobileNav && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileNav(false)} />}
+
+      <nav aria-label="Primary mobile navigation" className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-line bg-ink/95 px-1 pt-1.5 backdrop-blur-xl lg:hidden">
+        {NAV.map((n) => { const Icon=n.icon; const active=view===n.id; return <button key={n.id} aria-label={n.label} onClick={() => setView(n.id)} className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[9px] ${active ? "text-txt" : "text-faint"}`}><Icon size={17} style={{color:active?n.color:undefined}}/><span className="max-w-full truncate">{n.label}</span></button>; })}
+      </nav>
+
+      <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
+      <CommandPalette onNavigate={setView} />
     </div>
   );
 }

@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from ..models import Meal, NutritionGoal
+from ..models import Meal, NutritionGoal, NutritionDayStatus
 
 MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
 
@@ -13,10 +13,10 @@ MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
 def get_goal(db: Session) -> dict:
     goal = db.get(NutritionGoal, 1)
     if not goal:
-        return {"calories": None, "protein_g": None, "carbs_g": None, "fat_g": None}
+        return {"calories": None, "protein_g": None, "carbs_g": None, "fat_g": None, "fiber_g": None}
     return {
         "calories": goal.calories, "protein_g": goal.protein_g,
-        "carbs_g": goal.carbs_g, "fat_g": goal.fat_g,
+        "carbs_g": goal.carbs_g, "fat_g": goal.fat_g, "fiber_g": goal.fiber_g,
     }
 
 
@@ -25,7 +25,7 @@ def set_goal(db: Session, data: dict) -> dict:
     if not goal:
         goal = NutritionGoal(id=1)
         db.add(goal)
-    for k in ("calories", "protein_g", "carbs_g", "fat_g"):
+    for k in ("calories", "protein_g", "carbs_g", "fat_g", "fiber_g"):
         if k in data and data[k] is not None:
             setattr(goal, k, data[k])
     goal.updated_at = datetime.utcnow()
@@ -40,7 +40,7 @@ def _serialize(m: Meal) -> dict:
         "meal_type": m.meal_type, "name": m.name,
         "calories": m.calories, "protein_g": m.protein_g,
         "carbs_g": m.carbs_g, "fat_g": m.fat_g, "fiber_g": m.fiber_g,
-        "notes": m.notes,
+        "notes": m.notes, "satiety": m.satiety,
     }
 
 
@@ -63,10 +63,26 @@ def add_meal(db: Session, data: dict) -> dict:
         calories=data.get("calories"), protein_g=data.get("protein_g"),
         carbs_g=data.get("carbs_g"), fat_g=data.get("fat_g"),
         fiber_g=data.get("fiber_g"), notes=data.get("notes"),
+        satiety=data.get("satiety"),
     )
     db.add(meal)
+    _mark_incomplete(db, d)
     db.commit()
     db.refresh(meal)
+    return _serialize(meal)
+
+
+def update_meal(db: Session, meal_id: int, data: dict) -> dict | None:
+    meal = db.get(Meal, meal_id)
+    if not meal:
+        return None
+    for field in ("name", "calories", "protein_g", "carbs_g", "fat_g", "fiber_g", "notes", "satiety"):
+        if field in data:
+            setattr(meal, field, data[field])
+    if "meal_type" in data and (data["meal_type"] in MEAL_TYPES or data["meal_type"] is None):
+        meal.meal_type = data["meal_type"]
+    _mark_incomplete(db, meal.date)
+    db.commit()
     return _serialize(meal)
 
 
@@ -74,6 +90,7 @@ def delete_meal(db: Session, meal_id: int) -> bool:
     meal = db.get(Meal, meal_id)
     if not meal:
         return False
+    _mark_incomplete(db, meal.date)
     db.delete(meal)
     db.commit()
     return True
@@ -96,10 +113,81 @@ def _totals(meals: list[dict]) -> dict:
 
 def day_summary(db: Session, d: date) -> dict:
     meals = meals_for_date(db, d)
+    status = db.get(NutritionDayStatus, d)
     return {
         "date": d.isoformat(), "meals": meals,
         "totals": _totals(meals), "goal": get_goal(db),
+        "complete": bool(status and status.complete), "has_entries": bool(meals),
     }
+
+
+def _mark_incomplete(db: Session, d: date) -> None:
+    status = db.get(NutritionDayStatus, d)
+    if status:
+        status.complete = False
+        status.updated_at = datetime.utcnow()
+
+
+def set_day_complete(db: Session, d: date, complete: bool) -> dict:
+    if complete and not db.scalar(select(func.count()).select_from(Meal).where(Meal.date == d)):
+        raise ValueError("Log at least one meal before marking the day complete")
+    status = db.get(NutritionDayStatus, d)
+    if not status:
+        status = NutritionDayStatus(date=d)
+        db.add(status)
+    status.complete, status.updated_at = complete, datetime.utcnow()
+    db.commit()
+    return day_summary(db, d)
+
+
+def favorite_meals(db: Session, days: int = 30, limit: int = 8) -> list[dict]:
+    """Most-repeated meal names recently — "I eat the same breakfast every day"
+    deserves a one-tap re-log, distinct from the full structured Recipe flow."""
+    start = date.today() - timedelta(days=days)
+    rows = db.execute(
+        select(Meal).where(Meal.date >= start).order_by(Meal.time.desc())
+    ).scalars().all()
+    by_name: dict[str, dict] = {}
+    for m in rows:
+        key = m.name.strip().lower()
+        if key not in by_name:
+            by_name[key] = {"name": m.name, "count": 0, "last": _serialize(m)}
+        by_name[key]["count"] += 1
+    return sorted(by_name.values(), key=lambda x: -x["count"])[:limit]
+
+
+def days_on_target_streak(db: Session) -> dict:
+    """Consecutive days hitting the calorie target (within 10%) with protein at
+    or above goal — gamifies adherence instead of just showing raw numbers."""
+    goal = get_goal(db)
+    if not goal.get("calories"):
+        return {"streak": 0, "goal_set": False}
+    trend_rows = trend(db, days=60)
+    streak = 0
+    for row in reversed(trend_rows):
+        d = date.fromisoformat(row["date"])
+        if d >= date.today():
+            continue  # skip today — still accumulating
+        totals = row["totals"]
+        if not totals.get("calories"):
+            break  # no log that day breaks the streak
+        cal_ok = abs(totals["calories"] - goal["calories"]) <= goal["calories"] * 0.1
+        protein_ok = not goal.get("protein_g") or totals.get("protein_g", 0) >= goal["protein_g"] * 0.9
+        if cal_ok and protein_ok:
+            streak += 1
+        else:
+            break
+    return {"streak": streak, "goal_set": True}
+
+
+def protein_timing(db: Session, d: date) -> list[dict]:
+    """Protein logged per meal across the day — distribution matters for muscle
+    retention during a cut, not just the daily total."""
+    meals = meals_for_date(db, d)
+    return [
+        {"time": m["time"], "name": m["name"], "meal_type": m["meal_type"], "protein_g": m["protein_g"] or 0}
+        for m in meals if m["protein_g"]
+    ]
 
 
 def trend(db: Session, days: int = 14) -> list[dict]:
@@ -114,5 +202,8 @@ def trend(db: Session, days: int = 14) -> list[dict]:
     out = []
     for i in range(days):
         d = start + timedelta(days=i)
-        out.append({"date": d.isoformat(), "totals": _totals(by_day.get(d, []))})
+        status = db.get(NutritionDayStatus, d)
+        meals = by_day.get(d, [])
+        out.append({"date": d.isoformat(), "totals": _totals(meals), "has_entries": bool(meals),
+                    "complete": bool(status and status.complete)})
     return out

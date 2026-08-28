@@ -1,15 +1,36 @@
 import { useEffect, useState } from "react";
+import { Watch } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtDuration, fmtNum } from "../lib/format";
 import { Modal, StatTile, Chip, Loading } from "./primitives";
 
 export default function WorkoutDetail({ id, onClose }) {
   const [w, setW] = useState(null);
+  const [pushState, setPushState] = useState("idle"); // idle | busy | ok | error
+  const [pushMsg, setPushMsg] = useState(null);
+
   useEffect(() => {
     if (!id) return;
     setW(null);
+    setPushState("idle");
     api.workoutDetail(id).then(setW).catch(() => setW(false));
   }, [id]);
+
+  async function pushToGarmin() {
+    setPushState("busy");
+    try {
+      const res = await api.pushWorkoutToGarmin(id);
+      const matched = res.exercise_matches?.filter((m) => m.matched).length || 0;
+      const total = res.exercise_matches?.length || 0;
+      setPushMsg(res.pushed_to_device
+        ? `Sent to your watch (${matched}/${total} exercises matched exactly).`
+        : `Uploaded to Garmin Connect, but couldn't push to a device — open Garmin Connect to send it manually.`);
+      setPushState("ok");
+    } catch (e) {
+      setPushMsg(String(e));
+      setPushState("error");
+    }
+  }
 
   return (
     <Modal open={!!id} onClose={onClose} accent={COLORS.strength}
@@ -22,6 +43,17 @@ export default function WorkoutDetail({ id, onClose }) {
             <StatTile label="Volume" value={fmtNum(w.volume_kg)} unit="kg" color={COLORS.strength} />
             <StatTile label="Sets" value={w.set_count} color={COLORS.strength} />
             <StatTile label="Duration" value={fmtDuration(w.duration_min * 60)} color={COLORS.strength} />
+          </div>
+
+          <div>
+            <button onClick={pushToGarmin} disabled={pushState === "busy"}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel2/60 py-2.5 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio disabled:opacity-50">
+              <Watch size={15} />
+              {pushState === "busy" ? "Sending to Garmin…" : "Do this workout — push to Garmin"}
+            </button>
+            {pushMsg && (
+              <p className={`mt-1.5 text-[11px] ${pushState === "error" ? "text-effort" : "text-recovery"}`}>{pushMsg}</p>
+            )}
           </div>
 
           {w.description && <p className="text-xs text-muted">{w.description}</p>}

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, BookmarkPlus, Check, RefreshCw, ChevronDown, BrainCircuit, Mic } from "lucide-react";
 import { api } from "../lib/api";
+import { useVoiceInput } from "../lib/useVoiceInput";
 
 const SUGGESTIONS = [
   "How's my recovery trending this week?",
@@ -10,7 +11,80 @@ const SUGGESTIONS = [
   "Is my sleep affecting my readiness?",
   "What should my training focus be next week?",
   "Analyze my strength progress and suggest progression.",
+  "What if I cut carbs 20% — how would that affect my training capacity?",
+  "What if I added a third strength session per week — model the recovery tradeoff.",
 ];
+
+function WeeklyDigest() {
+  const [digest, setDigest] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const load = () => api.weeklyDigest().then(setDigest).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function refresh() {
+    setBusy(true);
+    setErr(null);
+    try { setDigest(await api.refreshWeeklyDigest()); }
+    catch (e) { setErr(String(e)); }
+    finally { setBusy(false); }
+  }
+
+  if (err || !digest) return null;
+  return (
+    <div className="border-b border-line">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center justify-between px-5 py-3">
+        <span className="flex items-center gap-2 text-sm font-medium text-txt">
+          <Sparkles size={14} className="text-recovery" /> This week's digest
+        </span>
+        <div className="flex items-center gap-2">
+          {open && (
+            <span onClick={(e) => { e.stopPropagation(); refresh(); }}
+              className="flex items-center gap-1 text-[11px] text-faint hover:text-txt">
+              <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> refresh
+            </span>
+          )}
+          <ChevronDown size={14} className={`text-faint transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+      {open && <div className="md px-5 pb-4 text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{digest.content}</ReactMarkdown></div>}
+    </div>
+  );
+}
+
+function MemoryEditor() {
+  const [open, setOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { api.coachMemory().then((r) => setNotes(r.notes || "")).catch(() => {}); }, []);
+
+  async function save() {
+    await api.setCoachMemory(notes);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }
+
+  return (
+    <div className="border-b border-line px-5 py-2.5">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+        <BrainCircuit size={12} /> {open ? "Hide preferences" : "Coach preferences"}
+      </button>
+      {open && (
+        <div className="mt-2">
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+            placeholder="e.g. I don't eat pork, prefer high-protein swaps, training for a half marathon in October…"
+            className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2 text-xs text-txt placeholder:text-faint focus:border-recovery/50 focus:outline-none" />
+          <button onClick={save} className="mt-1.5 rounded-lg border border-recovery/40 bg-recovery/10 px-3 py-1 text-[11px] font-medium text-recovery">
+            {saved ? "Saved" : "Save"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Insights({ aiStatus }) {
   const [messages, setMessages] = useState([]);
@@ -18,7 +92,21 @@ export default function Insights({ aiStatus }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [provider, setProvider] = useState(null); // null = use server default
+  const voice = useVoiceInput((text) => setInput((prev) => (prev ? `${prev} ${text}` : text)));
+  const [recipeState, setRecipeState] = useState({}); // { [messageIndex]: "saving" | "saved" | "error" }
   const endRef = useRef(null);
+
+  async function saveAsRecipe(i, content) {
+    setRecipeState((s) => ({ ...s, [i]: "saving" }));
+    try {
+      const extracted = await api.extractRecipe([], null, content, provider);
+      await api.saveRecipe(extracted);
+      setRecipeState((s) => ({ ...s, [i]: "saved" }));
+    } catch {
+      setRecipeState((s) => ({ ...s, [i]: "error" }));
+      setTimeout(() => setRecipeState((s) => ({ ...s, [i]: undefined })), 3000);
+    }
+  }
 
   const options = [
     { id: null, label: "Auto" },
@@ -78,6 +166,9 @@ export default function Insights({ aiStatus }) {
         </div>
       </header>
 
+      <WeeklyDigest />
+      <MemoryEditor />
+
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
         {messages.length === 0 && (
           <div className="mx-auto mt-6 max-w-lg text-center">
@@ -95,7 +186,18 @@ export default function Insights({ aiStatus }) {
                 : "bg-panel2/70 border border-line"
             }`}>
               {m.role === "assistant"
-                ? <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                ? (
+                  <>
+                    <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                    <button onClick={() => saveAsRecipe(i, m.content)} disabled={recipeState[i] === "saving"}
+                      className="mt-2 flex items-center gap-1.5 text-[11px] text-faint transition hover:text-nutrition disabled:opacity-50">
+                      {recipeState[i] === "saved" ? <><Check size={12} className="text-nutrition" /> Saved to recipes</>
+                        : recipeState[i] === "saving" ? "Saving…"
+                        : recipeState[i] === "error" ? "Couldn't find a recipe in this reply"
+                        : <><BookmarkPlus size={12} /> Save as recipe</>}
+                    </button>
+                  </>
+                )
                 : m.content}
             </div>
           </div>
@@ -132,6 +234,14 @@ export default function Insights({ aiStatus }) {
           placeholder="Ask your coach…"
           className="max-h-32 flex-1 resize-none rounded-xl border border-line bg-panel2/60 px-4 py-2.5 text-sm text-txt outline-none placeholder:text-faint focus:border-recovery/40"
         />
+        {voice.supported && (
+          <button onClick={voice.toggle} title="Voice input"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
+              voice.listening ? "border-effort/50 bg-effort/15 text-effort animate-pulse" : "border-line bg-panel2 text-muted hover:text-txt"
+            }`}>
+            <Mic size={16} />
+          </button>
+        )}
         <button
           onClick={() => send()}
           disabled={busy || !input.trim()}

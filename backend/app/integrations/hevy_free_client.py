@@ -4,14 +4,17 @@ client (the same private api.hevyapp.com endpoints the Hevy *web app* uses).
 This is EXPERIMENTAL and depends on an alpha library + undocumented endpoints
 that can change. The CSV import path is the reliable fallback.
 
-One-time setup (login has a reCAPTCHA, so you can't fully script the first login):
-  - Grab an access token + refresh token once from a logged-in hevy.com browser
-    session (DevTools -> Application -> Cookies / Network), OR run
-    `login_via_browser()` once on a machine with a display.
-  - Put them in .env as HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN.
-After that the client auto-refreshes the tokens, so recurring sync is hands-off.
+One-time setup — run once, interactively, in your own terminal:
+    pip install 'hevy-unofficial[core]'
+    python -m playwright install chromium   # one-time browser binary download
+    cd backend && python -m app.hevy_auth   # opens a real browser, you log in there
 
-    pip install 'hevy-unofficial[core]'   # lightweight, no browser
+That saves session tokens to backend/data/hevy_tokens.json (gitignored). The
+client auto-refreshes them and re-persists the refreshed pair after that, so
+recurring sync is genuinely hands-off — no token to manually rotate.
+
+Legacy fallback: paste HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN into .env directly
+(grabbed from hevy.com's DevTools) if you'd rather not run the browser flow.
 """
 from __future__ import annotations
 import logging
@@ -30,19 +33,47 @@ class HevyUnavailable(RuntimeError):
 
 def _client():
     try:
-        from hevy_unofficial import HevyClient
+        from hevy_unofficial import HevyClient, CredentialStore
     except ImportError as e:
         raise HevyUnavailable(
             "hevy-unofficial not installed. Run: pip install 'hevy-unofficial[core]'"
         ) from e
-    if not (settings.hevy_access_token and settings.hevy_refresh_token):
-        raise HevyUnavailable(
-            "HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN not set in .env — see hevy_free_client docstring."
+
+    if settings.hevy_email:
+        store = CredentialStore(path=settings.hevy_token_store)
+        cached = store.get(settings.hevy_email)
+        if cached:
+            return HevyClient(
+                access_token=cached.tokens.access_token,
+                refresh_token=cached.tokens.refresh_token,
+                user_id=cached.tokens.user_id,
+                credential_email=settings.hevy_email,
+                credential_store=store,  # refreshed tokens get re-persisted here automatically
+            )
+
+    if settings.hevy_access_token and settings.hevy_refresh_token:
+        return HevyClient(
+            access_token=settings.hevy_access_token,
+            refresh_token=settings.hevy_refresh_token,
         )
-    return HevyClient(
-        access_token=settings.hevy_access_token,
-        refresh_token=settings.hevy_refresh_token,
+
+    raise HevyUnavailable(
+        "No Hevy login found. Run `python -m app.hevy_auth` once (opens a browser to log "
+        "in), or set HEVY_ACCESS_TOKEN/HEVY_REFRESH_TOKEN in .env as a fallback."
     )
+
+
+def _username(account: dict) -> str | None:
+    """Defensive extraction — the private API's response shape isn't documented,
+    so try every key that plausibly holds the username."""
+    for key in ("username", "user_name", "handle", "userName"):
+        if account.get(key):
+            return account[key]
+    user = account.get("user") or {}
+    for key in ("username", "user_name", "handle", "userName"):
+        if user.get(key):
+            return user[key]
+    return None
 
 
 def _dt(v):
@@ -94,28 +125,24 @@ def _normalize(w: dict) -> dict:
     }
 
 
-def fetch_all_workouts(page_size: int = 50, max_pages: int = 40) -> list[dict]:
-    """Pull the full workout history via the unofficial client, paginating defensively."""
+def fetch_all_workouts(page_size: int = 50, max_pages: int = 200) -> list[dict]:
+    """Pull the full workout history via the unofficial client's real API
+    (client.users / client.workouts are pre-built resource instances)."""
     with _client() as client:
         account = client.users.get_account()
-        username = account.get("username")
-        collected: list[dict] = []
+        username = _username(account)
+        if not username:
+            raise HevyUnavailable(
+                f"Couldn't find a username in the account response (got keys: {list(account.keys())}). "
+                "The private API's response shape may have changed — falling back to CSV import is safest."
+            )
+
         seen: set = set()
-        # Try offset pagination; fall back to a single large fetch if unsupported.
-        for page in range(max_pages):
-            try:
-                batch = client.workouts.list_paged(username=username, limit=page_size, offset=page * page_size)
-            except TypeError:
-                batch = client.workouts.list_paged(username=username, limit=page_size * max_pages)
-                collected = list(batch)
-                break
-            items = list(batch or [])
-            if not items:
-                break
-            new = [it for it in items if str(it.get("id")) not in seen]
-            for it in new:
-                seen.add(str(it.get("id")))
-            collected.extend(new)
-            if len(items) < page_size:
-                break
+        collected: list[dict] = []
+        for w in client.workouts.iter_paged(username, page_size=page_size, max_pages=max_pages):
+            wid = str(w.get("id") or w.get("workout_id") or "")
+            if wid and wid in seen:
+                continue
+            seen.add(wid)
+            collected.append(w)
         return [_normalize(w) for w in collected]

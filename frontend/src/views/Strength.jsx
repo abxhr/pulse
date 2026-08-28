@@ -1,33 +1,162 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
+  ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { api } from "../lib/api";
-import { COLORS, fmtNum, fmtDate, fmtDuration } from "../lib/format";
+import { COLORS, fmtNum, fmtDate, fmtDuration, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
+import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from "../components/StrengthExtras";
+import { consumePendingOpen } from "../components/CommandPalette";
+import HevyStatus from "../components/HevyStatus";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
 
 function WeekHeatmap({ week }) {
   const [hover, setHover] = useState(null);
+  const [mode, setMode] = useState("volume"); // volume | recency
+  const [recency, setRecency] = useState(null);
+
+  useEffect(() => {
+    if (mode === "recency" && !recency) api.muscleRecency().then(setRecency).catch(() => setRecency({}));
+  }, [mode, recency]);
+
   if (!week) return null;
-  const intensities = Object.fromEntries((week.by_muscle || []).map((m) => [m.muscle, m.intensity]));
-  const hoveredData = hover && (week.by_muscle || []).find((m) => m.muscle.toLowerCase() === hover.toLowerCase());
+  const volumeIntensities = Object.fromEntries((week.by_muscle || []).map((m) => [m.muscle, m.intensity]));
+  const recencyIntensities = recency ? Object.fromEntries(Object.entries(recency).map(([m, r]) => [m, r.intensity])) : {};
+  const intensities = mode === "recency" ? recencyIntensities : volumeIntensities;
+
+  const hoveredVolume = hover && (week.by_muscle || []).find((m) => m.muscle.toLowerCase() === hover.toLowerCase());
+  const hoveredRecency = hover && recency?.[hover.toLowerCase()];
 
   return (
     <Panel accent={COLORS.strength} title="Muscles hit this week"
-      sub={`Mon ${fmtDate(week.week_start)} – Sun ${fmtDate(week.week_end)} · ${week.workout_count} session${week.workout_count === 1 ? "" : "s"}`}>
+      sub={mode === "volume"
+        ? `Mon ${fmtDate(week.week_start)} – Sun ${fmtDate(week.week_end)} · ${week.workout_count} session${week.workout_count === 1 ? "" : "s"}`
+        : "darker = longer since last trained · 60 days"}
+      right={
+        <div className="flex gap-1 rounded-full bg-ink p-0.5">
+          {[["volume", "Volume"], ["recency", "Recency"]].map(([m, label]) => (
+            <button key={m} onClick={() => setMode(m)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${mode === m ? "bg-strength text-ink" : "text-muted"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      }>
       <MuscleBody intensities={intensities} onHover={setHover} />
       <div className="mt-2 flex min-h-[18px] items-center justify-center font-mono text-xs text-muted">
         {hover
-          ? `${hover}${hoveredData ? ` · ${fmtNum(hoveredData.volume_kg)}kg · ${hoveredData.sets} sets` : " · not hit yet"}`
+          ? mode === "volume"
+            ? `${hover}${hoveredVolume ? ` · ${fmtNum(hoveredVolume.volume_kg)}kg · ${hoveredVolume.sets} sets` : " · not hit yet"}`
+            : `${hover}${hoveredRecency?.days_since != null ? ` · ${hoveredRecency.days_since}d ago` : " · not trained in 60d"}`
           : "hover a region"}
       </div>
-      {!week.workout_count && (
+      {mode === "volume" && !week.workout_count && (
         <p className="mt-2 text-center text-xs text-faint">No workouts logged yet this week.</p>
+      )}
+    </Panel>
+  );
+}
+
+function ExerciseProgression({ wkos }) {
+  const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const byExercise = useMemo(() => {
+    const map = new Map();
+    for (const w of wkos) {
+      if (!w.date) continue;
+      for (const ex of w.exercises || []) {
+        if (!ex.sets?.length) continue;
+        let best = { weight_kg: 0, reps: 0, e1rm: 0 };
+        let volume = 0;
+        for (const s of ex.sets) {
+          const weight = s.weight_kg || 0;
+          const reps = s.reps || 0;
+          volume += weight * reps;
+          const e1rm = weight * (1 + reps / 30); // Epley formula
+          if (e1rm > best.e1rm) best = { weight_kg: weight, reps, e1rm };
+        }
+        if (!map.has(ex.title)) map.set(ex.title, { entries: [], totalVolume: 0, muscle: ex.muscle_group || "other" });
+        const rec = map.get(ex.title);
+        rec.entries.push({ date: w.date, best_kg: best.weight_kg, e1rm: Math.round(best.e1rm), volume });
+        rec.totalVolume += volume;
+      }
+    }
+    for (const rec of map.values()) rec.entries.sort((a, b) => a.date.localeCompare(b.date));
+    return map;
+  }, [wkos]);
+
+  // Grouped by muscle (each group sorted by volume) when not searching; a flat
+  // volume-sorted, name-filtered list when searching — 40+ exercises in one flat
+  // alphabetical dropdown was unusable once your log got long.
+  const groups = useMemo(() => {
+    const byMuscle = new Map();
+    for (const [name, rec] of byExercise.entries()) {
+      if (!byMuscle.has(rec.muscle)) byMuscle.set(rec.muscle, []);
+      byMuscle.get(rec.muscle).push({ name, totalVolume: rec.totalVolume });
+    }
+    for (const list of byMuscle.values()) list.sort((a, b) => b.totalVolume - a.totalVolume);
+    return [...byMuscle.entries()].sort((a, b) =>
+      Math.max(...b[1].map((x) => x.totalVolume)) - Math.max(...a[1].map((x) => x.totalVolume))
+    );
+  }, [byExercise]);
+
+  const flatOptions = useMemo(
+    () => [...byExercise.entries()].sort((a, b) => b[1].totalVolume - a[1].totalVolume).map(([name]) => name),
+    [byExercise]
+  );
+  const filtered = search.trim()
+    ? flatOptions.filter((n) => n.toLowerCase().includes(search.trim().toLowerCase()))
+    : null;
+
+  const active = selected && byExercise.has(selected) ? selected : flatOptions[0];
+  const entries = active ? byExercise.get(active).entries : [];
+  const last = entries[entries.length - 1];
+  const first = entries[0];
+
+  if (!flatOptions.length) return null;
+
+  return (
+    <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley) · best set weight per session">
+      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercises…"
+        className="mb-2 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-strength/50 focus:outline-none" />
+      <select value={active} onChange={(e) => setSelected(e.target.value)}
+        className="mb-3 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt focus:border-strength/50 focus:outline-none">
+        {filtered
+          ? filtered.map((name) => <option key={name} value={name}>{name}</option>)
+          : groups.map(([muscle, list]) => (
+              <optgroup key={muscle} label={muscle}>
+                {list.map(({ name }) => <option key={name} value={name}>{name}</option>)}
+              </optgroup>
+            ))}
+      </select>
+
+      {entries.length >= 2 ? (
+        <>
+          <div className="mb-2 grid grid-cols-3 gap-3">
+            <StatTile label="Latest e1RM" value={fmtNum(last?.e1rm)} unit="kg" color={COLORS.effort} />
+            <StatTile label="Sessions" value={entries.length} color={COLORS.muted} />
+            <StatTile label="Since first logged" value={last && first ? `${last.e1rm - first.e1rm >= 0 ? "+" : ""}${fmtNum(last.e1rm - first.e1rm)}` : "—"} unit="kg" color={COLORS.recovery} />
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={entries} margin={{ left: -8, right: 8, top: 6 }}>
+              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={30} axisLine={false} tickLine={false} />
+              <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 5", "dataMax + 5"]}
+                label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+              <Tooltip
+                contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                labelFormatter={fmtDate} />
+              <Line type="monotone" dataKey="e1rm" name="Est. 1RM" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </>
+      ) : (
+        <p className="py-4 text-center text-xs text-faint">Need at least 2 sessions of this exercise to chart progression.</p>
       )}
     </Panel>
   );
@@ -38,11 +167,15 @@ export default function Strength() {
   const [week, setWeek] = useState(null);
   const [wkos, setWkos] = useState([]);
   const [openId, setOpenId] = useState(null);
+  const [health, setHealth] = useState([]);
 
   useEffect(() => {
     api.strength(8).then(setS).catch(() => setS({ by_muscle: [], top_exercises: [], weekly_volume: [] }));
     api.strengthThisWeek().then(setWeek).catch(() => setWeek(null));
     api.workouts(200).then(setWkos).catch(() => setWkos([]));
+    api.healthTrend(30).then(setHealth).catch(() => setHealth([]));
+    const pending = consumePendingOpen("workout");
+    if (pending) setOpenId(pending);
   }, []);
 
   if (!s) return <Loading label="Reading strength log…" />;
@@ -51,6 +184,7 @@ export default function Strength() {
 
   return (
     <div className="space-y-4">
+      <HevyStatus />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Volume (8wk)" value={fmtNum(s.total_volume_kg)} unit="kg" color={COLORS.strength} />
         <StatTile label="Workouts (8wk)" value={s.workout_count} color={COLORS.strength} />
@@ -60,13 +194,26 @@ export default function Strength() {
 
       <WeekHeatmap week={week} />
 
+      <RestDayRec week={week} health={health} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PRFeed wkos={wkos} />
+        <PlateauList wkos={wkos} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <VolumeLandmarks wkos={wkos} />
+        <SymmetryCheck wkos={wkos} />
+      </div>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.strength} title="Weekly volume" sub="total kg moved · 8 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.weekly_volume} margin={{ left: -8, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
               <XAxis dataKey="week" tick={axis} axisLine={false} tickLine={false} tickFormatter={(w) => w?.split("-W")[1]} />
-              <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
                 contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
               />
@@ -79,7 +226,8 @@ export default function Strength() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.by_muscle} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
               <CartesianGrid stroke="#1c2230" horizontal={false} />
-              <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+              <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                label={{ value: "kg", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
               <YAxis type="category" dataKey="muscle" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
                 contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
@@ -92,6 +240,8 @@ export default function Strength() {
           </ResponsiveContainer>
         </Panel>
       </div>
+
+      <ExerciseProgression wkos={wkos} />
 
       <Panel accent={COLORS.strength} title="Top exercises" sub="by volume · 8 weeks">
         <div className="space-y-2">

@@ -1,14 +1,75 @@
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp } from "lucide-react";
+import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
+import IntradayChart from "../components/IntradayChart";
+import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, WeatherChip, OvertrainingRiskCard, CorrelationMiner } from "../components/OverviewExtras";
+import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
+import { useDashboardLayout } from "../lib/useDashboardLayout";
+import DataFreshness, { FreshnessBadge } from "../components/DataFreshness";
+
+function DailyInsight() {
+  const [insight, setInsight] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  const load = () => api.dailyInsight().then(setInsight).catch((e) => setErr(String(e)));
+  useEffect(() => { load(); }, []);
+
+  async function refresh() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await api.refreshDailyInsight();
+      setInsight(res);
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (err) {
+    return (
+      <Panel accent={COLORS.recovery} title="Today's briefing">
+        <p className="text-xs text-faint">
+          {err.includes("not set") ? "Add an AI key in .env and restart the server to enable daily briefings." : err}
+        </p>
+      </Panel>
+    );
+  }
+  if (!insight) return null;
+
+  return (
+    <Panel accent={COLORS.recovery} title="Today's briefing"
+      sub={open ? `auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "tap to expand"}
+      right={
+        <div className="flex items-center gap-2">
+          {open && (
+            <button onClick={refresh} disabled={busy} title="Refresh"
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1 text-[11px] text-muted transition hover:border-recovery/40 disabled:opacity-50">
+              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
+            </button>
+          )}
+          <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
+            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      }>
+      {open && <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>}
+    </Panel>
+  );
+}
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 
@@ -30,18 +91,40 @@ function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate 
   );
 }
 
+const SECTIONS = [
+  { id: "briefing", label: "Today's briefing" },
+  { id: "hero", label: "Readiness + Vitals" },
+  { id: "insights", label: "Sleep debt, load ratio & alerts" },
+  { id: "recovery_sleep", label: "Recovery & Sleep charts" },
+  { id: "steps_intraday", label: "Steps & intraday" },
+  { id: "readiness_trend", label: "Training readiness trend" },
+  { id: "training_load", label: "Training load & recent sessions" },
+];
+const DEFAULT_ORDER = SECTIONS.map((s) => s.id);
+
 export default function Dashboard() {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
+  const [current, setCurrent] = useState(null);
+  const [extra, setExtra] = useState(null);
+  const [showLayout, setShowLayout] = useState(false);
 
   useEffect(() => {
     api.dashboard().then(setD).catch((e) => setErr(String(e)));
+    api.dashboardExtra().then(setExtra).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const load = () => api.currentReading().then(setCurrent).catch(() => {});
+    load();
+    const t = setInterval(load, 2 * 60 * 1000); // stress/body battery are genuinely live — refresh every 2 min
+    return () => clearInterval(t);
   }, []);
 
   const recoveryToggle = useSeriesToggle();
   const sleepToggle = useSeriesToggle();
-  const stressToggle = useSeriesToggle();
   const loadToggle = useSeriesToggle();
+  const layout = useDashboardLayout(DEFAULT_ORDER);
 
   if (err) return <Empty title="Couldn't load dashboard" body={err} />;
   if (!d) return <Loading />;
@@ -49,11 +132,13 @@ export default function Dashboard() {
   const s = d.snapshot;
   const bb = s.body_battery_high;
 
-  return (
-    <div className="space-y-4">
-      {/* hero */}
+  const sections = {
+    briefing: <DailyInsight />,
+
+    hero: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
-        <Panel accent={COLORS.recovery} title="Today" sub={s.date || "no data yet"}>
+        <Panel accent={COLORS.recovery} title={s.date === new Date().toISOString().slice(0,10) ? "Today" : "Latest available"} sub={s.date || "no data yet"}
+          right={extra?.weather ? <WeatherChip data={extra.weather} /> : null}>
           <div className="flex items-center justify-center py-2">
             <ReadinessRing
               score={s.training_readiness}
@@ -67,7 +152,7 @@ export default function Dashboard() {
           </div>
         </Panel>
 
-        <Panel accent={COLORS.effort} title="Vitals" sub="latest readings">
+        <Panel accent={COLORS.effort} title="Vitals" sub="latest readings" right={<FreshnessBadge compact item={extra?.freshness?.sources?.garmin_health} />}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Resting HR" value={s.resting_hr} unit="bpm" color={COLORS.effort} />
             <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
@@ -75,16 +160,27 @@ export default function Dashboard() {
               hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
             <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "—"}
               color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
-            <StatTile label="Stress" value={s.stress} color={COLORS.strength} />
+            <StatTile label={current?.stress != null ? "Stress now" : "Avg stress"} value={current?.stress ?? s.stress} color={COLORS.strength}
+              hint={current?.stress != null ? `daily avg ${s.stress ?? "—"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
-              hint={s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
+              hint={extra?.adaptive_step_goal
+                ? `adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}`
+                : s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
-            <StatTile label="Body battery" value={s.body_battery_high} unit="peak" color={COLORS.sleep} />
+            <StatTile label={current?.body_battery != null ? "Body battery now" : "Body battery peak"} value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
+              hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "—"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
               hint={s.training_readiness_label} />
           </div>
+          {s.calories_total != null && (
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <StatTile label="Burned total" value={fmtNum(s.calories_total)} unit="kcal" color={COLORS.strength} />
+              <StatTile label="Active" value={fmtNum(s.calories_active)} unit="kcal" color={COLORS.effort} />
+              <StatTile label="Resting" value={fmtNum(s.calories_resting)} unit="kcal" color={COLORS.muted} />
+            </div>
+          )}
           {s.fitness_age != null && (
             <div className="mt-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
               <div className="flex items-center justify-between">
@@ -103,8 +199,23 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>
+    ),
 
-      {/* trends row */}
+    insights: extra ? (
+      <div className="space-y-3">
+        <DataFreshness data={extra.freshness} />
+        <WhatChangedBanner data={extra.what_changed} />
+        <AnomalyAlerts alerts={extra.anomalies} />
+        <OvertrainingRiskCard data={extra.overtraining_risk} />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <SleepDebtCard data={extra.sleep_debt} />
+          <LoadRatioCard data={extra.training_load_ratio} />
+        </div>
+        <CorrelationMiner />
+      </div>
+    ) : null,
+
+    recovery_sleep: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Panel accent={COLORS.recovery} title="Recovery" sub="HRV vs resting HR · 30 days">
           <ResponsiveContainer width="100%" height={200}>
@@ -156,9 +267,12 @@ export default function Dashboard() {
           ]} {...sleepToggle} />
         </Panel>
       </div>
+    ),
 
+    steps_intraday: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.muted} title="Steps" sub="daily · 30 days">
+        <Panel accent={COLORS.muted} title="Steps"
+          sub={extra?.adaptive_step_goal ? `daily · 30 days · adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}` : "daily · 30 days"}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <CartesianGrid stroke="#1c2230" vertical={false} />
@@ -168,39 +282,22 @@ export default function Dashboard() {
               <Tooltip content={<ChartTip />} cursor={{ fill: "#ffffff08" }} />
               <Bar dataKey="steps" name="Steps" radius={[3, 3, 0, 0]} maxBarSize={16}>
                 {d.health_trend.map((r, i) => (
-                  <Cell key={i} fill={(r.steps || 0) >= 10000 ? COLORS.recovery : COLORS.muted} />
+                  <Cell key={i} fill={(r.steps || 0) >= (extra?.adaptive_step_goal?.target || 10000) ? COLORS.recovery : COLORS.muted} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
           <p className="mt-2 text-center text-[11px] text-faint">
-            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} /> 10k+ goal met
+            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} />
+            {extra?.adaptive_step_goal ? `${fmtNum(extra.adaptive_step_goal.target)}+ adaptive goal met` : "10k+ goal met"}
           </p>
         </Panel>
 
-        <Panel accent={COLORS.strength} title="Stress vs body battery" sub="30 days">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
-              <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
-              <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30}
-                label={{ value: "stress", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
-              <YAxis yAxisId="r" orientation="right" tick={axis} axisLine={false} tickLine={false} width={34} domain={[0, 100]}
-                label={{ value: "battery", angle: 90, position: "insideRight", style: axisLabelStyle }} />
-              <Tooltip content={<ChartTip />} />
-              <Line yAxisId="l" type="monotone" dataKey="stress" name="Stress" stroke={COLORS.strength} strokeWidth={2} dot={false}
-                hide={stressToggle.hidden.has("stress")} />
-              <Line yAxisId="r" type="monotone" dataKey="body_battery_high" name="Body battery" stroke={COLORS.sleep} strokeWidth={2} dot={false}
-                hide={stressToggle.hidden.has("body_battery_high")} />
-            </LineChart>
-          </ResponsiveContainer>
-          <ChartLegend series={[
-            { key: "stress", name: "Stress", color: COLORS.strength },
-            { key: "body_battery_high", name: "Body battery", color: COLORS.sleep },
-          ]} {...stressToggle} />
-        </Panel>
+        <IntradayChart />
       </div>
+    ),
 
+    readiness_trend: (
       <Panel accent={COLORS.recovery} title="Training readiness" sub="30 days">
         <ResponsiveContainer width="100%" height={180}>
           <AreaChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
@@ -219,8 +316,9 @@ export default function Dashboard() {
           </AreaChart>
         </ResponsiveContainer>
       </Panel>
+    ),
 
-      {/* training load + activities */}
+    training_load: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         <Panel accent={COLORS.cardio} title="Training load" sub="weekly run km + strength volume · 12 weeks">
           <ResponsiveContainer width="100%" height={220}>
@@ -272,6 +370,19 @@ export default function Dashboard() {
           )}
         </Panel>
       </div>
+    ),
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <CustomizeButton onClick={() => setShowLayout(true)} />
+      </div>
+      <LayoutSettings open={showLayout} onClose={() => setShowLayout(false)} sections={SECTIONS} layout={layout} />
+
+      {layout.order.filter((id) => !layout.hidden.includes(id)).map((id) => (
+        <div key={id}>{sections[id]}</div>
+      ))}
     </div>
   );
 }

@@ -1,2 +1,3 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run """" & CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName) & "\start_server.bat""", 0, False
+BackendDir = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+WshShell.Run "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & BackendDir & "\watch_server.ps1""", 0, False

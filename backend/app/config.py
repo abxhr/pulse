@@ -31,9 +31,10 @@ class Settings(BaseSettings):
     hevy_import_dir: str = str(DATA_DIR / "imports")
     hevy_api_key: str | None = None          # pro mode
     hevy_base_url: str = "https://api.hevyapp.com"
-    hevy_access_token: str | None = None     # unofficial mode
-    hevy_refresh_token: str | None = None    # unofficial mode
-    hevy_email: str | None = None
+    hevy_token_store: str = str(DATA_DIR / "hevy_tokens.json")  # unofficial mode — set up via `python -m app.hevy_auth`
+    hevy_access_token: str | None = None     # unofficial mode legacy fallback (paste tokens directly)
+    hevy_refresh_token: str | None = None    # unofficial mode legacy fallback
+    hevy_email: str | None = None            # unofficial mode — key into hevy_token_store
 
     # --- AI provider: "anthropic" or "openai" ---
     ai_provider: str = "anthropic"
@@ -52,7 +53,18 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"          # bind to all interfaces so your phone can reach it on the LAN
     port: int = 8000
     serve_frontend: bool = True    # serve the built frontend from FastAPI (single process, one URL)
-    cors_origins: str = "*"        # with single-process serving, same-origin; "*" is fine on a home LAN
+    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080,https://abxhr-core.tail551b1d.ts.net"
+
+    # --- Overview extras ---
+    sleep_target_hours: float = 8.0   # nightly sleep need used for the sleep-debt tracker
+    latitude: float | None = None     # set these to enable the weather card on the readiness panel
+    longitude: float | None = None    # (Open-Meteo needs no API key, just a location)
+
+    # --- Push notifications (real background push via service worker + VAPID) ---
+    # Generate once with: python -m app.generate_vapid_keys
+    vapid_public_key: str | None = None
+    vapid_private_key_path: str = str(DATA_DIR / "vapid_private.pem")
+    vapid_subject: str = "mailto:admin@example.com"
 
 
 settings = Settings()
