@@ -1,4 +1,3 @@
 @echo off
 cd /d "%~dp0"
-call .venv\Scripts\activate.bat
-python -m app.main
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0watch_server.ps1"
