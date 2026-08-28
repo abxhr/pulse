@@ -15,6 +15,7 @@ import IntradayChart from "../components/IntradayChart";
 import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, WeatherChip, OvertrainingRiskCard, CorrelationMiner } from "../components/OverviewExtras";
 import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
 import { useDashboardLayout } from "../lib/useDashboardLayout";
+import DataFreshness, { FreshnessBadge } from "../components/DataFreshness";
 
 function DailyInsight() {
   const [insight, setInsight] = useState(null);
@@ -136,7 +137,7 @@ export default function Dashboard() {
 
     hero: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
-        <Panel accent={COLORS.recovery} title="Today" sub={s.date || "no data yet"}
+        <Panel accent={COLORS.recovery} title={s.date === new Date().toISOString().slice(0,10) ? "Today" : "Latest available"} sub={s.date || "no data yet"}
           right={extra?.weather ? <WeatherChip data={extra.weather} /> : null}>
           <div className="flex items-center justify-center py-2">
             <ReadinessRing
@@ -151,7 +152,7 @@ export default function Dashboard() {
           </div>
         </Panel>
 
-        <Panel accent={COLORS.effort} title="Vitals" sub="latest readings">
+        <Panel accent={COLORS.effort} title="Vitals" sub="latest readings" right={<FreshnessBadge compact item={extra?.freshness?.sources?.garmin_health} />}>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Resting HR" value={s.resting_hr} unit="bpm" color={COLORS.effort} />
             <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
@@ -159,8 +160,8 @@ export default function Dashboard() {
               hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
             <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "—"}
               color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
-            <StatTile label="Stress now" value={current?.stress ?? s.stress} color={COLORS.strength}
-              hint={current?.stress != null ? `today's avg ${s.stress ?? "—"}` : "today's avg"} />
+            <StatTile label={current?.stress != null ? "Stress now" : "Avg stress"} value={current?.stress ?? s.stress} color={COLORS.strength}
+              hint={current?.stress != null ? `daily avg ${s.stress ?? "—"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
               hint={extra?.adaptive_step_goal
                 ? `adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}`
@@ -168,8 +169,8 @@ export default function Dashboard() {
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
-            <StatTile label="Body battery now" value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
-              hint={current?.body_battery != null ? `today's peak ${s.body_battery_high ?? "—"}` : "today's peak"} />
+            <StatTile label={current?.body_battery != null ? "Body battery now" : "Body battery peak"} value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
+              hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "—"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
               hint={s.training_readiness_label} />
           </div>
@@ -202,6 +203,7 @@ export default function Dashboard() {
 
     insights: extra ? (
       <div className="space-y-3">
+        <DataFreshness data={extra.freshness} />
         <WhatChangedBanner data={extra.what_changed} />
         <AnomalyAlerts alerts={extra.anomalies} />
         <OvertrainingRiskCard data={extra.overtraining_risk} />

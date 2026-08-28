@@ -10,20 +10,76 @@ import time
 
 import requests
 
-from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import Response
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from datetime import date
+from datetime import date, datetime
 
 from .db import get_session
 from .config import settings
-from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc
+from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
+
+
+# ---------- single-user authentication ----------
+def _set_session_cookie(response: Response, request: Request, token: str) -> None:
+    forwarded = request.headers.get("x-forwarded-proto", "")
+    secure = request.url.scheme == "https" or forwarded == "https"
+    response.set_cookie("pulse_session", token, max_age=90 * 86400, httponly=True,
+                        secure=secure, samesite="strict", path="/")
+
+
+@router.get("/auth/status")
+def auth_status(request: Request, db: Session = Depends(get_session)):
+    is_configured = auth_svc.configured(db)
+    return {"configured": is_configured,
+            "authenticated": is_configured and auth_svc.valid_session(db, request.cookies.get("pulse_session")),
+            "setup_allowed": request.client is not None and request.client.host in {"127.0.0.1", "::1"}}
+
+
+@router.post("/auth/setup")
+def auth_setup(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
+    if auth_svc.configured(db):
+        raise HTTPException(409, "Pulse already has an owner password")
+    if request.client is None or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(403, "Initial setup is only allowed from this PC at http://localhost:8080")
+    try:
+        auth_svc.set_password(db, str(payload.get("password", "")))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    _set_session_cookie(response, request, auth_svc.create_session(db))
+    return {"ok": True}
+
+
+@router.post("/auth/login")
+def auth_login(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
+    if not auth_svc.verify_password(db, str(payload.get("password", ""))):
+        raise HTTPException(401, "Incorrect password")
+    _set_session_cookie(response, request, auth_svc.create_session(db))
+    return {"ok": True}
+
+
+@router.post("/auth/reset")
+def auth_reset(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
+    """Physical-PC recovery path: invalidates every phone/browser session."""
+    if request.client is None or request.client.host not in {"127.0.0.1", "::1"}:
+        raise HTTPException(403, "Password reset is only allowed from this PC at http://localhost:8080")
+    try: auth_svc.set_password(db, str(payload.get("password", "")))
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+    _set_session_cookie(response, request, auth_svc.create_session(db))
+    return {"ok": True}
+
+
+@router.post("/auth/logout")
+def auth_logout(request: Request, response: Response, db: Session = Depends(get_session)):
+    auth_svc.revoke_session(db, request.cookies.get("pulse_session"))
+    response.delete_cookie("pulse_session", path="/")
+    return {"ok": True}
 
 
 # ---------- status / connectivity ----------
@@ -41,6 +97,7 @@ def status(db: Session = Depends(get_session)):
     )
     ai_providers = insights.available_providers()
     mode = settings.hevy_mode.lower()
+    latest_workout = db.scalar(select(func.max(Workout.date)))
     if mode == "pro":
         hevy_ready = bool(settings.hevy_api_key)
     elif mode == "unofficial":
@@ -53,7 +110,10 @@ def status(db: Session = Depends(get_session)):
     return {
         "connections": {
             "garmin": garmin_ready,
-            "hevy": {"mode": mode, "configured": hevy_ready},
+            "hevy": {"mode": mode, "configured": hevy_ready,
+                     "automatic": mode in {"unofficial", "pro"},
+                     "latest_workout": latest_workout.isoformat() if latest_workout else None,
+                     "stale": latest_workout is None or (date.today() - latest_workout).days > 3},
             "ai": {"provider": settings.ai_provider, **ai_providers},
         },
         "counts": counts,
@@ -63,7 +123,23 @@ def status(db: Session = Depends(get_session)):
             "finished_at": l.finished_at.isoformat() if l.finished_at else None,
             "message": l.message,
         } for l in logs],
+        "freshness": analytics.data_freshness(db),
     }
+
+
+@router.get("/hevy/status")
+def hevy_status(db: Session = Depends(get_session)):
+    mode = settings.hevy_mode.lower()
+    latest = db.scalar(select(func.max(Workout.date)))
+    last_log = db.execute(select(SyncLog).where(SyncLog.source.ilike("hevy%")).order_by(SyncLog.started_at.desc()).limit(1)).scalar_one_or_none()
+    age = (date.today() - latest).days if latest else None
+    return {"mode": mode, "automatic": mode in {"unofficial", "pro"},
+            "latest_workout": latest.isoformat() if latest else None, "age_days": age,
+            "stale": age is None or age > 3,
+            "last_sync": last_log.finished_at.isoformat() if last_log and last_log.finished_at else None,
+            "last_status": last_log.status if last_log else None,
+            "action": None if mode in {"unofficial", "pro"} else
+                "CSV mode auto-imports files placed in backend/data/imports, but cannot download exports itself. Run python -m app.hevy_auth once and set HEVY_MODE=unofficial for hands-free sync."}
 
 
 # ---------- dashboard ----------
@@ -91,7 +167,13 @@ def dashboard_extra(db: Session = Depends(get_session)):
         "weather": weather_svc.current_weather(),
         "overtraining_risk": analytics.overtraining_risk(db),
         "adaptive_step_goal": analytics.adaptive_step_goal(db),
+        "freshness": analytics.data_freshness(db),
     }
+
+
+@router.get("/data-quality")
+def data_quality(db: Session = Depends(get_session)):
+    return analytics.data_freshness(db)
 
 
 @router.get("/analytics/calendar")
@@ -110,22 +192,29 @@ def health_trend(days: int = 30, db: Session = Depends(get_session)):
 
 
 @router.get("/health/intraday")
-def health_intraday(d: str | None = None):
-    """Hourly stress + body battery for a single day — fetched live from Garmin
-    on demand (not stored in bulk; intraday resolution would bloat the DB)."""
+def health_intraday(d: str | None = None, db: Session = Depends(get_session)):
+    """Hourly stress/body battery, live-refreshed today and cached for resilience."""
     day = date.fromisoformat(d) if d else date.today()
-    try:
-        client = gc.make_client()
-    except gc.GarminUnavailable as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    result = gc.fetch_intraday_stress(client, day)
-    if not result:
-        raise HTTPException(status_code=404, detail="no intraday data for this date")
-    return result
+    cached = db.get(IntradayHealth, day)
+    result = None
+    if day == date.today() or not cached:
+        try: result = gc.fetch_intraday_stress(gc.make_client(), day)
+        except gc.GarminUnavailable: result = None
+    if result:
+        row = cached or IntradayHealth(date=day)
+        row.avg_stress, row.max_stress, row.hourly = result.get("avg_stress"), result.get("max_stress"), result.get("hourly")
+        row.source, row.updated_at = "garmin", datetime.utcnow()
+        if not cached: db.add(row)
+        db.commit()
+        return {**result, "cached": False}
+    if cached:
+        return {"date": cached.date.isoformat(), "avg_stress": cached.avg_stress, "max_stress": cached.max_stress,
+                "hourly": cached.hourly or [], "cached": True, "updated_at": cached.updated_at.isoformat()}
+    raise HTTPException(status_code=404, detail="no intraday data for this date")
 
 
 @router.get("/health/current")
-def health_current():
+def health_current(db: Session = Depends(get_session)):
     """Live current stress + body battery reading — bypasses the DB entirely,
     always a fresh call to Garmin, since these change throughout the day and the
     stored daily row only has the day's average/peak stats."""
@@ -133,7 +222,16 @@ def health_current():
         client = gc.make_client()
     except gc.GarminUnavailable as e:
         raise HTTPException(status_code=502, detail=str(e))
-    return gc.fetch_current_reading(client)
+    live = gc.fetch_current_reading(client)
+    if live and (live.get("stress") is not None or live.get("body_battery") is not None):
+        return {**live, "source": "live"}
+    cached = db.get(IntradayHealth, date.today())
+    points = [p for p in (cached.hourly if cached else []) if p.get("avg_stress") is not None or p.get("avg_battery") is not None]
+    if points:
+        p = points[-1]
+        return {"stress": p.get("avg_stress"), "body_battery": p.get("avg_battery"),
+                "as_of": f"{date.today().isoformat()}T{p['hour']:02d}:00:00", "source": "hourly cache"}
+    return {"stress": None, "body_battery": None, "as_of": None, "source": "unavailable"}
 
 
 @router.get("/sleep/trend")
@@ -581,6 +679,13 @@ def nutrition_day(d: str, db: Session = Depends(get_session)):
 @router.get("/nutrition/trend")
 def nutrition_trend(days: int = 14, db: Session = Depends(get_session)):
     return nutrition.trend(db, days)
+
+
+@router.put("/nutrition/day/complete")
+def nutrition_day_complete(payload: dict = Body(...), db: Session = Depends(get_session)):
+    d = date.fromisoformat(payload.get("date") or date.today().isoformat())
+    try: return nutrition.set_day_complete(db, d, bool(payload.get("complete")))
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/nutrition/favorites")

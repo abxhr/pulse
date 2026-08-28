@@ -6,6 +6,7 @@ async function req(path, opts = {}) {
     ...opts,
   });
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event("pulse:unauthorized"));
     const body = await res.text();
     throw new Error(`${res.status}: ${body}`);
   }
@@ -13,9 +14,16 @@ async function req(path, opts = {}) {
 }
 
 export const api = {
+  authStatus: () => req("/auth/status"),
+  authSetup: (password) => req("/auth/setup", { method: "POST", body: JSON.stringify({ password }) }),
+  authLogin: (password) => req("/auth/login", { method: "POST", body: JSON.stringify({ password }) }),
+  authReset: (password) => req("/auth/reset", { method: "POST", body: JSON.stringify({ password }) }),
+  authLogout: () => req("/auth/logout", { method: "POST" }),
   status: () => req("/status"),
   dashboard: () => req("/dashboard"),
   dashboardExtra: () => req("/dashboard/extra"),
+  dataQuality: () => req("/data-quality"),
+  hevyStatus: () => req("/hevy/status"),
   healthTrend: (days = 30) => req(`/health/trend?days=${days}`),
   sleepTrend: (days = 30) => req(`/sleep/trend?days=${days}`),
   sleepConsistency: (days = 30) => req(`/sleep/consistency?days=${days}`),
@@ -68,6 +76,7 @@ export const api = {
   nutritionToday: () => req("/nutrition/today"),
   nutritionDay: (d) => req(`/nutrition/day?d=${d}`),
   nutritionTrend: (days = 14) => req(`/nutrition/trend?days=${days}`),
+  setNutritionDayComplete: (date, complete) => req("/nutrition/day/complete", { method: "PUT", body: JSON.stringify({ date, complete }) }),
   nutritionFavorites: () => req("/nutrition/favorites"),
   nutritionStreak: () => req("/nutrition/streak"),
   nutritionProteinTiming: (d) => req(`/nutrition/protein-timing${d ? `?d=${d}` : ""}`),

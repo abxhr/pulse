@@ -1,12 +1,14 @@
 """Derived metrics and aggregations for the dashboard, trends, and reports."""
 from __future__ import annotations
 from datetime import date, timedelta
+import math
+import statistics
 from collections import defaultdict
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from ..models import DailyHealth, Sleep, Activity, Workout, Meal
+from ..models import DailyHealth, Sleep, Activity, Workout, Meal, BodyWeight, SyncLog
 
 
 def _avg(values):
@@ -63,6 +65,32 @@ def latest_fitness_age(db: Session) -> DailyHealth | None:
     ).scalar_one_or_none()
 
 
+def data_freshness(db: Session) -> dict:
+    """One shared freshness contract so pages never silently present old data as current."""
+    today = date.today()
+    specs = {
+        "garmin_health": (DailyHealth, DailyHealth.date, 1, "Garmin daily health"),
+        "sleep": (Sleep, Sleep.date, 1, "Garmin sleep"),
+        "activities": (Activity, Activity.date, 7, "Garmin activities"),
+        "hevy": (Workout, Workout.date, 3, "Hevy workouts"),
+        "nutrition": (Meal, Meal.date, 2, "Meal log"),
+        "weight": (BodyWeight, BodyWeight.date, 7, "Weight log"),
+    }
+    sources = {}
+    for key, (model, column, threshold, label) in specs.items():
+        latest = db.scalar(select(func.max(column)))
+        age = (today - latest).days if latest else None
+        sources[key] = {"label": label, "latest_date": latest.isoformat() if latest else None,
+                        "age_days": age, "stale": age is None or age > threshold,
+                        "source": "manual" if key in {"nutrition", "weight"} else ("hevy" if key == "hevy" else "garmin")}
+    sync_rows = db.execute(select(SyncLog).where(SyncLog.status == "ok").order_by(SyncLog.finished_at.desc())).scalars().all()
+    last_sync = {}
+    for row in sync_rows:
+        last_sync.setdefault(row.source, row.finished_at.isoformat() if row.finished_at else row.started_at.isoformat())
+    return {"as_of": today.isoformat(), "sources": sources, "last_sync": last_sync,
+            "stale_count": sum(1 for s in sources.values() if s["stale"])}
+
+
 def snapshot(db: Session) -> dict:
     """Today's headline numbers for the hero panel."""
     h = latest_health(db)
@@ -98,7 +126,7 @@ def snapshot(db: Session) -> dict:
 
 
 def health_trend(db: Session, days: int = 30) -> list[dict]:
-    start = date.today() - timedelta(days=days)
+    start = date.today() - timedelta(days=max(0, days - 1))
     rows = db.execute(
         select(DailyHealth).where(DailyHealth.date >= start).order_by(DailyHealth.date)
     ).scalars().all()
@@ -202,7 +230,7 @@ def _bedtime_hour(dt) -> float | None:
 
 
 def sleep_trend(db: Session, days: int = 30) -> list[dict]:
-    start = date.today() - timedelta(days=days)
+    start = date.today() - timedelta(days=max(0, days - 1))
     rows = db.execute(
         select(Sleep).where(Sleep.date >= start).order_by(Sleep.date)
     ).scalars().all()
@@ -262,6 +290,7 @@ def recent_activities(db: Session, limit: int = 12) -> list[dict]:
         "id": r.id,
         "date": r.date.isoformat() if r.date else None,
         "type": r.activity_type,
+        "category": activity_category(r.activity_type),
         "name": r.name,
         "distance_km": round((r.distance_m or 0) / 1000, 2),
         "duration_min": round((r.duration_s or 0) / 60, 1),
@@ -272,6 +301,18 @@ def recent_activities(db: Session, limit: int = 12) -> list[dict]:
         "aerobic_te": r.aerobic_te,
         "anaerobic_te": r.anaerobic_te,
     } for r in rows]
+
+
+def activity_category(activity_type: str | None) -> str:
+    t = (activity_type or "").lower()
+    if "run" in t: return "run"
+    if "walk" in t or "hik" in t: return "walk_hike"
+    if "cycl" in t or "bik" in t: return "ride"
+    if "swim" in t: return "swim"
+    if "strength" in t or "weight" in t: return "strength"
+    if "row" in t or "kayak" in t: return "paddle"
+    if "soccer" in t or "football" in t: return "sport"
+    return "other"
 
 
 def training_load(db: Session, weeks: int = 12) -> list[dict]:
@@ -479,6 +520,12 @@ def race_predictions(db: Session) -> dict | None:
     v = latest_vo2max(db)
     if not v or not v.vo2max:
         return None
+    recent = db.execute(select(Activity).where(
+        Activity.date >= date.today() - timedelta(days=90),
+        Activity.activity_type.in_(("running", "trail_running", "track_running")),
+        Activity.distance_m >= 3000, Activity.duration_s > 0,
+    )).scalars().all()
+    longest_km = max(((a.distance_m or 0) / 1000 for a in recent), default=0)
     out = {}
     for name, (dist_m, pct) in _RACE_DISTANCES.items():
         vo2_race = v.vo2max * pct
@@ -486,8 +533,18 @@ def race_predictions(db: Session) -> dict | None:
         if v_m_per_min <= 0:
             continue
         time_sec = round(dist_m / v_m_per_min * 60)
-        out[name] = {"seconds": time_sec, "pace_per_km": round(time_sec / (dist_m / 1000))}
-    return {"vo2max": v.vo2max, "vo2max_date": v.date.isoformat(), "predictions": out}
+        # Anchor optimistic VO2 estimates to actual recent performances using
+        # Riegel endurance scaling; the slower estimate is the honest one.
+        performance_estimates = [a.duration_s * (dist_m / a.distance_m) ** 1.06 for a in recent]
+        if performance_estimates:
+            time_sec = round(max(time_sec, min(performance_estimates)))
+        uncertainty = 0.10 if len(recent) >= 5 and longest_km >= min(10, dist_m / 1000 * .6) else 0.18
+        out[name] = {"seconds": time_sec, "pace_per_km": round(time_sec / (dist_m / 1000)),
+                     "low_seconds": round(time_sec * (1 - uncertainty)), "high_seconds": round(time_sec * (1 + uncertainty))}
+    confidence = "medium" if len(recent) >= 5 and longest_km >= 10 else "low"
+    return {"vo2max": v.vo2max, "vo2max_date": v.date.isoformat(), "predictions": out,
+            "confidence": confidence, "qualifying_runs": len(recent), "longest_recent_km": round(longest_km, 1),
+            "method": "conservative blend of VO₂max and actual 90-day run performance"}
 
 
 def _week_key(d: date) -> str:
@@ -500,11 +557,16 @@ def personalized_sleep_target(db: Session) -> float | None:
     sleep history, training load, HRV) rather than a flat 8h — pulling that
     instead of a hardcoded default personalizes the debt tracker per-user
     with zero extra input."""
-    row = db.execute(
+    rows = db.execute(
         select(Sleep.sleep_need_min).where(Sleep.sleep_need_min.isnot(None))
-        .order_by(Sleep.date.desc()).limit(1)
-    ).scalar_one_or_none()
-    return round(row / 60, 2) if row else None
+        .order_by(Sleep.date.desc()).limit(7)
+    ).scalars().all()
+    if not rows:
+        return None
+    # Garmin's nightly "actual" need can dip after a good night; it is not a
+    # safe long-term target by itself. Smooth it and enforce an adult-health floor.
+    raw = statistics.median(rows) / 60
+    return round(max(7.0, min(9.5, raw)), 2)
 
 
 def sleep_debt(db: Session, days: int = 14, target_hours: float | None = None) -> dict:
@@ -515,11 +577,15 @@ def sleep_debt(db: Session, days: int = 14, target_hours: float | None = None) -
         target_hours = personalized_sleep_target(db) or 8.0
     trend = sleep_trend(db, days)
     nights = [r for r in trend if r["total_h"]]
-    daily = [
-        {"date": r["date"], "slept_h": r["total_h"], "delta_h": round(r["total_h"] - target_hours, 2)}
-        for r in nights
-    ]
-    debt_h = round(sum(-d["delta_h"] for d in daily), 1) if daily else 0.0
+    daily = []
+    balance = 0.0
+    for r in nights:
+        delta = round(r["total_h"] - target_hours, 2)
+        # This is an adherence estimate, not a literal physiological bank:
+        # cap one-night deficit and surplus credit to avoid absurd totals.
+        balance += max(-3.0, min(1.0, delta))
+        daily.append({"date": r["date"], "slept_h": r["total_h"], "delta_h": delta})
+    debt_h = round(-balance, 1) if daily else 0.0
     return {
         "target_hours": target_hours,
         "personalized": personalized_sleep_target(db) is not None,
@@ -527,6 +593,8 @@ def sleep_debt(db: Session, days: int = 14, target_hours: float | None = None) -
         "debt_hours": debt_h,  # positive = behind on sleep, negative = ahead
         "avg_hours": _avg([d["slept_h"] for d in daily]),
         "daily": daily,
+        "estimated": True,
+        "method": "14-night opportunity gap; nightly deficit capped at 3h and surplus credit at 1h",
     }
 
 
@@ -706,17 +774,20 @@ def bedtime_recommendation(db: Session, target_hours: float = 8.0) -> dict | Non
     c = sleep_consistency(db, 14)
     if debt["debt_hours"] <= 0 or c["avg_bedtime_hour"] is None:
         return None
-    extra_per_night = min(debt["debt_hours"] / 2 / 3, 2.0)  # cap the nudge at 2h/night — anything more isn't realistic
+    extra_per_night = min(max(debt["debt_hours"] / 2 / 3, 0.5), 2.0)
     suggested = c["avg_bedtime_hour"] - extra_per_night
     hh = int(suggested % 24)
     mm = int(round((suggested % 24 - hh) * 60))
+    if mm == 60:
+        hh = (hh + 1) % 24
+        mm = 0
     period = "PM" if 12 <= hh < 24 else "AM"
     h12 = hh % 12 or 12
     return {
         "debt_hours": debt["debt_hours"],
         "suggested_bedtime": f"{h12}:{mm:02d} {period}",
         "extra_minutes": round(extra_per_night * 60),
-        "clears_by_nights": 3,
+        "half_debt_nights": max(1, math.ceil((debt["debt_hours"] / 2) / extra_per_night)),
     }
 
 

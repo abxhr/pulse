@@ -9,6 +9,7 @@ import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
 import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from "../components/StrengthExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
+import HevyStatus from "../components/HevyStatus";
 
 const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
@@ -183,6 +184,7 @@ export default function Strength() {
 
   return (
     <div className="space-y-4">
+      <HevyStatus />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Volume (8wk)" value={fmtNum(s.total_volume_kg)} unit="kg" color={COLORS.strength} />
         <StatTile label="Workouts (8wk)" value={s.workout_count} color={COLORS.strength} />

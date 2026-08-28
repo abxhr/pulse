@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import SessionLocal
-from ..models import DailyHealth, Sleep, Activity, Workout, SyncLog
+from ..models import DailyHealth, Sleep, Activity, Workout, SyncLog, IntradayHealth
 from ..integrations import garmin_client as gc
 from ..integrations import hevy_client as hc
 
@@ -114,6 +114,17 @@ def sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
                 db.commit()
                 if stopped:
                     break
+        # Cache a week of hourly data so charts survive Garmin outages/rate limits.
+        intraday_days = [today - timedelta(days=i) for i in range(min(days, 7))]
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            for payload in pool.map(lambda d: gc.fetch_intraday_stress(client, d), intraday_days):
+                if payload:
+                    _upsert(db, IntradayHealth, "date", {
+                        "date": date.fromisoformat(payload["date"]), "avg_stress": payload.get("avg_stress"),
+                        "max_stress": payload.get("max_stress"), "hourly": payload.get("hourly"),
+                        "source": "garmin", "updated_at": datetime.utcnow(),
+                    })
+        db.commit()
         _log_finish(db, entry, "ok", n + len(acts), f"{n} days, {len(acts)} activities")
         return {"status": "ok", "days": n, "activities": len(acts)}
     except Exception as e:

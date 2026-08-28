@@ -142,9 +142,9 @@ function BedtimeRecCard({ data }) {
     <div className="flex items-center gap-3 rounded-xl border border-sleep/30 bg-sleep/10 px-4 py-3">
       <BedDouble size={18} className="text-sleep shrink-0" />
       <p className="text-xs text-txt">
-        <span className="font-medium">Go to bed by {data.suggested_bedtime} tonight</span> — that's
-        {" "}{data.extra_minutes} min earlier than your recent average, and would clear about half your
-        {" "}{fmtNum(data.debt_hours, 1)}h sleep debt over the next {data.clears_by_nights} nights.
+        <span className="font-medium">Aim for bed by {data.suggested_bedtime} tonight</span> — about
+        {" "}{data.extra_minutes} min earlier than your recent average. Repeating that for roughly
+        {" "}{data.half_debt_nights} nights would close half of your estimated {fmtNum(data.debt_hours, 1)}h opportunity gap.
       </p>
     </div>
   );

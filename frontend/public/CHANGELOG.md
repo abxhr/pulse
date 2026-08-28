@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0 — Phase 1: trust, mobile, security, and data quality
+
+**Added**
+- Single-owner password protection for every health-data API, with 90-day secure sessions, lock/logout, localhost-only first setup, and localhost-only password recovery
+- Shared source/freshness/completeness metadata with stale-data warnings and accurate “as of” labels
+- Locally persisted hourly stress and body-battery cache for the latest seven days, refreshed during Garmin sync
+- Explicit nutrition “day complete” state so partial meal logs are never presented as a real calorie deficit
+- Hevy automation diagnostics showing mode, latest detailed workout, staleness, last sync, and the exact hands-free setup action
+- Foundational regression suite covering authentication, sleep safeguards, activity classification, nutrition completeness, freshness, and display formatting
+
+**Fixed**
+- Global iPhone horizontal overflow and clipped values/controls; added a compact phone header, overflow action sheet, and bottom navigation
+- “Today,” “Stress now,” and “Body battery now” labels no longer disguise stale daily aggregates as live readings
+- Swimming, paddling, hiking, strength, and other sports no longer pollute run counts or pace analytics
+- Invalid swimming pace and short treadmill-distance artifacts are removed from historical data and rejected on future syncs
+- Garmin sleep need is smoothed and safety-floored; sleep opportunity-gap and bedtime math are now internally consistent
+- Tiny running baselines no longer create absurd percentage overload warnings
+- Assisted pull-ups are excluded from invalid e1RM/plateau calculations, and plateau alerts are ranked/capped
+- Empty nutrition history shows an explanation instead of a meaningless 0–4 calorie chart
+- PWA service-worker updates now bypass browser cache; `sw.js` is no longer served as an immutable year-long asset
+
+**Changed**
+- Race estimates now use a conservative blend of VO₂max and actual recent performances, include uncertainty ranges, and expose evidence/confidence
+- CORS is restricted and responses include CSP, anti-framing, no-sniff, referrer, and permissions-policy headers
+
 ## 0.5.0 — Intelligence pass: stats/ML features across the app
 
 **Added**

@@ -24,6 +24,7 @@ export function PRFeed({ wkos }) {
     const sorted = [...wkos].filter((w) => w.date).sort((a, b) => a.date.localeCompare(b.date));
     for (const w of sorted) {
       for (const ex of w.exercises || []) {
+        if ((ex.title || "").toLowerCase().includes("assisted")) continue; // lower assistance is improvement; e1RM is invalid
         let sessionBest = 0;
         for (const s of ex.sets || []) {
           const e1rm = epley(s.weight_kg || 0, s.reps || 0);
@@ -67,6 +68,7 @@ export function PlateauList({ wkos }) {
     const sorted = [...wkos].filter((w) => w.date).sort((a, b) => a.date.localeCompare(b.date));
     for (const w of sorted) {
       for (const ex of w.exercises || []) {
+        if ((ex.title || "").toLowerCase().includes("assisted")) continue;
         let best = 0;
         for (const s of ex.sets || []) best = Math.max(best, epley(s.weight_kg || 0, s.reps || 0));
         if (!best) continue;
@@ -89,7 +91,7 @@ export function PlateauList({ wkos }) {
         }
       }
     }
-    return out;
+    return out.sort((a,b) => (a.latest/a.peak) - (b.latest/b.peak)).slice(0, 5);
   }, [wkos]);
 
   if (!plateaus.length) return null;
@@ -103,7 +105,7 @@ export function PlateauList({ wkos }) {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">Consider a deload week or swapping in a variation to break through.</p>
+      <p className="mt-2 text-[11px] text-faint">Screening signal only: machine changes, exercise order and fatigue can explain a dip. Review before changing your program.</p>
     </Panel>
   );
 }

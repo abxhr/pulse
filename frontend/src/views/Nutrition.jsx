@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useR
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
 } from "recharts";
-import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil, ScanBarcode, Mic } from "lucide-react";
+import { Trash2, Plus, Settings2, X, Camera, Sparkles, Image as ImageIcon, Pencil, ScanBarcode, Mic, CheckCircle2 } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
-import { Panel, Loading, Chip } from "../components/primitives";
+import { Panel, Loading, Chip, Empty } from "../components/primitives";
 import WeightCut from "../components/WeightCut";
 import Recipes from "../components/Recipes";
 import { FavoriteMeals, StreakBadge, ProteinTimingChart, HydrationCard } from "../components/NutritionExtras";
@@ -463,10 +463,15 @@ export default function Nutrition({ aiStatus }) {
     refresh();
   }
 
+  async function toggleComplete() {
+    await api.setNutritionDayComplete(today.date, !today.complete);
+    refresh();
+  }
+
   if (!today) return <Loading label="Loading today's macros…" />;
 
   const { totals, goal, meals } = today;
-  const trendChart = (trendData || []).map((d) => ({ date: d.date, calories: d.totals.calories }));
+  const trendChart = (trendData || []).filter(d=>d.has_entries).map((d) => ({ date: d.date, calories: d.totals.calories, complete:d.complete }));
 
   return (
     <div className="space-y-4">
@@ -506,12 +511,12 @@ export default function Nutrition({ aiStatus }) {
             <div className="text-[9px] text-faint">{fmtNum(burned.calories_active)} active + {fmtNum(burned.calories_resting)} resting</div>
           </div>
           <div className="text-center">
-            <div className="text-[10px] uppercase tracking-wide text-faint">Net</div>
-            <div className={`font-mono text-lg font-semibold tnum ${
+            <div className="text-[10px] uppercase tracking-wide text-faint">{today.complete ? "Net" : "Net (incomplete)"}</div>
+            {today.complete ? <div className={`font-mono text-lg font-semibold tnum ${
               (totals?.calories ?? 0) - burned.calories_total > 0 ? "text-effort" : "text-recovery"
             }`}>
               {(totals?.calories ?? 0) - burned.calories_total > 0 ? "+" : ""}{fmtNum((totals?.calories ?? 0) - burned.calories_total)}
-            </div>
+            </div> : <div className="font-mono text-lg font-semibold text-faint">—</div>}
           </div>
         </div>
       )}
@@ -521,6 +526,8 @@ export default function Nutrition({ aiStatus }) {
       <WeightCut />
 
       <AddMealForm ref={formRef} onAdded={refresh} aiStatus={aiStatus} />
+
+      <button disabled={!meals?.length} onClick={toggleComplete} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition disabled:opacity-40 ${today.complete?"border-recovery/30 bg-recovery/10 text-recovery":"border-line bg-panel2 text-muted"}`}><CheckCircle2 size={16}/>{today.complete?"Day marked complete — net calories are valid":"Finished logging today? Mark day complete"}</button>
 
       <Panel accent={COLORS.nutrition} title="Today's meals" sub={meals?.length ? `${meals.length} logged` : "nothing logged yet"}>
         {!meals?.length ? (
@@ -558,7 +565,7 @@ export default function Nutrition({ aiStatus }) {
       <Recipes aiStatus={aiStatus} />
 
       <Panel accent={COLORS.nutrition} title="Calories" sub="last 14 days">
-        <ResponsiveContainer width="100%" height={200}>
+        {trendChart.length ? <ResponsiveContainer width="100%" height={200}>
           <BarChart data={trendChart} margin={{ left: -18, right: 8, top: 6 }}>
             <CartesianGrid stroke="#1c2230" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={20} axisLine={false} tickLine={false} />
@@ -567,7 +574,7 @@ export default function Nutrition({ aiStatus }) {
             {goal?.calories && <ReferenceLine y={goal.calories} stroke={COLORS.muted} strokeDasharray="4 4" />}
             <Bar dataKey="calories" fill={COLORS.nutrition} radius={[4, 4, 0, 0]} maxBarSize={26} />
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer> : <Empty title="No logged nutrition days" body="The chart will appear after you log a meal. Mark complete days so calorie deficits are treated as valid." />}
       </Panel>
     </div>
   );

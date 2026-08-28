@@ -39,17 +39,18 @@ function RacePredictions({ data }) {
   if (!data?.predictions) return null;
   const labels = { "5k": "5K", "10k": "10K", half_marathon: "Half", marathon: "Marathon" };
   return (
-    <Panel accent={COLORS.recovery} title="Predicted race times" sub={`from VO₂max ${fmtNum(data.vo2max, 1)} · as of ${fmtDate(data.vo2max_date)}`}>
+    <Panel accent={COLORS.recovery} title="Estimated race ranges" sub={`${data.confidence || "low"} confidence · ${data.qualifying_runs || 0} qualifying runs · longest ${fmtNum(data.longest_recent_km,1)}km`}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Object.entries(data.predictions).map(([key, v]) => (
           <div key={key} className="rounded-xl border border-line bg-panel2/60 px-3 py-3 text-center">
             <div className="text-[10.5px] uppercase tracking-wider text-faint">{labels[key] || key}</div>
             <div className="mt-1 font-mono text-xl font-semibold text-recovery tnum">{fmtDuration(v.seconds)}</div>
             <div className="font-mono text-[11px] text-faint">{fmtPace(v.pace_per_km)}</div>
+            <div className="mt-1 text-[9px] text-faint">{fmtDuration(v.low_seconds)}–{fmtDuration(v.high_seconds)}</div>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">Estimated from current fitness (ACSM VO₂ cost model) — a ballpark, not a guarantee.</p>
+      <p className="mt-2 text-[11px] text-faint">{data.method}. Ranges widen when recent volume or long-run evidence is limited; this is not a guarantee.</p>
     </Panel>
   );
 }
@@ -60,6 +61,7 @@ export default function Training() {
   const [zones, setZones] = useState(null);
   const [predictions, setPredictions] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [filter, setFilter] = useState("run");
   const hrToggle = useSeriesToggle();
 
   useEffect(() => {
@@ -72,7 +74,8 @@ export default function Training() {
   }, []);
   if (!acts) return <Loading label="Reading activity log…" />;
 
-  const runs = acts.filter((a) => (a.type || "").includes("run"));
+  const runs = acts.filter((a) => a.category === "run");
+  const visibleActs = filter === "all" ? acts : acts.filter((a) => a.category === filter);
   const totalKm = runs.reduce((s, a) => s + (a.distance_km || 0), 0);
   const vo2 = health.filter((h) => h.vo2max != null);
   const hrTrend = health.filter((h) => h.resting_hr != null || h.max_hr != null);
@@ -83,7 +86,7 @@ export default function Training() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label={`Runs (${acts.length} total)`} value={runs.length} color={COLORS.cardio} />
+        <StatTile label="Runs" value={runs.length} hint={`${acts.length} Garmin activities total`} color={COLORS.cardio} />
         <StatTile label="Distance" value={fmtNum(totalKm, 0)} unit="km" color={COLORS.cardio} />
         <StatTile label="Current VO₂max" value={vo2.length ? fmtNum(vo2[vo2.length - 1].vo2max, 1) : "—"} color={COLORS.recovery} />
         <StatTile label="Avg HR (runs)" value={fmtNum(runs.reduce((s, a) => s + (a.avg_hr || 0), 0) / (runs.length || 1))} unit="bpm" color={COLORS.effort} />
@@ -192,8 +195,9 @@ export default function Training() {
 
       <IntradayChart />
 
-      <Panel accent={COLORS.cardio} title="Activity log" sub={`${acts.length} total · click a row for the full breakdown`}>
-        {acts.length ? (
+      <Panel accent={COLORS.cardio} title="Activity log" sub={`${visibleActs.length} shown · click a row for the full breakdown`}
+        right={<select aria-label="Filter activities by sport" value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-[130px] rounded-lg border border-line bg-panel2 px-2 py-1 text-xs text-txt"><option value="run">Runs</option><option value="all">All sports</option><option value="strength">Strength</option><option value="walk_hike">Walk / hike</option><option value="ride">Ride</option><option value="swim">Swim</option><option value="paddle">Paddle</option><option value="sport">Sports</option><option value="other">Other</option></select>}>
+        {visibleActs.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -208,7 +212,7 @@ export default function Training() {
                 </tr>
               </thead>
               <tbody className="font-mono tnum text-[13px]">
-                {acts.map((a) => {
+                {visibleActs.map((a) => {
                   const m = activityMeta(a.type);
                   return (
                     <tr key={a.id} onClick={() => setOpenId(a.id)}

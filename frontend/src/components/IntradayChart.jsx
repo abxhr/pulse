@@ -51,7 +51,7 @@ export default function IntradayChart() {
   }, [day]);
 
   return (
-    <Panel accent={COLORS.strength} title="Stress & body battery" sub="hourly · pick a day">
+    <Panel accent={COLORS.strength} title="Stress & body battery" sub="hourly · stored locally after sync">
       <div className="mb-2 flex flex-wrap gap-1.5">
         {DAY_OPTIONS.map((d, i) => (
           <button key={d} onClick={() => setDay(d)}
@@ -67,6 +67,7 @@ export default function IntradayChart() {
       {data === false && <p className="py-6 text-center text-xs text-faint">No intraday data for this day.</p>}
       {data && (
         <>
+          {data.cached && <p className="mb-2 text-[10px] text-faint">Cached Garmin reading · updated {data.updated_at ? new Date(data.updated_at).toLocaleString() : "during sync"}</p>}
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={data.hourly} margin={{ left: -8, right: 8, top: 6 }}>
               <defs>

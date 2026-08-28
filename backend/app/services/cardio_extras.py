@@ -80,13 +80,17 @@ def overload_warnings(db: Session, weeks: int = 8) -> list[dict]:
     out = []
     for i in range(1, len(load)):
         prev, cur = load[i - 1]["run_km"], load[i]["run_km"]
-        if prev and cur and prev > 0:
+        if prev and cur and prev >= 10:
             pct = (cur - prev) / prev * 100
             if pct > 10:
                 out.append({
                     "week": load[i]["week"], "prev_km": prev, "current_km": cur,
                     "pct_increase": round(pct, 1),
+                    "kind": "volume_jump",
                 })
+        elif cur >= 8 and prev < 3:
+            out.append({"week": load[i]["week"], "prev_km": prev, "current_km": cur,
+                        "pct_increase": None, "kind": "return_after_gap"})
     return out
 
 

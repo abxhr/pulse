@@ -6,12 +6,14 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
-from .db import init_db
+from .db import init_db, SessionLocal
+from .services import auth as auth_svc
 from .api import router
 
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +38,25 @@ def _clear_stale_syncs() -> None:
             s.message = "Server restarted mid-sync."
         if stale:
             db.commit()
+    finally:
+        db.close()
+
+
+def _sanitize_existing_activities() -> None:
+    """Repair historical rows imported before sport-aware plausibility guards."""
+    from sqlalchemy import or_, update
+    from .models import Activity
+    db = SessionLocal()
+    try:
+        run_types = ("running", "trail_running", "treadmill_running", "track_running")
+        db.execute(update(Activity).where(or_(
+            Activity.activity_type.notin_(run_types),
+            Activity.avg_pace_s_per_km < 150,
+            Activity.avg_pace_s_per_km > 900,
+            (Activity.activity_type == "treadmill_running") & (Activity.distance_m < 1000),
+        )).values(avg_pace_s_per_km=None))
+        db.execute(update(Activity).where(Activity.avg_hr <= 0).values(avg_hr=None))
+        db.commit()
     finally:
         db.close()
 
@@ -77,6 +98,7 @@ def _run_push_checks() -> None:
 async def lifespan(app: FastAPI):
     init_db()
     _clear_stale_syncs()
+    _sanitize_existing_activities()
     global scheduler
     if settings.enable_scheduler:
         from apscheduler.schedulers.background import BackgroundScheduler
@@ -98,6 +120,31 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Pulse", version="0.1.0", lifespan=lifespan)
+
+_AUTH_EXEMPT = {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login", "/api/auth/reset"}
+
+
+@app.middleware("http")
+async def single_user_auth(request: Request, call_next):
+    """Protect all health data and mutations; the static login shell stays public."""
+    if request.url.path.startswith("/api/") and request.url.path not in _AUTH_EXEMPT:
+        db = SessionLocal()
+        try:
+            if not auth_svc.configured(db) or not auth_svc.valid_session(db, request.cookies.get("pulse_session")):
+                return JSONResponse({"detail": "authentication required"}, status_code=401)
+        finally:
+            db.close()
+        if request.method not in {"GET", "HEAD", "OPTIONS"}:
+            origin = request.headers.get("origin")
+            if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+                return JSONResponse({"detail": "cross-origin request blocked"}, status_code=403)
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com"
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,7 +175,7 @@ class _NoCacheHTMLStaticFiles(StaticFiles):
 
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
-        if path in ("", "index.html") or response.headers.get("content-type", "").startswith("text/html"):
+        if path in ("", "index.html", "sw.js", "manifest.webmanifest") or response.headers.get("content-type", "").startswith("text/html"):
             response.headers["Cache-Control"] = "no-cache"
         else:
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"

@@ -224,8 +224,12 @@ def fetch_activities(client, start: date, end: date) -> list[dict]:
         # (treadmill runs without a footpod, indoor activities logged with near-zero
         # distance) rather than a real short effort — dividing by it produces
         # nonsense paces like "1192:19/km". Leave pace unset rather than lie.
-        if dist and dur and dist >= 300:
-            pace = dur / (dist / 1000.0)  # seconds per km
+        min_distance = 1000 if atype == "treadmill_running" else 300
+        if atype in _RUN_TYPES and dist and dur and dist >= min_distance:
+            candidate = dur / (dist / 1000.0)
+            # Running pace outside 2:30–15:00/km indicates bad distance/type data.
+            if 150 <= candidate <= 900:
+                pace = candidate
         out.append({
             "id": str(a.get("activityId")),
             "date": _parse_day(a.get("startTimeLocal")),

@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from ..models import Meal, NutritionGoal
+from ..models import Meal, NutritionGoal, NutritionDayStatus
 
 MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
 
@@ -66,6 +66,7 @@ def add_meal(db: Session, data: dict) -> dict:
         satiety=data.get("satiety"),
     )
     db.add(meal)
+    _mark_incomplete(db, d)
     db.commit()
     db.refresh(meal)
     return _serialize(meal)
@@ -80,6 +81,7 @@ def update_meal(db: Session, meal_id: int, data: dict) -> dict | None:
             setattr(meal, field, data[field])
     if "meal_type" in data and (data["meal_type"] in MEAL_TYPES or data["meal_type"] is None):
         meal.meal_type = data["meal_type"]
+    _mark_incomplete(db, meal.date)
     db.commit()
     return _serialize(meal)
 
@@ -88,6 +90,7 @@ def delete_meal(db: Session, meal_id: int) -> bool:
     meal = db.get(Meal, meal_id)
     if not meal:
         return False
+    _mark_incomplete(db, meal.date)
     db.delete(meal)
     db.commit()
     return True
@@ -110,10 +113,31 @@ def _totals(meals: list[dict]) -> dict:
 
 def day_summary(db: Session, d: date) -> dict:
     meals = meals_for_date(db, d)
+    status = db.get(NutritionDayStatus, d)
     return {
         "date": d.isoformat(), "meals": meals,
         "totals": _totals(meals), "goal": get_goal(db),
+        "complete": bool(status and status.complete), "has_entries": bool(meals),
     }
+
+
+def _mark_incomplete(db: Session, d: date) -> None:
+    status = db.get(NutritionDayStatus, d)
+    if status:
+        status.complete = False
+        status.updated_at = datetime.utcnow()
+
+
+def set_day_complete(db: Session, d: date, complete: bool) -> dict:
+    if complete and not db.scalar(select(func.count()).select_from(Meal).where(Meal.date == d)):
+        raise ValueError("Log at least one meal before marking the day complete")
+    status = db.get(NutritionDayStatus, d)
+    if not status:
+        status = NutritionDayStatus(date=d)
+        db.add(status)
+    status.complete, status.updated_at = complete, datetime.utcnow()
+    db.commit()
+    return day_summary(db, d)
 
 
 def favorite_meals(db: Session, days: int = 30, limit: int = 8) -> list[dict]:
@@ -178,5 +202,8 @@ def trend(db: Session, days: int = 14) -> list[dict]:
     out = []
     for i in range(days):
         d = start + timedelta(days=i)
-        out.append({"date": d.isoformat(), "totals": _totals(by_day.get(d, []))})
+        status = db.get(NutritionDayStatus, d)
+        meals = by_day.get(d, [])
+        out.append({"date": d.isoformat(), "totals": _totals(meals), "has_entries": bool(meals),
+                    "complete": bool(status and status.complete)})
     return out

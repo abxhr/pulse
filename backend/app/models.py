@@ -40,6 +40,17 @@ class DailyHealth(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class IntradayHealth(Base):
+    """Hourly stress/body-battery buckets cached from Garmin, one row per day."""
+    __tablename__ = "intraday_health"
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    avg_stress: Mapped[float | None] = mapped_column(Float)
+    max_stress: Mapped[float | None] = mapped_column(Float)
+    hourly: Mapped[list | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(16), default="garmin")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Sleep(Base):
     """One row per night, keyed by the calendar date the night ends on."""
     __tablename__ = "sleep"
@@ -158,6 +169,14 @@ class NutritionGoal(Base):
     carbs_g: Mapped[float | None] = mapped_column(Float)
     fat_g: Mapped[float | None] = mapped_column(Float)
     fiber_g: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class NutritionDayStatus(Base):
+    """Explicit completeness prevents partial meal logs masquerading as deficits."""
+    __tablename__ = "nutrition_day_status"
+    date: Mapped[date_t] = mapped_column(Date, primary_key=True)
+    complete: Mapped[bool] = mapped_column(default=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -301,3 +320,21 @@ class CoachMemory(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
     notes: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AppAuth(Base):
+    """Single owner's scrypt password verifier; plaintext is never stored."""
+    __tablename__ = "app_auth"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    salt: Mapped[str] = mapped_column(String(128))
+    password_hash: Mapped[str] = mapped_column(String(128))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AuthSession(Base):
+    """Opaque browser sessions; only token hashes are persisted."""
+    __tablename__ = "auth_session"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

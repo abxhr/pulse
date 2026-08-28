@@ -207,8 +207,7 @@ export function OverloadWarnings() {
     <div className="flex items-center gap-3 rounded-xl border border-effort/30 bg-effort/10 px-4 py-3">
       <AlertTriangle size={16} className="text-effort shrink-0" />
       <p className="text-xs text-txt">
-        <span className="font-medium">Weekly volume jumped {latest.pct_increase}%</span> ({fmtNum(latest.prev_km, 1)}km → {fmtNum(latest.current_km, 1)}km)
-        — over the classic 10% overuse-injury threshold. Consider an easier week.
+        {latest.kind === "return_after_gap" ? <><span className="font-medium">Running resumed after a low-volume week</span> ({fmtNum(latest.prev_km, 1)}km → {fmtNum(latest.current_km, 1)}km). Build gradually and use soreness/recovery—not a misleading percentage—as your guide.</> : <><span className="font-medium">Weekly volume increased {latest.pct_increase}%</span> ({fmtNum(latest.prev_km, 1)}km → {fmtNum(latest.current_km, 1)}km). This is above your established ≥10km baseline; monitor recovery and discomfort.</>}
       </p>
     </div>
   );

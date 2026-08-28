@@ -28,6 +28,8 @@ export const activityMeta = (type = "") => {
   if (t.includes("swim")) return { label: "Swim", color: "sleep" };
   if (t.includes("strength") || t.includes("training")) return { label: "Strength", color: "strength" };
   if (t.includes("walk") || t.includes("hik")) return { label: "Walk", color: "muted" };
+  if (t.includes("row") || t.includes("kayak")) return { label: "Paddle", color: "recovery" };
+  if (t.includes("soccer") || t.includes("football")) return { label: "Sport", color: "effort" };
   return { label: type || "Activity", color: "muted" };
 };
 
