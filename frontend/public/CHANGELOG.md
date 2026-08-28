@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0 — Phase 2: goal-driven command center
+
+**Added**
+
+- A redesigned Overview command center that turns recovery, training, nutrition, and goal data into a prioritized daily action plan without using paid AI.
+- A ranked goal hierarchy so health, cutting, race performance, strength retention, and sleep can be reordered or paused when priorities change.
+- Morning and evening check-ins for energy, soreness, mood, hunger, stress, adherence, notes, and sick/travel/fasting/injured context.
+- A persistent anomaly inbox with acknowledge and resolve actions for physiological deviations, recovery risk, and stale data.
+- Cut trajectory, complete-day nutrition adherence, race-feasibility, training-gap, and estimated strength-retention scoring.
+- A global phone-friendly quick-log button for weight, water, and meal entry from any page.
+- Manual hydration storage and command-center APIs for all Phase 2 data.
+
+**Changed**
+
+- Overview now leads with decisions and goal progress before lower-level telemetry charts.
+- Subjective check-in context can safely downgrade a Garmin-derived training recommendation.
+
 ## 0.6.0 — Phase 1: trust, mobile, security, and data quality
 
 **Added**

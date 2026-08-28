@@ -13,6 +13,7 @@ import CommandPalette from "./components/CommandPalette";
 import { useReminders } from "./lib/useReminders";
 import { Loading } from "./components/primitives";
 import AuthGate from "./components/AuthGate";
+import QuickLog from "./components/QuickLog";
 
 // Each view is its own chunk — the initial bundle only needs to ship the app
 // shell, not every page's charting/AI code before the user's even logged in.
@@ -258,6 +259,7 @@ export default function App() {
       </nav>
 
       <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
+      <QuickLog onNavigate={setView} />
       <CommandPalette onNavigate={setView} />
     </div>
   );

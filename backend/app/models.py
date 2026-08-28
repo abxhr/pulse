@@ -338,3 +338,48 @@ class AuthSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class GoalPreference(Base):
+    """The owner's ranked outcomes. Concrete cut/race targets remain in their
+    dedicated tables; this layer decides which trade-off wins on a busy day."""
+    __tablename__ = "goal_preference"
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(96))
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    active: Mapped[bool] = mapped_column(default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DailyCheckIn(Base):
+    """Subjective context Garmin cannot measure, one morning and evening row."""
+    __tablename__ = "daily_check_in"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    phase: Mapped[str] = mapped_column(String(12))  # morning | evening
+    energy: Mapped[int | None] = mapped_column(Integer)
+    soreness: Mapped[int | None] = mapped_column(Integer)
+    mood: Mapped[int | None] = mapped_column(Integer)
+    hunger: Mapped[int | None] = mapped_column(Integer)
+    stress: Mapped[int | None] = mapped_column(Integer)
+    plan_adherence: Mapped[int | None] = mapped_column(Integer)
+    context_mode: Mapped[str] = mapped_column(String(16), default="normal")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AnomalyState(Base):
+    """Persistent owner state for deterministic, re-computed anomaly events."""
+    __tablename__ = "anomaly_state"
+    fingerprint: Mapped[str] = mapped_column(String(128), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="acknowledged")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WaterLog(Base):
+    """Manual hydration additions, separate from Garmin's hydration estimate."""
+    __tablename__ = "water_log"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    amount_ml: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

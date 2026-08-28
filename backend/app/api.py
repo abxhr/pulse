@@ -20,7 +20,7 @@ from datetime import date, datetime
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -169,6 +169,57 @@ def dashboard_extra(db: Session = Depends(get_session)):
         "adaptive_step_goal": analytics.adaptive_step_goal(db),
         "freshness": analytics.data_freshness(db),
     }
+
+
+# ---------- Phase 2 command centre (deterministic; never spends AI credits) ----------
+@router.get("/command-center")
+def command_center(db: Session = Depends(get_session)):
+    return phase2.command_center(db)
+
+
+@router.get("/goals")
+def owner_goals(db: Session = Depends(get_session)):
+    return phase2.goals(db)
+
+
+@router.put("/goals")
+def update_owner_goals(payload: list[dict] = Body(...), db: Session = Depends(get_session)):
+    return phase2.set_goals(db, payload)
+
+
+@router.get("/check-ins/today")
+def checkins_today(db: Session = Depends(get_session)):
+    return phase2.today_checkins(db)
+
+
+@router.post("/check-ins")
+def add_checkin(payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return phase2.save_checkin(db, payload)
+    except (ValueError, TypeError) as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/anomalies")
+def anomaly_inbox(db: Session = Depends(get_session)):
+    return phase2.anomaly_inbox(db)
+
+
+@router.put("/anomalies/{fingerprint}")
+def update_anomaly(fingerprint: str, payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return phase2.set_anomaly(db, fingerprint, payload.get("status", "acknowledged"))
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/hydration/manual")
+def manual_hydration(d: date | None = None, db: Session = Depends(get_session)):
+    return phase2.water_today(db, d)
+
+
+@router.post("/hydration/manual")
+def add_manual_hydration(payload: dict = Body(...), db: Session = Depends(get_session)):
+    try:
+        d = date.fromisoformat(payload["date"]) if payload.get("date") else None
+        return phase2.log_water(db, int(payload.get("amount_ml", 0)), d)
+    except (ValueError, TypeError) as exc: raise HTTPException(400, str(exc)) from exc
 
 
 @router.get("/data-quality")
