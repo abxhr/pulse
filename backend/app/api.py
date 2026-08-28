@@ -20,7 +20,7 @@ from datetime import date, datetime
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -220,6 +220,40 @@ def add_manual_hydration(payload: dict = Body(...), db: Session = Depends(get_se
         d = date.fromisoformat(payload["date"]) if payload.get("date") else None
         return phase2.log_water(db, int(payload.get("amount_ml", 0)), d)
     except (ValueError, TypeError) as exc: raise HTTPException(400, str(exc)) from exc
+
+
+# ---------- Phase 3 adaptive planner ----------
+@router.get("/planner/week")
+def planner_week(start: date | None = None, db: Session = Depends(get_session)):
+    return planner.week(db, start)
+
+
+@router.post("/planner/regenerate")
+def regenerate_plan(payload: dict = Body(default={}), db: Session = Depends(get_session)):
+    try: return planner.regenerate(db, date.fromisoformat(payload["start"]) if payload.get("start") else None)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.put("/planner/sessions/{session_id}")
+def update_planned_session(session_id: int, payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return planner.update_session(db, session_id, payload)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/planner/settings")
+def planner_settings(db: Session = Depends(get_session)):
+    return planner.settings(db)
+
+
+@router.put("/planner/settings")
+def update_planner_settings(payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return planner.update_settings(db, payload)
+    except (ValueError, TypeError) as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/planner/recovery-forecast")
+def planner_recovery_forecast(db: Session = Depends(get_session)):
+    return planner.recovery_forecast(db)
 
 
 @router.get("/data-quality")

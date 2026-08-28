@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
   RefreshCw, Circle, Menu, X, Upload, Power, ScrollText, Search, Sun, Bell, BellOff,
-  MoreHorizontal,
+  MoreHorizontal, CalendarDays,
   LogOut,
 } from "lucide-react";
 import { api } from "./lib/api";
@@ -24,9 +24,11 @@ const Strength = lazy(() => import("./views/Strength"));
 const Nutrition = lazy(() => import("./views/Nutrition"));
 const Insights = lazy(() => import("./views/Insights"));
 const Reports = lazy(() => import("./views/Reports"));
+const Planner = lazy(() => import("./views/Planner"));
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
+  { id: "planner", label: "Plan", icon: CalendarDays, color: COLORS.cardio },
   { id: "sleep", label: "Sleep", icon: Moon, color: COLORS.sleep },
   { id: "training", label: "Cardio", icon: Activity, color: COLORS.cardio },
   { id: "strength", label: "Strength", icon: Dumbbell, color: COLORS.strength },
@@ -113,7 +115,7 @@ export default function App() {
   const conn = status?.connections;
   const isDemo = status && status.recent_syncs?.length === 0 && (status.counts?.daily_health || 0) > 0;
 
-  const Views = { dashboard: Dashboard, sleep: Sleep, training: Training, strength: Strength, nutrition: Nutrition, reports: Reports };
+  const Views = { dashboard: Dashboard, planner: Planner, sleep: Sleep, training: Training, strength: Strength, nutrition: Nutrition, reports: Reports };
   const Current = view === "insights" ? null : Views[view];
 
   if (!auth) return <div className="flex min-h-screen items-center justify-center"><Loading /></div>;
@@ -254,8 +256,8 @@ export default function App() {
 
       {mobileNav && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setMobileNav(false)} />}
 
-      <nav aria-label="Primary mobile navigation" className="safe-bottom fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-line bg-ink/95 px-1 pt-1.5 backdrop-blur-xl lg:hidden">
-        {NAV.map((n) => { const Icon=n.icon; const active=view===n.id; return <button key={n.id} aria-label={n.label} onClick={() => setView(n.id)} className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[9px] ${active ? "text-txt" : "text-faint"}`}><Icon size={17} style={{color:active?n.color:undefined}}/><span className="max-w-full truncate">{n.label}</span></button>; })}
+      <nav aria-label="Primary mobile navigation" className="safe-bottom fixed inset-x-0 bottom-0 z-30 flex overflow-x-auto border-t border-line bg-ink/95 px-1 pt-1.5 backdrop-blur-xl lg:hidden">
+        {NAV.map((n) => { const Icon=n.icon; const active=view===n.id; return <button key={n.id} aria-label={n.label} onClick={() => setView(n.id)} className={`flex min-w-12 flex-1 flex-col items-center gap-1 rounded-lg px-0.5 py-1.5 text-[9px] ${active ? "text-txt" : "text-faint"}`}><Icon size={17} style={{color:active?n.color:undefined}}/><span className="max-w-full truncate">{n.label}</span></button>; })}
       </nav>
 
       <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />

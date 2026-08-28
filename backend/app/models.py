@@ -383,3 +383,32 @@ class WaterLog(Base):
     date: Mapped[date_t] = mapped_column(Date, index=True)
     amount_ml: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PlannedSession(Base):
+    """A stable weekly prescription. Actual Garmin/Hevy sessions satisfy it
+    automatically; status exists for off-device completion and intentional skips."""
+    __tablename__ = "planned_session"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    slot: Mapped[str] = mapped_column(String(24), default="primary")
+    kind: Mapped[str] = mapped_column(String(24))  # run|strength|recovery|rest
+    title: Mapped[str] = mapped_column(String(128))
+    details: Mapped[str | None] = mapped_column(Text)
+    target: Mapped[dict | None] = mapped_column(JSON)
+    planned_load: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(16), default="planned")
+    source: Mapped[str] = mapped_column(String(16), default="adaptive")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PlannerSettings(Base):
+    """Single-owner constraints used by the adaptive week generator."""
+    __tablename__ = "planner_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    run_days: Mapped[int] = mapped_column(Integer, default=3)
+    strength_days: Mapped[int] = mapped_column(Integer, default=3)
+    long_run_weekday: Mapped[int] = mapped_column(Integer, default=6)  # Monday=0
+    preferred_rest_weekday: Mapped[int] = mapped_column(Integer, default=4)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

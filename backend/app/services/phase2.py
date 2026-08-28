@@ -100,9 +100,14 @@ def daily_plan(db: Session) -> dict:
     if macro.get("ready"): actions.append({"area":"nutrition","title":f"Aim for {round(macro.get('protein_g') or 0)}g protein", "detail":f"Calorie target {round(macro.get('target_calories') or 0)} kcal; spread protein over 3–5 meals.","priority":2})
     steps = analytics.adaptive_step_goal(db)
     if steps: actions.append({"area":"movement","title":f"Reach {steps['target']:,} steps","detail":"Use low-fatigue movement to support the cut and recovery.","priority":3})
+    from . import planner
+    today_sessions = [s for s in planner.week(db)["sessions"] if s["date"] == date.today().isoformat() and s["status"] != "skipped"]
+    if today_sessions:
+        names = " + ".join(s["title"] for s in today_sessions)
+        actions.insert(0, {"area":"training","title":names,"detail":"From your adaptive weekly plan; open Plan for targets and completion controls.","priority":0})
     return {"date": date.today().isoformat(), "readiness_score": score, "intensity": intensity,
             "reasons": reasons, "constraints": constraints, "actions": sorted(actions, key=lambda x:x["priority"]),
-            "checkins": today_checkins(db)}
+            "checkins": today_checkins(db), "scheduled_sessions": today_sessions}
 
 def cut_trajectory(db: Session) -> dict | None:
     goal = weight_svc.get_goal(db); projection = weight_svc.weight_projection(db, 42); rows = weight_svc.trend(db, 90)

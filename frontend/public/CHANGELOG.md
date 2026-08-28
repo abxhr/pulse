@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.0 — Phase 3: adaptive planning and execution
+
+**Added**
+
+- A dedicated, phone-ready Plan page with a stable Monday–Sunday schedule, day cards, targets, and execution controls.
+- Adaptive weekly running and strength prescriptions based on recent training habits, race context, and configured weekly frequency.
+- Automatic Garmin/Hevy completion matching plus manual complete, skip, and reschedule actions.
+- A seven-day Banister fitness/fatigue/form forecast using the load of the generated plan.
+- Multi-signal deload detection with automatic volume reduction when recovery risk, form, and progressive-load history agree.
+- Training-day calorie and carbohydrate periodization while preserving the same seven-day calorie average and protein target.
+- Planning settings for run frequency, strength frequency, long-run day, and recovery day.
+- Weekly plan adherence that only judges sessions due so far rather than penalizing future workouts.
+
+**Changed**
+
+- The Overview daily action plan now includes the actual sessions scheduled for today.
+- Mobile navigation accommodates the new Plan destination without clipping page labels.
+
 ## 0.7.0 — Phase 2: goal-driven command center
 
 **Added**
