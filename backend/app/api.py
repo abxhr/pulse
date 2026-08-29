@@ -18,12 +18,35 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime
 
 from .db import get_session
-from .config import settings
+from .config import settings, DATA_DIR
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
 from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
+
+
+# Same-origin map-tile proxy with a permanent local cache. Browsers (especially
+# installed iOS PWAs) were intermittently unable to reach public tile hosts
+# directly, leaving the route map as a grey canvas. The server fetches each
+# fixed CARTO tile once and then serves it locally on every subsequent view.
+@router.get("/map-tiles/{z}/{x}/{y}.png")
+def map_tile(z: int, x: int, y: int):
+    if not (0 <= z <= 19 and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
+        raise HTTPException(404, "invalid map tile")
+    tile = DATA_DIR / "map_tiles" / str(z) / str(x) / f"{y}.png"
+    if tile.exists():
+        return Response(tile.read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    try:
+        url = f"https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+        upstream = requests.get(url, timeout=12, headers={"User-Agent": "Pulse/0.9 private health dashboard"})
+        upstream.raise_for_status()
+        content = upstream.content
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        tile.write_bytes(content)
+        return Response(content, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    except requests.RequestException as exc:
+        raise HTTPException(502, f"map tile unavailable: {exc}") from exc
 
 
 # ---------- single-user authentication ----------
@@ -420,6 +443,10 @@ def route_heatmap(db: Session = Depends(get_session)):
     )
     return {
         "routes": [{"id": a.id, "date": a.date.isoformat() if a.date else None,
+                    "name": a.name, "distance_km": round((a.distance_m or 0) / 1000, 2),
+                    "duration_min": round((a.duration_s or 0) / 60, 1),
+                    "pace_s_per_km": round(a.avg_pace_s_per_km) if a.avg_pace_s_per_km else None,
+                    "avg_hr": a.avg_hr,
                     "points": a.route_points[::max(1, len(a.route_points) // 700)] if a.route_points else []}
                    for a in rows],
         "cached_count": len(rows),
@@ -518,17 +545,23 @@ def activity_route(activity_id: str, db: Session = Depends(get_session)):
     a = db.get(Activity, activity_id)
     if not a:
         raise HTTPException(status_code=404, detail="activity not found")
-    try:
-        client = gc.make_client()
-    except gc.GarminUnavailable as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    points = gc.fetch_route(client, activity_id)
+    points = a.route_points
+    if not points:
+        try:
+            client = gc.make_client()
+        except gc.GarminUnavailable as e:
+            raise HTTPException(status_code=502, detail=str(e))
+        points = gc.fetch_route(client, activity_id)
     if not points:
         raise HTTPException(status_code=404, detail="no route data for this activity")
     if not a.route_points:
         a.route_points = points
         db.commit()
-    return {"points": points}
+    return {"id": a.id, "date": a.date.isoformat() if a.date else None, "name": a.name,
+            "distance_km": round((a.distance_m or 0) / 1000, 2),
+            "duration_min": round((a.duration_s or 0) / 60, 1),
+            "pace_s_per_km": round(a.avg_pace_s_per_km) if a.avg_pace_s_per_km else None,
+            "avg_hr": a.avg_hr, "points": points}
 
 
 @router.get("/activities/{activity_id}/splits")

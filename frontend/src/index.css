@@ -122,3 +122,23 @@ body {
   font-size: 0.85em;
 }
 .md hr { border: none; border-top: 1px solid var(--color-line); margin: 1em 0; }
+/* Route-map overlays — readable against CARTO's dark street tiles and shared
+   by mouse hover (desktop) and tap popups (installed phone PWA). */
+.pulse-route-tooltip.leaflet-tooltip,
+.pulse-route-popup .leaflet-popup-content-wrapper {
+  border: 1px solid rgba(56, 189, 248, .32);
+  border-radius: 12px;
+  background: rgba(5, 14, 24, .94);
+  color: #dff7ff;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .45);
+}
+.pulse-route-tooltip.leaflet-tooltip::before { border-top-color: rgba(5, 14, 24, .94); }
+.pulse-route-popup .leaflet-popup-tip { background: rgba(5, 14, 24, .94); }
+.pulse-route-popup .leaflet-popup-close-button { color: #91a8b8 !important; }
+.pulse-route-tip { min-width: 150px; font-size: 11px; line-height: 1.55; }
+.pulse-route-tip b { display: block; color: #fff; font-size: 12px; }
+.pulse-route-tip span { display: block; margin-bottom: 4px; color: #91a8b8; font-size: 10px; }
+.pulse-route-tip strong { color: #38bdf8; font-weight: 700; }
+.leaflet-control-zoom a { background: #0a1724 !important; color: #dff7ff !important; border-color: #263747 !important; }
+.leaflet-control-attribution { background: rgba(5, 14, 24, .75) !important; color: #78909f !important; }
+.leaflet-control-attribution a { color: #5fbde8 !important; }
