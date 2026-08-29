@@ -122,3 +122,31 @@ body {
   font-size: 0.85em;
 }
 .md hr { border: none; border-top: 1px solid var(--color-line); margin: 1em 0; }
+/* Route-map overlays — readable against CARTO's dark street tiles and shared
+   by mouse hover (desktop) and tap popups (installed phone PWA). */
+.pulse-route-tooltip.leaflet-tooltip,
+.pulse-route-popup .leaflet-popup-content-wrapper {
+  border: 1px solid rgba(56, 189, 248, .32);
+  border-radius: 12px;
+  background: rgba(5, 14, 24, .94);
+  color: #dff7ff;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .45);
+}
+.pulse-route-tooltip.leaflet-tooltip::before { border-top-color: rgba(5, 14, 24, .94); }
+.pulse-route-popup .leaflet-popup-tip { background: rgba(5, 14, 24, .94); }
+.pulse-route-popup .leaflet-popup-close-button { color: #91a8b8 !important; }
+.pulse-route-tip { min-width: 150px; font-size: 11px; line-height: 1.55; }
+.pulse-route-tip b { display: block; color: #fff; font-size: 12px; }
+.pulse-route-tip span { display: block; margin-bottom: 4px; color: #91a8b8; font-size: 10px; }
+.pulse-route-tip strong { color: #38bdf8; font-weight: 700; }
+.pulse-map-tiles { filter: invert(.88) hue-rotate(175deg) saturate(.65) brightness(.72) contrast(1.15); }
+.pulse-route-averages { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 7px 0 5px; }
+.pulse-route-averages strong { border: 1px solid rgba(56, 189, 248, .16); border-radius: 7px; background: rgba(56, 189, 248, .07); padding: 4px 5px; text-align: center; font-size: 10px; }
+.pulse-route-runs { margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .09); }
+.pulse-route-run { display: grid; grid-template-columns: 1.25fr .8fr 1fr; gap: 7px; align-items: center; padding: 2px 0; color: #9eafbc; font-size: 9.5px; }
+.pulse-route-run b { color: #e8f7ff; font-size: 9.5px; text-align: right; }
+.pulse-route-run span:last-child { text-align: right; }
+.pulse-route-runs small { display: block; margin-top: 3px; color: #607888; font-size: 9px; }
+.leaflet-control-zoom a { background: #0a1724 !important; color: #dff7ff !important; border-color: #263747 !important; }
+.leaflet-control-attribution { background: rgba(5, 14, 24, .75) !important; color: #78909f !important; }
+.leaflet-control-attribution a { color: #5fbde8 !important; }

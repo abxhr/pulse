@@ -26,6 +26,17 @@
         var saved = localStorage.getItem("pulse.theme");
         var theme = saved || "dark";
         if (theme === "light") document.documentElement.setAttribute("data-theme", "light");
+        // One-time release cache cleanup. Authentication cookies are untouched.
+        var release = "0.9.0";
+        if (localStorage.getItem("pulse.release") !== release) {
+          localStorage.setItem("pulse.release", release);
+          if (window.caches) caches.keys().then(function (keys) {
+            keys.filter(function (k) { return k.indexOf("pulse-") === 0; }).forEach(function (k) { caches.delete(k); });
+          });
+          if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (r) { r.update(); });
+          });
+        }
       })();
     </script>
   </head>

@@ -1,5 +1,7 @@
-const CACHE = "pulse-shell-v4";
-const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
+const CACHE = "pulse-assets-v5";
+// Never precache index.html: a cached document points at one exact set of Vite
+// hashes and becomes a blank screen after those assets are replaced.
+const SHELL = ["/manifest.webmanifest", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
@@ -26,6 +28,14 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (url.pathname.startsWith("/api/")) return; // never cache API responses
 
+  if (e.request.mode === "navigate" || e.request.destination === "document") {
+    e.respondWith(fetch(e.request, { cache: "no-store" }).catch(() => new Response(
+      "Pulse is offline. Reconnect to your private network and reopen the app.",
+      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    )));
+    return;
+  }
+
   e.respondWith(
     fetch(e.request, { cache: "no-store" })
       .then((res) => {
@@ -33,7 +43,7 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE).then((c) => c.put(e.request, copy));
         return res;
       })
-      .catch(() => caches.match(e.request).then((cached) => cached || caches.match("/")))
+      .catch(() => caches.match(e.request))
   );
 });
 

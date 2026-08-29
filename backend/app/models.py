@@ -338,3 +338,112 @@ class AuthSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class GoalPreference(Base):
+    """The owner's ranked outcomes. Concrete cut/race targets remain in their
+    dedicated tables; this layer decides which trade-off wins on a busy day."""
+    __tablename__ = "goal_preference"
+    key: Mapped[str] = mapped_column(String(32), primary_key=True)
+    label: Mapped[str] = mapped_column(String(96))
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    active: Mapped[bool] = mapped_column(default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class DailyCheckIn(Base):
+    """Subjective context Garmin cannot measure, one morning and evening row."""
+    __tablename__ = "daily_check_in"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    phase: Mapped[str] = mapped_column(String(12))  # morning | evening
+    energy: Mapped[int | None] = mapped_column(Integer)
+    soreness: Mapped[int | None] = mapped_column(Integer)
+    mood: Mapped[int | None] = mapped_column(Integer)
+    hunger: Mapped[int | None] = mapped_column(Integer)
+    stress: Mapped[int | None] = mapped_column(Integer)
+    plan_adherence: Mapped[int | None] = mapped_column(Integer)
+    context_mode: Mapped[str] = mapped_column(String(16), default="normal")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AnomalyState(Base):
+    """Persistent owner state for deterministic, re-computed anomaly events."""
+    __tablename__ = "anomaly_state"
+    fingerprint: Mapped[str] = mapped_column(String(128), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="acknowledged")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class WaterLog(Base):
+    """Manual hydration additions, separate from Garmin's hydration estimate."""
+    __tablename__ = "water_log"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    amount_ml: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PlannedSession(Base):
+    """A stable weekly prescription. Actual Garmin/Hevy sessions satisfy it
+    automatically; status exists for off-device completion and intentional skips."""
+    __tablename__ = "planned_session"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    slot: Mapped[str] = mapped_column(String(24), default="primary")
+    kind: Mapped[str] = mapped_column(String(24))  # run|strength|recovery|rest
+    title: Mapped[str] = mapped_column(String(128))
+    details: Mapped[str | None] = mapped_column(Text)
+    target: Mapped[dict | None] = mapped_column(JSON)
+    planned_load: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(16), default="planned")
+    source: Mapped[str] = mapped_column(String(16), default="adaptive")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PlannerSettings(Base):
+    """Single-owner constraints used by the adaptive week generator."""
+    __tablename__ = "planner_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    run_days: Mapped[int] = mapped_column(Integer, default=3)
+    strength_days: Mapped[int] = mapped_column(Integer, default=3)
+    long_run_weekday: Mapped[int] = mapped_column(Integer, default=6)  # Monday=0
+    preferred_rest_weekday: Mapped[int] = mapped_column(Integer, default=4)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Experiment(Base):
+    """A personal n-of-1 intervention with an explicitly selected outcome."""
+    __tablename__ = "experiment"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    hypothesis: Mapped[str | None] = mapped_column(Text)
+    protocol: Mapped[str | None] = mapped_column(Text)
+    outcome_metric: Mapped[str] = mapped_column(String(32))
+    start_date: Mapped[date_t] = mapped_column(Date)
+    end_date: Mapped[date_t | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExperimentDay(Base):
+    __tablename__ = "experiment_day"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(Integer, index=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    adhered: Mapped[bool] = mapped_column(default=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class HealthAnnotation(Base):
+    """Owner-supplied context overlaid on longitudinal health data."""
+    __tablename__ = "health_annotation"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    category: Mapped[str] = mapped_column(String(24))
+    label: Mapped[str] = mapped_column(String(128))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

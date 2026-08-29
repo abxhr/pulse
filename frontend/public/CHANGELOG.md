@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.9.0 — Phase 4: personal intelligence lab
+
+**Added**
+
+- A Personal Intelligence Lab for running structured n-of-1 health, sleep, nutrition, and training experiments.
+- Daily intervention-adherence logging with baseline-vs-intervention averages, effect size, direction, and confidence.
+- A tomorrow-readiness forecast using nearest historical days matched on HRV, resting HR, and sleep score.
+- Health timeline annotations for travel, illness, injury, medication, races, and lifestyle changes.
+- A non-generating AI provider probe available from Coach to test authentication and connectivity without spending tokens.
+
+**Fixed**
+
+- Replaced externally tiled Leaflet maps with a creative local route atlas, so GPS routes remain visible offline, on iPhone, and when OpenStreetMap tiles fail.
+- Distant route areas are clustered into selectable views instead of shrinking every route into tiny marks.
+- Individual activity routes now use the same local atlas with clear start and finish markers.
+- AI clients now bypass stale inherited proxies, use explicit connection/read timeouts, retry transient failures, and fall back to the other configured provider.
+- PWA navigation HTML is never cached again, preventing stale bundle references and blank screens after deployment; older hashed assets remain available to already-open tabs.
+
+**Changed**
+
+- Removed the runtime dependency on external map tiles and substantially reduced the Cardio JavaScript chunk.
+
+## 0.8.0 — Phase 3: adaptive planning and execution
+
+**Added**
+
+- A dedicated, phone-ready Plan page with a stable Monday–Sunday schedule, day cards, targets, and execution controls.
+- Adaptive weekly running and strength prescriptions based on recent training habits, race context, and configured weekly frequency.
+- Automatic Garmin/Hevy completion matching plus manual complete, skip, and reschedule actions.
+- A seven-day Banister fitness/fatigue/form forecast using the load of the generated plan.
+- Multi-signal deload detection with automatic volume reduction when recovery risk, form, and progressive-load history agree.
+- Training-day calorie and carbohydrate periodization while preserving the same seven-day calorie average and protein target.
+- Planning settings for run frequency, strength frequency, long-run day, and recovery day.
+- Weekly plan adherence that only judges sessions due so far rather than penalizing future workouts.
+
+**Changed**
+
+- The Overview daily action plan now includes the actual sessions scheduled for today.
+- Mobile navigation accommodates the new Plan destination without clipping page labels.
+
+## 0.7.0 — Phase 2: goal-driven command center
+
+**Added**
+
+- A redesigned Overview command center that turns recovery, training, nutrition, and goal data into a prioritized daily action plan without using paid AI.
+- A ranked goal hierarchy so health, cutting, race performance, strength retention, and sleep can be reordered or paused when priorities change.
+- Morning and evening check-ins for energy, soreness, mood, hunger, stress, adherence, notes, and sick/travel/fasting/injured context.
+- A persistent anomaly inbox with acknowledge and resolve actions for physiological deviations, recovery risk, and stale data.
+- Cut trajectory, complete-day nutrition adherence, race-feasibility, training-gap, and estimated strength-retention scoring.
+- A global phone-friendly quick-log button for weight, water, and meal entry from any page.
+- Manual hydration storage and command-center APIs for all Phase 2 data.
+
+**Changed**
+
+- Overview now leads with decisions and goal progress before lower-level telemetry charts.
+- Subjective check-in context can safely downgrade a Garmin-derived training recommendation.
+
 ## 0.6.0 — Phase 1: trust, mobile, security, and data quality
 
 **Added**
@@ -95,3 +152,12 @@
 ## 0.1.0 — Initial
 
 - Garmin + Hevy sync, Dashboard/Sleep/Cardio/Strength views, AI Coach, weekly/monthly reports
+# 0.10.0 — Stabilize
+
+- Hardened password setup/reset against reverse-proxy trust confusion.
+- Added login throttling and proxy-safe mutation origin checks.
+- Added typed validation for critical health-data inputs and bounded list queries.
+- Secured Hevy CSV uploads with safe filenames, size limits, and failure cleanup.
+- Prevented overlapping Garmin and Hevy sync runs.
+- Added verified backups and a local-only restore path with an emergency snapshot.
+- Added backend/frontend CI and Release 0.10 regression coverage.

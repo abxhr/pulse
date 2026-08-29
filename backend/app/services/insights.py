@@ -7,6 +7,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 import json
 import logging
+import httpx
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,6 +17,22 @@ from ..models import Insight, CoachMemory
 from . import analytics, nutrition, weight as weight_svc
 
 log = logging.getLogger("pulse.insights")
+
+def _http_client() -> httpx.Client:
+    # Ignore inherited shell proxy variables: a stale corporate/CLI proxy made
+    # every provider surface fail as a generic "Connection error" even though
+    # direct HTTPS from this machine worked. Retries cover transient Wi-Fi/DNS.
+    return httpx.Client(trust_env=False, timeout=httpx.Timeout(75, connect=20))
+
+def _openai_client():
+    from openai import OpenAI
+    if not settings.openai_api_key: raise RuntimeError("OPENAI_API_KEY not set")
+    return OpenAI(api_key=settings.openai_api_key, http_client=_http_client(), max_retries=2)
+
+def _anthropic_client():
+    import anthropic
+    if not settings.anthropic_api_key: raise RuntimeError("ANTHROPIC_API_KEY not set")
+    return anthropic.Anthropic(api_key=settings.anthropic_api_key, http_client=_http_client(), max_retries=2)
 
 SYSTEM_PROMPT = """You are Pulse, a sharp, encouraging personal performance analyst.
 You are given a structured JSON summary of the user's recent Garmin health metrics,
@@ -58,10 +75,7 @@ def build_context(db: Session, days: int = 30) -> dict:
 
 
 def _call_anthropic(system: str, messages: list[dict]) -> str:
-    import anthropic
-    if not settings.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = _anthropic_client()
     resp = client.messages.create(
         model=settings.anthropic_model,
         max_tokens=1500,
@@ -72,10 +86,7 @@ def _call_anthropic(system: str, messages: list[dict]) -> str:
 
 
 def _call_openai(system: str, messages: list[dict]) -> str:
-    from openai import OpenAI
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = _openai_client()
     resp = client.chat.completions.create(
         model=settings.openai_model,
         max_tokens=1500,
@@ -108,9 +119,29 @@ def _resolve_provider(provider: str | None) -> str:
 
 def _dispatch(system: str, messages: list[dict], provider: str | None = None) -> tuple[str, str, str]:
     resolved = _resolve_provider(provider)
-    if resolved == "openai":
-        return _call_openai(system, messages), "openai", settings.openai_model
-    return _call_anthropic(system, messages), "anthropic", settings.anthropic_model
+    order = [resolved] + [p for p, ok in available_providers().items() if ok and p != resolved]
+    errors=[]
+    for name in order:
+        try:
+            if name == "openai": return _call_openai(system, messages), "openai", settings.openai_model
+            return _call_anthropic(system, messages), "anthropic", settings.anthropic_model
+        except Exception as exc:
+            errors.append(f"{name}: {type(exc).__name__}: {exc}")
+            log.warning("AI provider %s failed; trying fallback if available: %s", name, exc)
+    raise RuntimeError("; ".join(errors) or "No AI provider configured")
+
+def provider_probe() -> dict:
+    """Non-generating connectivity/authentication check; does not spend tokens."""
+    out={}
+    if settings.openai_api_key:
+        try: _openai_client().models.list(); out["openai"]={"configured":True,"reachable":True}
+        except Exception as exc: out["openai"]={"configured":True,"reachable":False,"error":f"{type(exc).__name__}: {exc}"}
+    else: out["openai"]={"configured":False,"reachable":False}
+    if settings.anthropic_api_key:
+        try: _anthropic_client().models.list(limit=1); out["anthropic"]={"configured":True,"reachable":True}
+        except Exception as exc: out["anthropic"]={"configured":True,"reachable":False,"error":f"{type(exc).__name__}: {exc}"}
+    else: out["anthropic"]={"configured":False,"reachable":False}
+    return out
 
 
 MEAL_VISION_SYSTEM = """You are a precise nutrition estimator. You are given a photo of a
@@ -132,10 +163,7 @@ calories). Use 0 if a macro is genuinely negligible, never omit a field."""
 
 
 def _analyze_anthropic(image_b64: str | None, media_type: str | None, notes: str | None) -> str:
-    import anthropic
-    if not settings.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = _anthropic_client()
     content: list[dict] = []
     if image_b64:
         content.append({
@@ -151,10 +179,7 @@ def _analyze_anthropic(image_b64: str | None, media_type: str | None, notes: str
 
 
 def _analyze_openai(image_b64: str | None, media_type: str | None, notes: str | None) -> str:
-    from openai import OpenAI
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = _openai_client()
     content: list[dict] = [{"type": "text", "text": notes or "Estimate the macros for this meal."}]
     if image_b64:
         content.append({
@@ -174,9 +199,11 @@ def analyze_meal(image_b64: str | None, media_type: str | None, notes: str | Non
     Returns a dict ready to prefill the meal-add form; the user still confirms/edits before saving."""
     if not image_b64 and not (notes or "").strip():
         raise ValueError("Provide a photo, a description, or both.")
-    resolved = _resolve_provider(provider)
-    raw = _analyze_openai(image_b64, media_type, notes) if resolved == "openai" \
-        else _analyze_anthropic(image_b64, media_type, notes)
+    resolved = _resolve_provider(provider); raw=None; errors=[]
+    for name in [resolved]+[p for p,ok in available_providers().items() if ok and p!=resolved]:
+        try: raw = _analyze_openai(image_b64, media_type, notes) if name=="openai" else _analyze_anthropic(image_b64, media_type, notes); break
+        except Exception as exc: errors.append(f"{name}: {type(exc).__name__}: {exc}")
+    if raw is None: raise RuntimeError("; ".join(errors))
 
     text = raw.strip()
     if text.startswith("```"):
@@ -233,10 +260,7 @@ def _vision_content_blocks(provider: str, images_b64: list[tuple[str, str]], tex
 
 
 def _analyze_recipe_anthropic(images_b64: list[tuple[str, str]], text: str) -> str:
-    import anthropic
-    if not settings.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY not set")
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = _anthropic_client()
     content = _vision_content_blocks("anthropic", images_b64, text)
     resp = client.messages.create(
         model=settings.anthropic_model, max_tokens=1200,
@@ -246,10 +270,7 @@ def _analyze_recipe_anthropic(images_b64: list[tuple[str, str]], text: str) -> s
 
 
 def _analyze_recipe_openai(images_b64: list[tuple[str, str]], text: str) -> str:
-    from openai import OpenAI
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-    client = OpenAI(api_key=settings.openai_api_key)
+    client = _openai_client()
     content = _vision_content_blocks("openai", images_b64, text)
     resp = client.chat.completions.create(
         model=settings.openai_model, max_tokens=1200,
@@ -275,9 +296,11 @@ def analyze_recipe(images_b64: list[tuple[str, str]], text: str, provider: str |
     (pasted caption, video transcript/description, or free-form notes)."""
     if not images_b64 and not text.strip():
         raise ValueError("Provide at least one screenshot or some text/URL content.")
-    resolved = _resolve_provider(provider)
-    raw = _analyze_recipe_openai(images_b64, text) if resolved == "openai" \
-        else _analyze_recipe_anthropic(images_b64, text)
+    resolved = _resolve_provider(provider); raw=None; errors=[]
+    for name in [resolved]+[p for p,ok in available_providers().items() if ok and p!=resolved]:
+        try: raw = _analyze_recipe_openai(images_b64, text) if name=="openai" else _analyze_recipe_anthropic(images_b64, text); break
+        except Exception as exc: errors.append(f"{name}: {type(exc).__name__}: {exc}")
+    if raw is None: raise RuntimeError("; ".join(errors))
     data = _parse_json_response(raw)
     if not data.get("name"):
         raise ValueError("Couldn't identify a recipe from what was given.")

@@ -16,6 +16,7 @@ import { WhatChangedBanner, AnomalyAlerts, SleepDebtCard, LoadRatioCard, Weather
 import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
 import { useDashboardLayout } from "../lib/useDashboardLayout";
 import DataFreshness, { FreshnessBadge } from "../components/DataFreshness";
+import CommandCenter from "../components/CommandCenter";
 
 function DailyInsight() {
   const [insight, setInsight] = useState(null);
@@ -92,6 +93,7 @@ function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate 
 }
 
 const SECTIONS = [
+  { id: "command_center", label: "Daily plan, goals & anomaly inbox" },
   { id: "briefing", label: "Today's briefing" },
   { id: "hero", label: "Readiness + Vitals" },
   { id: "insights", label: "Sleep debt, load ratio & alerts" },
@@ -108,10 +110,14 @@ export default function Dashboard() {
   const [current, setCurrent] = useState(null);
   const [extra, setExtra] = useState(null);
   const [showLayout, setShowLayout] = useState(false);
+  const [command, setCommand] = useState(null);
+
+  const refreshCommand = () => api.commandCenter().then(setCommand).catch(() => {});
 
   useEffect(() => {
     api.dashboard().then(setD).catch((e) => setErr(String(e)));
     api.dashboardExtra().then(setExtra).catch(() => {});
+    refreshCommand();
   }, []);
 
   useEffect(() => {
@@ -133,6 +139,7 @@ export default function Dashboard() {
   const bb = s.body_battery_high;
 
   const sections = {
+    command_center: <CommandCenter data={command} onRefresh={refreshCommand} />,
     briefing: <DailyInsight />,
 
     hero: (
