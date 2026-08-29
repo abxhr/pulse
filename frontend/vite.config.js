@@ -13,6 +13,9 @@ export default defineConfig({
     },
   },
   build: {
+    // Retain older hashed bundles so a tab that was already open during a
+    // deployment can finish loading instead of going blank mid-refresh.
+    emptyOutDir: false,
     rollupOptions: {
       output: {
         // Split the big, rarely-changing vendor libs into their own chunks so

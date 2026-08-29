@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.0 — Phase 4: personal intelligence lab
+
+**Added**
+
+- A Personal Intelligence Lab for running structured n-of-1 health, sleep, nutrition, and training experiments.
+- Daily intervention-adherence logging with baseline-vs-intervention averages, effect size, direction, and confidence.
+- A tomorrow-readiness forecast using nearest historical days matched on HRV, resting HR, and sleep score.
+- Health timeline annotations for travel, illness, injury, medication, races, and lifestyle changes.
+- A non-generating AI provider probe available from Coach to test authentication and connectivity without spending tokens.
+
+**Fixed**
+
+- Replaced externally tiled Leaflet maps with a creative local route atlas, so GPS routes remain visible offline, on iPhone, and when OpenStreetMap tiles fail.
+- Distant route areas are clustered into selectable views instead of shrinking every route into tiny marks.
+- Individual activity routes now use the same local atlas with clear start and finish markers.
+- AI clients now bypass stale inherited proxies, use explicit connection/read timeouts, retry transient failures, and fall back to the other configured provider.
+- PWA navigation HTML is never cached again, preventing stale bundle references and blank screens after deployment; older hashed assets remain available to already-open tabs.
+
+**Changed**
+
+- Removed the runtime dependency on external map tiles and substantially reduced the Cardio JavaScript chunk.
+
 ## 0.8.0 — Phase 3: adaptive planning and execution
 
 **Added**

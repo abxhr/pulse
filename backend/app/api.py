@@ -20,7 +20,7 @@ from datetime import date, datetime
 from .db import get_session
 from .config import settings
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab
 from .integrations import garmin_client as gc
 
 router = APIRouter(prefix="/api")
@@ -256,6 +256,51 @@ def planner_recovery_forecast(db: Session = Depends(get_session)):
     return planner.recovery_forecast(db)
 
 
+# ---------- Phase 4 personal intelligence lab ----------
+@router.get("/lab")
+def lab_dashboard(db: Session = Depends(get_session)):
+    return lab.dashboard(db)
+
+
+@router.post("/lab/experiments")
+def create_experiment(payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return lab.create_experiment(db, payload)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.put("/lab/experiments/{experiment_id}")
+def update_experiment(experiment_id: int, payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return lab.update_experiment(db, experiment_id, payload)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+@router.delete("/lab/experiments/{experiment_id}")
+def delete_experiment(experiment_id: int, db: Session = Depends(get_session)):
+    if not lab.delete_experiment(db, experiment_id): raise HTTPException(404, "experiment not found")
+    return {"deleted": experiment_id}
+
+
+@router.post("/lab/experiments/{experiment_id}/days")
+def log_experiment_day(experiment_id: int, payload: dict = Body(default={}), db: Session = Depends(get_session)):
+    try: return lab.log_day(db, experiment_id, payload)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/lab/annotations")
+def health_annotations(days: int = 180, db: Session = Depends(get_session)):
+    return lab.annotations(db, days)
+
+
+@router.post("/lab/annotations")
+def add_health_annotation(payload: dict = Body(...), db: Session = Depends(get_session)):
+    try: return lab.add_annotation(db, payload)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
+
+@router.delete("/lab/annotations/{annotation_id}")
+def delete_health_annotation(annotation_id: int, db: Session = Depends(get_session)):
+    if not lab.delete_annotation(db, annotation_id): raise HTTPException(404, "annotation not found")
+    return {"deleted": annotation_id}
+
+
 @router.get("/data-quality")
 def data_quality(db: Session = Depends(get_session)):
     return analytics.data_freshness(db)
@@ -374,7 +419,9 @@ def route_heatmap(db: Session = Depends(get_session)):
         select(func.count()).select_from(Activity).where(Activity.activity_type.ilike("%run%"))
     )
     return {
-        "routes": [{"id": a.id, "date": a.date.isoformat() if a.date else None, "points": a.route_points} for a in rows],
+        "routes": [{"id": a.id, "date": a.date.isoformat() if a.date else None,
+                    "points": a.route_points[::max(1, len(a.route_points) // 700)] if a.route_points else []}
+                   for a in rows],
         "cached_count": len(rows),
         "total_runs": total_runs,
     }
@@ -677,6 +724,11 @@ def sync_all(background: BackgroundTasks, days: int | None = None, full: bool = 
 
 
 # ---------- AI insights ----------
+@router.get("/ai/probe")
+def ai_probe():
+    return insights.provider_probe()
+
+
 @router.post("/insights")
 def create_insight(payload: dict = Body(default={}), db: Session = Depends(get_session)):
     question = payload.get("question")

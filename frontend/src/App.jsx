@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, lazy, Suspense } from "react";
 import {
   LayoutDashboard, Moon, Activity, Dumbbell, Sparkles, FileText, Utensils,
   RefreshCw, Circle, Menu, X, Upload, Power, ScrollText, Search, Sun, Bell, BellOff,
-  MoreHorizontal, CalendarDays,
+  MoreHorizontal, CalendarDays, FlaskConical,
   LogOut,
 } from "lucide-react";
 import { api } from "./lib/api";
@@ -25,10 +25,12 @@ const Nutrition = lazy(() => import("./views/Nutrition"));
 const Insights = lazy(() => import("./views/Insights"));
 const Reports = lazy(() => import("./views/Reports"));
 const Planner = lazy(() => import("./views/Planner"));
+const Lab = lazy(() => import("./views/Lab"));
 
 const NAV = [
   { id: "dashboard", label: "Overview", icon: LayoutDashboard, color: COLORS.recovery },
   { id: "planner", label: "Plan", icon: CalendarDays, color: COLORS.cardio },
+  { id: "lab", label: "Lab", icon: FlaskConical, color: COLORS.strength },
   { id: "sleep", label: "Sleep", icon: Moon, color: COLORS.sleep },
   { id: "training", label: "Cardio", icon: Activity, color: COLORS.cardio },
   { id: "strength", label: "Strength", icon: Dumbbell, color: COLORS.strength },
@@ -115,7 +117,7 @@ export default function App() {
   const conn = status?.connections;
   const isDemo = status && status.recent_syncs?.length === 0 && (status.counts?.daily_health || 0) > 0;
 
-  const Views = { dashboard: Dashboard, planner: Planner, sleep: Sleep, training: Training, strength: Strength, nutrition: Nutrition, reports: Reports };
+  const Views = { dashboard: Dashboard, planner: Planner, lab: Lab, sleep: Sleep, training: Training, strength: Strength, nutrition: Nutrition, reports: Reports };
   const Current = view === "insights" ? null : Views[view];
 
   if (!auth) return <div className="flex min-h-screen items-center justify-center"><Loading /></div>;

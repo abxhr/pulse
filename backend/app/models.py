@@ -412,3 +412,38 @@ class PlannerSettings(Base):
     long_run_weekday: Mapped[int] = mapped_column(Integer, default=6)  # Monday=0
     preferred_rest_weekday: Mapped[int] = mapped_column(Integer, default=4)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Experiment(Base):
+    """A personal n-of-1 intervention with an explicitly selected outcome."""
+    __tablename__ = "experiment"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    hypothesis: Mapped[str | None] = mapped_column(Text)
+    protocol: Mapped[str | None] = mapped_column(Text)
+    outcome_metric: Mapped[str] = mapped_column(String(32))
+    start_date: Mapped[date_t] = mapped_column(Date)
+    end_date: Mapped[date_t | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExperimentDay(Base):
+    __tablename__ = "experiment_day"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    experiment_id: Mapped[int] = mapped_column(Integer, index=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    adhered: Mapped[bool] = mapped_column(default=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class HealthAnnotation(Base):
+    """Owner-supplied context overlaid on longitudinal health data."""
+    __tablename__ = "health_annotation"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[date_t] = mapped_column(Date, index=True)
+    category: Mapped[str] = mapped_column(String(24))
+    label: Mapped[str] = mapped_column(String(128))
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

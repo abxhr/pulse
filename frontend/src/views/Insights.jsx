@@ -92,6 +92,7 @@ export default function Insights({ aiStatus }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const [provider, setProvider] = useState(null); // null = use server default
+  const [probe, setProbe] = useState(null);
   const voice = useVoiceInput((text) => setInput((prev) => (prev ? `${prev} ${text}` : text)));
   const [recipeState, setRecipeState] = useState({}); // { [messageIndex]: "saving" | "saved" | "error" }
   const endRef = useRef(null);
@@ -142,10 +143,19 @@ export default function Insights({ aiStatus }) {
     }
   }
 
+  async function testConnection() {
+    setProbe({ busy: true });
+    try { setProbe(await api.aiProbe()); } catch (e) { setProbe({ error: String(e) }); }
+  }
+
   return (
     <div className="flex h-[calc(100vh-8.5rem)] flex-col rounded-2xl border border-line bg-panel/80 shadow-panel">
       <header className="flex items-center justify-between border-b border-line px-5 py-3">
         <div className="flex items-center gap-2">
+          <button onClick={testConnection} disabled={probe?.busy} title="Non-billable provider connection test"
+            className="hidden rounded-full border border-line px-2.5 py-1 text-[10px] text-muted hover:text-txt sm:block">
+            {probe?.busy ? "testing…" : "test AI"}
+          </button>
           <Sparkles size={16} className="text-recovery" />
           <h3 className="font-display text-sm font-semibold text-txt">Coach</h3>
         </div>
@@ -165,6 +175,10 @@ export default function Insights({ aiStatus }) {
           </div>
         </div>
       </header>
+
+      {probe && !probe.busy && <div className="flex flex-wrap gap-2 border-b border-line px-5 py-2 text-[10px]">
+        {probe.error ? <span className="text-effort">{probe.error}</span> : Object.entries(probe).map(([name,s])=><span key={name} className={s.reachable?"text-recovery":"text-effort"}>{name}: {s.reachable?"connected":s.configured?"unreachable":"not configured"}</span>)}
+      </div>}
 
       <WeeklyDigest />
       <MemoryEditor />
