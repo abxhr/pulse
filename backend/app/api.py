@@ -30,21 +30,25 @@ router = APIRouter(prefix="/api")
 # installed iOS PWAs) were intermittently unable to reach public tile hosts
 # directly, leaving the route map as a grey canvas. The server fetches each
 # fixed CARTO tile once and then serves it locally on every subsequent view.
-@router.get("/map-tiles/{z}/{x}/{y}.png")
+@router.get("/map-tiles-v2/{z}/{x}/{y}.png")
 def map_tile(z: int, x: int, y: int):
     if not (0 <= z <= 19 and 0 <= x < 2 ** z and 0 <= y < 2 ** z):
         raise HTTPException(404, "invalid map tile")
-    tile = DATA_DIR / "map_tiles" / str(z) / str(x) / f"{y}.png"
-    if tile.exists():
-        return Response(tile.read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    tile = DATA_DIR / "map_tiles_v2" / str(z) / str(x) / f"{y}.png"
+    max_age = 7 * 86400
+    if tile.exists() and time.time() - tile.stat().st_mtime < max_age:
+        return Response(tile.read_bytes(), media_type="image/png", headers={"Cache-Control": f"public, max-age={max_age}"})
     try:
-        url = f"https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
-        upstream = requests.get(url, timeout=12, headers={"User-Agent": "Pulse/0.9 private health dashboard"})
+        url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        upstream = requests.get(url, timeout=12, headers={
+            "User-Agent": "PulseHealthDashboard/0.9 (+https://github.com/abxhr/pulse)",
+            "Referer": "https://abxhr-core.tail551b1d.ts.net/",
+        })
         upstream.raise_for_status()
         content = upstream.content
         tile.parent.mkdir(parents=True, exist_ok=True)
         tile.write_bytes(content)
-        return Response(content, media_type="image/png", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+        return Response(content, media_type="image/png", headers={"Cache-Control": f"public, max-age={max_age}"})
     except requests.RequestException as exc:
         raise HTTPException(502, f"map tile unavailable: {exc}") from exc
 
