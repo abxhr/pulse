@@ -5,6 +5,8 @@ import base64
 import hashlib
 import hmac
 import secrets
+import threading
+import time
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete, select
@@ -13,6 +15,27 @@ from sqlalchemy.orm import Session
 from ..models import AppAuth, AuthSession
 
 SESSION_DAYS = 90
+_attempt_lock = threading.Lock()
+_attempts: dict[str, list[float]] = {}
+
+
+def login_allowed(identity: str, limit: int, window_seconds: int) -> tuple[bool, int]:
+    """Small single-process throttle suitable for this single-owner deployment."""
+    now = time.monotonic()
+    with _attempt_lock:
+        recent = [stamp for stamp in _attempts.get(identity, []) if now - stamp < window_seconds]
+        _attempts[identity] = recent
+        return len(recent) < limit, max(0, window_seconds - int(now - recent[0])) if recent else 0
+
+
+def record_login_failure(identity: str) -> None:
+    with _attempt_lock:
+        _attempts.setdefault(identity, []).append(time.monotonic())
+
+
+def clear_login_failures(identity: str) -> None:
+    with _attempt_lock:
+        _attempts.pop(identity, None)
 
 
 def configured(db: Session) -> bool:

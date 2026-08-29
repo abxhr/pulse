@@ -10,7 +10,7 @@ import time
 
 import requests
 
-from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, Depends, BackgroundTasks, Body, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import Response
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -22,8 +22,15 @@ from .config import settings, DATA_DIR
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
 from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab
 from .integrations import garmin_client as gc
+from .schemas import PasswordBody, MealBody, WeightBody, ShoeBody, RecipeExtractUrl, RestoreBackupBody
 
 router = APIRouter(prefix="/api")
+
+
+def _direct_loopback(request: Request) -> bool:
+    """Forwarded requests are never treated as physical access to this machine."""
+    forwarded = any(request.headers.get(name) for name in ("forwarded", "x-forwarded-for", "x-forwarded-host"))
+    return not forwarded and request.client is not None and request.client.host in {"127.0.0.1", "::1"}
 
 
 # Same-origin map-tile proxy with a permanent local cache. Browsers (especially
@@ -66,17 +73,17 @@ def auth_status(request: Request, db: Session = Depends(get_session)):
     is_configured = auth_svc.configured(db)
     return {"configured": is_configured,
             "authenticated": is_configured and auth_svc.valid_session(db, request.cookies.get("pulse_session")),
-            "setup_allowed": request.client is not None and request.client.host in {"127.0.0.1", "::1"}}
+            "setup_allowed": _direct_loopback(request)}
 
 
 @router.post("/auth/setup")
-def auth_setup(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
+def auth_setup(request: Request, response: Response, payload: PasswordBody, db: Session = Depends(get_session)):
     if auth_svc.configured(db):
         raise HTTPException(409, "Pulse already has an owner password")
-    if request.client is None or request.client.host not in {"127.0.0.1", "::1"}:
+    if not _direct_loopback(request):
         raise HTTPException(403, "Initial setup is only allowed from this PC at http://localhost:8080")
     try:
-        auth_svc.set_password(db, str(payload.get("password", "")))
+        auth_svc.set_password(db, payload.password)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     _set_session_cookie(response, request, auth_svc.create_session(db))
@@ -84,19 +91,25 @@ def auth_setup(request: Request, response: Response, payload: dict = Body(...), 
 
 
 @router.post("/auth/login")
-def auth_login(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
-    if not auth_svc.verify_password(db, str(payload.get("password", ""))):
+def auth_login(request: Request, response: Response, payload: PasswordBody, db: Session = Depends(get_session)):
+    identity = request.client.host if request.client else "unknown"
+    allowed, retry_after = auth_svc.login_allowed(identity, settings.login_attempts, settings.login_window_seconds)
+    if not allowed:
+        raise HTTPException(429, "Too many login attempts", headers={"Retry-After": str(retry_after)})
+    if not auth_svc.verify_password(db, payload.password):
+        auth_svc.record_login_failure(identity)
         raise HTTPException(401, "Incorrect password")
+    auth_svc.clear_login_failures(identity)
     _set_session_cookie(response, request, auth_svc.create_session(db))
     return {"ok": True}
 
 
 @router.post("/auth/reset")
-def auth_reset(request: Request, response: Response, payload: dict = Body(...), db: Session = Depends(get_session)):
+def auth_reset(request: Request, response: Response, payload: PasswordBody, db: Session = Depends(get_session)):
     """Physical-PC recovery path: invalidates every phone/browser session."""
-    if request.client is None or request.client.host not in {"127.0.0.1", "::1"}:
+    if not _direct_loopback(request):
         raise HTTPException(403, "Password reset is only allowed from this PC at http://localhost:8080")
-    try: auth_svc.set_password(db, str(payload.get("password", "")))
+    try: auth_svc.set_password(db, payload.password)
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
     _set_session_cookie(response, request, auth_svc.create_session(db))
     return {"ok": True}
@@ -412,7 +425,7 @@ def sleep_extra(db: Session = Depends(get_session)):
 
 
 @router.get("/activities")
-def activities(limit: int = 20, db: Session = Depends(get_session)):
+def activities(limit: int = Query(20, ge=1, le=500), db: Session = Depends(get_session)):
     return analytics.recent_activities(db, limit)
 
 
@@ -489,7 +502,7 @@ def route_heatmap_sync(batch_size: int = 8, db: Session = Depends(get_session)):
 
 
 @router.get("/workouts")
-def workouts(limit: int = 20, db: Session = Depends(get_session)):
+def workouts(limit: int = Query(20, ge=1, le=500), db: Session = Depends(get_session)):
     rows = db.execute(
         select(Workout).order_by(Workout.date.desc()).limit(limit)
     ).scalars().all()
@@ -687,10 +700,9 @@ def list_shoes(db: Session = Depends(get_session)):
 
 
 @router.post("/shoes")
-def add_shoe(body: dict = Body(...), db: Session = Depends(get_session)):
+def add_shoe(body: ShoeBody, db: Session = Depends(get_session)):
     return cardio_extras.add_shoe(
-        db, body["name"], date.fromisoformat(body.get("start_date") or date.today().isoformat()),
-        float(body.get("target_km") or 700),
+        db, body.name, body.start_date or date.today(), body.target_km,
     )
 
 
@@ -742,14 +754,22 @@ def sync_hevy(background: BackgroundTasks):
 @router.post("/sync/hevy/upload")
 async def upload_hevy_csv(file: UploadFile = File(...), db: Session = Depends(get_session)):
     """Upload a Hevy CSV export directly (handy from your phone). Imports immediately."""
-    if not file.filename.lower().endswith(".csv"):
+    safe_name = Path(file.filename or "").name
+    if not safe_name.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Please upload a .csv export from Hevy.")
-    dest = Path(settings.hevy_import_dir) / file.filename
-    dest.write_bytes(await file.read())
+    raw = await file.read(settings.max_upload_mb * 1024 * 1024 + 1)
+    if len(raw) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, f"CSV is too large (max {settings.max_upload_mb} MB).")
+    import_dir = Path(settings.hevy_import_dir).resolve()
+    dest = import_dir / f"{datetime.utcnow():%Y%m%d-%H%M%S-%f}-{safe_name}"
+    dest.write_bytes(raw)
     result = sync.import_csv_file(str(dest), db=db)
+    if result.get("status") != "ok":
+        dest.unlink(missing_ok=True)
+        raise HTTPException(422, "CSV could not be imported")
     archive = Path(settings.hevy_import_dir) / "archive"
     archive.mkdir(parents=True, exist_ok=True)
-    dest.rename(archive / dest.name)
+    dest.replace(archive / dest.name)
     return result
 
 
@@ -918,10 +938,8 @@ def nutrition_barcode(upc: str):
 
 
 @router.post("/nutrition/meals")
-def create_meal(payload: dict = Body(...), db: Session = Depends(get_session)):
-    if not payload.get("name"):
-        raise HTTPException(status_code=400, detail="name is required")
-    return nutrition.add_meal(db, payload)
+def create_meal(payload: MealBody, db: Session = Depends(get_session)):
+    return nutrition.add_meal(db, payload.model_dump(mode="json", exclude_none=True))
 
 
 @router.delete("/nutrition/meals/{meal_id}")
@@ -970,6 +988,10 @@ async def extract_recipe(
     combined_text_parts = [text] if text else []
 
     if url:
+        try:
+            url = str(RecipeExtractUrl(url=url).url)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         from .integrations import recipe_sources
         try:
             if "instagram.com" in url:
@@ -1070,11 +1092,8 @@ def weight_trend(days: int = 90, db: Session = Depends(get_session)):
 
 
 @router.post("/weight")
-def log_weight(payload: dict = Body(...), db: Session = Depends(get_session)):
-    if payload.get("weight_kg") is None:
-        raise HTTPException(status_code=400, detail="weight_kg is required")
-    d = date.fromisoformat(payload["date"]) if payload.get("date") else date.today()
-    return weight_svc.add_weight(db, d, payload["weight_kg"], payload.get("body_fat_pct"), payload.get("notes"))
+def log_weight(payload: WeightBody, db: Session = Depends(get_session)):
+    return weight_svc.add_weight(db, payload.date or date.today(), payload.weight_kg, payload.body_fat_pct, payload.notes)
 
 
 @router.delete("/weight/{d}")
@@ -1153,6 +1172,17 @@ def run_backup_now():
     if not path:
         raise HTTPException(status_code=400, detail="backup not applicable (non-SQLite database)")
     return {"ok": True, "file": path.name}
+
+
+@router.post("/backups/restore")
+def restore_backup(request: Request, body: RestoreBackupBody):
+    if not _direct_loopback(request):
+        raise HTTPException(403, "Backup restore is only allowed directly from this PC")
+    try:
+        emergency = backup_svc.restore_backup(body.name)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True, "restored": body.name, "pre_restore_backup": emergency.name}
 
 
 @router.get("/export/csv/{table}")

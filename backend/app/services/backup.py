@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import sqlite3
+import shutil
 
 from ..config import settings, DATA_DIR
 
@@ -44,6 +45,38 @@ def run_backup() -> Path | None:
     return dest_path
 
 
+def verify_backup(path: Path) -> bool:
+    """Run SQLite's integrity check without mutating the backup."""
+    if not path.is_file() or path.parent.resolve() != BACKUP_DIR.resolve():
+        return False
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        return conn.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+    finally:
+        conn.close()
+
+
+def restore_backup(name: str) -> Path:
+    """Restore a verified local backup, retaining an emergency pre-restore copy."""
+    candidate = (BACKUP_DIR / Path(name).name).resolve()
+    if candidate.parent != BACKUP_DIR.resolve() or not verify_backup(candidate):
+        raise ValueError("backup is missing or failed integrity verification")
+    db_path = _db_path()
+    if not db_path:
+        raise ValueError("restore is only supported for SQLite")
+    emergency = BACKUP_DIR / f"pre-restore-{datetime.now():%Y%m%d-%H%M%S}.db"
+    if db_path.exists():
+        shutil.copy2(db_path, emergency)
+    source = sqlite3.connect(f"file:{candidate}?mode=ro", uri=True)
+    destination = sqlite3.connect(str(db_path))
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+    return emergency
+
+
 def _rotate() -> None:
     backups = sorted(BACKUP_DIR.glob("pulse-*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
     for old in backups[KEEP_DAILY:]:
@@ -55,7 +88,7 @@ def list_backups() -> list[dict]:
         return []
     backups = sorted(BACKUP_DIR.glob("pulse-*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
     return [
-        {"name": p.name, "size_mb": round(p.stat().st_size / 1024 / 1024, 2),
+        {"name": p.name, "size_mb": round(p.stat().st_size / 1024 / 1024, 2), "verified": verify_backup(p),
          "created_at": datetime.fromtimestamp(p.stat().st_mtime).isoformat()}
         for p in backups
     ]

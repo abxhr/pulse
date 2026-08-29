@@ -152,3 +152,12 @@
 ## 0.1.0 — Initial
 
 - Garmin + Hevy sync, Dashboard/Sleep/Cardio/Strength views, AI Coach, weekly/monthly reports
+# 0.10.0 — Stabilize
+
+- Hardened password setup/reset against reverse-proxy trust confusion.
+- Added login throttling and proxy-safe mutation origin checks.
+- Added typed validation for critical health-data inputs and bounded list queries.
+- Secured Hevy CSV uploads with safe filenames, size limits, and failure cleanup.
+- Prevented overlapping Garmin and Hevy sync runs.
+- Added verified backups and a local-only restore path with an emergency snapshot.
+- Added backend/frontend CI and Release 0.10 regression coverage.

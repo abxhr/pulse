@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     port: int = 8000
     serve_frontend: bool = True    # serve the built frontend from FastAPI (single process, one URL)
     cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080,https://abxhr-core.tail551b1d.ts.net"
+    trusted_proxy_ips: str = "127.0.0.1,::1"
+    max_upload_mb: int = 16
+    login_attempts: int = 5
+    login_window_seconds: int = 300
 
     # --- Overview extras ---
     sleep_target_hours: float = 8.0   # nightly sleep need used for the sleep-debt tracker

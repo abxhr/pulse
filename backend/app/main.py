@@ -119,9 +119,15 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="Pulse", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Pulse", version="0.10.0", lifespan=lifespan)
 
 _AUTH_EXEMPT = {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login", "/api/auth/reset"}
+
+
+def _allowed_mutation_origins(request: Request) -> set[str]:
+    configured = {item.strip().rstrip("/") for item in settings.cors_origins.split(",") if item.strip()}
+    configured.add(str(request.base_url).rstrip("/"))
+    return configured
 
 
 @app.middleware("http")
@@ -136,7 +142,7 @@ async def single_user_auth(request: Request, call_next):
             db.close()
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
-            if origin and origin.rstrip("/") != str(request.base_url).rstrip("/"):
+            if origin and origin.rstrip("/") not in _allowed_mutation_origins(request):
                 return JSONResponse({"detail": "cross-origin request blocked"}, status_code=403)
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import logging
+import threading
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,8 @@ from ..integrations import garmin_client as gc
 from ..integrations import hevy_client as hc
 
 log = logging.getLogger("pulse.sync")
+_garmin_lock = threading.Lock()
+_hevy_lock = threading.Lock()
 
 
 def _upsert(db: Session, model, pk_field: str, data: dict):
@@ -56,6 +59,15 @@ def _fetch_day(client, day: date, today: date) -> tuple[date, dict, dict | None]
 
 
 def sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
+    if not _garmin_lock.acquire(blocking=False):
+        return {"status": "busy", "message": "Garmin sync is already running"}
+    try:
+        return _sync_garmin(days, db)
+    finally:
+        _garmin_lock.release()
+
+
+def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
     days = days or settings.quick_sync_days
     own = db is None
     db = db or SessionLocal()
@@ -192,6 +204,15 @@ def import_csv_folder(db: Session | None = None) -> dict:
 
 
 def sync_hevy(db: Session | None = None) -> dict:
+    if not _hevy_lock.acquire(blocking=False):
+        return {"status": "busy", "message": "Hevy sync is already running"}
+    try:
+        return _sync_hevy(db)
+    finally:
+        _hevy_lock.release()
+
+
+def _sync_hevy(db: Session | None = None) -> dict:
     """Dispatch on HEVY_MODE: csv (folder import) | unofficial (auto API) | pro (paid API)."""
     own = db is None
     db = db or SessionLocal()
