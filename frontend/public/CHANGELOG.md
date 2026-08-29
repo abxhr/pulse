@@ -161,3 +161,10 @@
 - Prevented overlapping Garmin and Hevy sync runs.
 - Added verified backups and a local-only restore path with an emergency snapshot.
 - Added backend/frontend CI and Release 0.10 regression coverage.
+# 0.11.0 — Make it dependable
+
+- Added stable API errors with codes, field details, and request references.
+- Added request IDs to every backend response and safe generic handling for unexpected failures.
+- Added accessible in-app error notifications instead of exposing raw server payloads.
+- Added an Alembic migration baseline so future schema changes are versioned and repeatable.
+- Extended CI and regression coverage for API errors and database migration state.

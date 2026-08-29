@@ -1,5 +1,6 @@
 """SQLAlchemy engine + session helpers (SQLite, local file)."""
 import logging
+from pathlib import Path
 
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
@@ -51,6 +52,12 @@ def init_db() -> None:
     from . import models  # noqa: F401  (ensure tables are registered)
     Base.metadata.create_all(bind=engine)
     _migrate_missing_columns()
+    # Adopt the current schema into Alembic. Future releases add explicit
+    # revisions; stamping is safe because create_all/_migrate above are idempotent.
+    from alembic import command
+    from alembic.config import Config
+    cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    command.upgrade(cfg, "head")
 
 
 def get_session() -> Session:

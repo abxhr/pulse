@@ -1,5 +1,33 @@
 const BASE = "/api";
 
+export class ApiError extends Error {
+  constructor(message, { status, code, details, requestId } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
+
+async function responseError(res) {
+  const payload = await res.json().catch(() => null);
+  const error = payload?.error;
+  return new ApiError(error?.message || `Request failed (${res.status})`, {
+    status: res.status,
+    code: error?.code,
+    details: error?.details,
+    requestId: error?.request_id || res.headers.get("x-request-id"),
+  });
+}
+
+async function throwResponseError(res) {
+  const error = await responseError(res);
+  window.dispatchEvent(new CustomEvent("pulse:notice", { detail: { type: "error", message: error.message, requestId: error.requestId } }));
+  throw error;
+}
+
 async function req(path, opts = {}) {
   const res = await fetch(BASE + path, {
     headers: { "Content-Type": "application/json" },
@@ -7,8 +35,7 @@ async function req(path, opts = {}) {
   });
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event("pulse:unauthorized"));
-    const body = await res.text();
-    throw new Error(`${res.status}: ${body}`);
+    await throwResponseError(res);
   }
   return res.json();
 }
@@ -93,7 +120,7 @@ export const api = {
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/sync/hevy/upload", { method: "POST", body: fd });
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    if (!res.ok) await throwResponseError(res);
     return res.json();
   },
   nutritionToday: () => req("/nutrition/today"),
@@ -112,7 +139,7 @@ export const api = {
     if (notes) fd.append("notes", notes);
     if (provider) fd.append("provider", provider);
     const res = await fetch("/api/nutrition/analyze", { method: "POST", body: fd });
-    if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+    if (!res.ok) await throwResponseError(res);
     return res.json();
   },
   deleteMeal: (id) => req(`/nutrition/meals/${id}`, { method: "DELETE" }),
@@ -135,7 +162,7 @@ export const api = {
     if (text) fd.append("text", text);
     if (provider) fd.append("provider", provider);
     const res = await fetch("/api/recipes/extract", { method: "POST", body: fd });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || `${res.status}`);
+    if (!res.ok) await throwResponseError(res);
     return res.json();
   },
   saveRecipe: (payload) => req("/recipes", { method: "POST", body: JSON.stringify(payload) }),
