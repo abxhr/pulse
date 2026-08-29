@@ -3,11 +3,12 @@
 Run (from backend/):   uvicorn app.main:app --reload --port 8000
 """
 import logging
+import re
+from uuid import uuid4
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -15,6 +16,7 @@ from .config import settings
 from .db import init_db, SessionLocal
 from .services import auth as auth_svc
 from .api import router
+from .errors import error_response, install_error_handlers
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("pulse")
@@ -119,7 +121,9 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="Pulse", version="0.10.0", lifespan=lifespan)
+app = FastAPI(title="Pulse", version="0.11.0", lifespan=lifespan)
+app.state.log = log
+install_error_handlers(app)
 
 _AUTH_EXEMPT = {"/api/health", "/api/auth/status", "/api/auth/setup", "/api/auth/login", "/api/auth/reset"}
 
@@ -130,26 +134,33 @@ def _allowed_mutation_origins(request: Request) -> set[str]:
     return configured
 
 
+def _request_id(request: Request) -> str:
+    candidate = request.headers.get("x-request-id", "")
+    return candidate if re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate) else uuid4().hex
+
+
 @app.middleware("http")
 async def single_user_auth(request: Request, call_next):
     """Protect all health data and mutations; the static login shell stays public."""
+    request.state.request_id = _request_id(request)
     if request.url.path.startswith("/api/") and request.url.path not in _AUTH_EXEMPT:
         db = SessionLocal()
         try:
             if not auth_svc.configured(db) or not auth_svc.valid_session(db, request.cookies.get("pulse_session")):
-                return JSONResponse({"detail": "authentication required"}, status_code=401)
+                return error_response(request, 401, "authentication_required", "Unlock Pulse to continue.")
         finally:
             db.close()
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
             if origin and origin.rstrip("/") not in _allowed_mutation_origins(request):
-                return JSONResponse({"detail": "cross-origin request blocked"}, status_code=403)
+                return error_response(request, 403, "cross_origin_blocked", "This request did not come from an allowed Pulse address.")
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
     response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; connect-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com"
+    response.headers["X-Request-ID"] = request.state.request_id
     return response
 
 app.add_middleware(

@@ -14,6 +14,7 @@ import { useReminders } from "./lib/useReminders";
 import { Loading } from "./components/primitives";
 import AuthGate from "./components/AuthGate";
 import QuickLog from "./components/QuickLog";
+import ToastHost from "./components/ToastHost";
 
 // Each view is its own chunk — the initial bundle only needs to ship the app
 // shell, not every page's charting/AI code before the user's even logged in.
@@ -265,6 +266,7 @@ export default function App() {
       <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
       <QuickLog onNavigate={setView} />
       <CommandPalette onNavigate={setView} />
+      <ToastHost />
     </div>
   );
 }
