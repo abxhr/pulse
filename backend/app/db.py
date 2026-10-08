@@ -25,14 +25,14 @@ _PENDING_COLUMNS = {
         "awake_count": "INTEGER", "score_feedback": "VARCHAR(64)", "nap_seconds": "INTEGER",
         "sleep_need_min": "INTEGER",
     },
-    "activity": {"shoe_id": "INTEGER", "route_points": "JSON"},
+    "activity": {"shoe_id": "INTEGER", "route_points": "JSON", "splits": "JSON"},
     "meal": {"satiety": "VARCHAR(16)"},
     "nutrition_goal": {"fiber_g": "REAL"},
 }
 
 
 def _migrate_missing_columns() -> None:
-    """No migration framework here — SQLite, single user, small schema. `create_all`
+    """No migration framework here - SQLite, single user, small schema. `create_all`
     only creates whole missing tables, so newly-added model columns need an explicit
     ALTER TABLE on an existing DB. Defensive: only adds columns that are actually
     missing, safe to run on every startup."""
@@ -40,7 +40,7 @@ def _migrate_missing_columns() -> None:
     with engine.begin() as conn:
         for table, wanted in _PENDING_COLUMNS.items():
             if not inspector.has_table(table):
-                continue  # fresh DB — create_all just built it with every column already
+                continue  # fresh DB - create_all just built it with every column already
             existing = {c["name"] for c in inspector.get_columns(table)}
             for col, sql_type in wanted.items():
                 if col not in existing:

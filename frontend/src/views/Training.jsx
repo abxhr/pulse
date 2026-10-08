@@ -9,7 +9,7 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
-import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard, TrainingStressBalance, RunInsights, TodaysCall } from "../components/CardioExtras";
+import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard, TrainingStressBalance, RunInsights, TodaysCall, PlanCompliance } from "../components/CardioExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
 import RouteHeatmap from "../components/RouteHeatmap";
 
@@ -101,6 +101,7 @@ export default function Training() {
       <Section title="Today" sub="should you train hard?">
         <TodaysCall />
         <OverloadWarnings />
+        <PlanCompliance />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Runs" value={runs.length} hint={`${acts.length} Garmin activities total`} color={COLORS.cardio} />
           <StatTile label="Distance" value={fmtNum(totalKm, 0)} unit="km" color={COLORS.cardio} />

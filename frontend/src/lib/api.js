@@ -109,6 +109,8 @@ export const api = {
   retireShoe: (id) => req(`/shoes/${id}/retire`, { method: "POST" }),
   assignShoe: (activityId, shoeId) => req(`/activities/${activityId}/shoe`, { method: "POST", body: JSON.stringify({ shoe_id: shoeId }) }),
   todaysCall: () => req("/training/todays-call"),
+  planCompliance: (weeks = 6) => req(`/training/plan-compliance?weeks=${weeks}`),
+  syncSplits: (batch = 8) => req(`/activities/splits/sync?batch_size=${batch}`, { method: "POST" }),
   runInsights: (weeks = 12) => req(`/training/run-insights?weeks=${weeks}`),
   racePredictions: () => req("/training/race-predictions"),
   hrZones: (days = 30) => req(`/activities/hr-zones?days=${days}`),

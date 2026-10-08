@@ -9,6 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..models import DailyHealth, Sleep, Activity, Workout, Meal, BodyWeight, SyncLog
+from .run_splits import best_window, decoupling_pct
 
 
 def _avg(values):
@@ -1123,14 +1124,28 @@ def run_insights(db: Session, weeks: int = 12) -> dict | None:
             "long_run_pct": round(w["long_km"] / w["km"] * 100) if w["km"] else None,
             "cadence": round(sum(w["cad"]) / len(w["cad"])) if w.get("cad") else None,
         })
-    # No split data stored, so "best" = fastest whole run covering at least the distance.
+    # Best efforts: a run's fastest window from cached splits when it has them,
+    # else the whole run if it is at least that long (a looser lower bound).
     bests = {}
     for label, km in (("5k", 5), ("10k", 10), ("half", 21.0975)):
-        c = [a for a in runs if a.distance_m >= km * 1000]
-        if c:
-            b = min(c, key=lambda a: a.duration_s / a.distance_m)
-            bests[label] = {"pace_s_per_km": round(b.duration_s / b.distance_m * 1000),
-                            "run_km": round(b.distance_m / 1000, 1), "date": b.date.isoformat()}
+        cands = []
+        for a in runs:
+            t = best_window(a.splits, km * 1000) if a.splits else None
+            if t is not None:
+                cands.append((t / km, a, "splits"))
+            elif a.distance_m >= km * 1000 and not a.splits:
+                cands.append((a.duration_s / a.distance_m * 1000, a, "whole run"))
+        if cands:
+            pace, b, src = min(cands, key=lambda c: c[0])
+            bests[label] = {"pace_s_per_km": round(pace), "time_s": round(pace * km),
+                            "run_km": round(b.distance_m / 1000, 1), "date": b.date.isoformat(), "source": src}
+
+    decoupling = []
+    for a in runs:
+        d = decoupling_pct(a.splits) if a.splits else None
+        if d is not None:
+            decoupling.append({"date": a.date.isoformat(), "pct": d, "km": round(a.distance_m / 1000, 1)})
+
     # Pace bands relative to your own median (per-run averages; no split data).
     paces = sorted(a.duration_s / a.distance_m * 1000 for a in runs)
     med = paces[len(paces) // 2]
@@ -1138,7 +1153,8 @@ def run_insights(db: Session, weeks: int = 12) -> dict | None:
     for p in paces:
         bands["easier" if p > med * 1.08 else "faster" if p < med * 0.92 else "steady"] += 1
     return {"efficiency_change_pct": ef_change, "weeks": out, "bests": bests,
-            "pace_bands": bands, "median_pace_s_per_km": round(med)}
+            "pace_bands": bands, "median_pace_s_per_km": round(med),
+            "decoupling": decoupling, "splits_coverage": {"with_splits": sum(1 for a in runs if a.splits), "runs": len(runs)}}
 
 
 def decide_session(risk: int | None, form: float | None, readiness: int | None) -> tuple[str, list[str]]:

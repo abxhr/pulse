@@ -587,6 +587,8 @@ def activity_splits_route(activity_id: str, db: Session = Depends(get_session)):
     a = db.get(Activity, activity_id)
     if not a:
         raise HTTPException(status_code=404, detail="activity not found")
+    if a.splits:
+        return {"splits": a.splits}
     try:
         client = gc.make_client()
     except gc.GarminUnavailable as e:
@@ -594,7 +596,34 @@ def activity_splits_route(activity_id: str, db: Session = Depends(get_session)):
     splits = gc.fetch_splits(client, activity_id)
     if not splits:
         raise HTTPException(status_code=404, detail="no split data for this activity")
+    a.splits = splits
+    db.commit()
     return {"splits": splits}
+
+
+@router.post("/activities/splits/sync")
+def splits_sync(batch_size: int = Query(8, ge=1, le=25), db: Session = Depends(get_session)):
+    """Caches splits for a batch of runs that don't have them yet - same
+    call-until-done contract as the route heatmap sync."""
+    pending = (Activity.splits.is_(None), Activity.activity_type.in_(("running", "trail_running", "track_running")))
+    missing = db.execute(
+        select(Activity).where(*pending).order_by(Activity.date.desc()).limit(batch_size)
+    ).scalars().all()
+    if not missing:
+        return {"fetched": 0, "done": True}
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    for a in missing:
+        try:
+            a.splits = gc.fetch_splits(client, a.id, strict=True) or []  # [] = checked, nothing there
+        except Exception as e:  # Garmin error/rate limit: keep progress, leave the rest unmarked to retry
+            db.commit()
+            raise HTTPException(status_code=502, detail=f"Garmin request failed: {e}")
+    db.commit()
+    remaining = db.scalar(select(func.count()).select_from(Activity).where(*pending))
+    return {"fetched": len(missing), "done": remaining == 0, "remaining": remaining}
 
 
 @router.get("/workouts/{workout_id}")
@@ -659,6 +688,11 @@ def training_load(weeks: int = 12, db: Session = Depends(get_session)):
 @router.get("/training/race-predictions")
 def race_predictions(db: Session = Depends(get_session)):
     return analytics.race_predictions(db) or {}
+
+
+@router.get("/training/plan-compliance")
+def plan_compliance(weeks: int = Query(6, ge=1, le=26), db: Session = Depends(get_session)):
+    return planner.run_compliance(db, weeks)
 
 
 @router.get("/training/todays-call")

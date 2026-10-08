@@ -312,8 +312,31 @@ export function ShoeTracker() {
 
 export function RunInsights() {
   const [d, setD] = useState(null);
-  useEffect(() => { api.runInsights(12).then(setD).catch(() => setD(null)); }, []);
+  const [fetching, setFetching] = useState(false);
+  const [fetchErr, setFetchErr] = useState(null);
+  const load = () => api.runInsights(12).then(setD).catch(() => setD(null));
+  useEffect(() => { load(); }, []);
+
+  // Garmin splits are fetched in small batches until none remain, so each request stays fast.
+  async function fetchSplits() {
+    setFetching(true); setFetchErr(null);
+    try {
+      for (let i = 0; i < 40; i++) {
+        const r = await api.syncSplits(8);
+        if (r.done) break;
+      }
+    } catch (e) {
+      setFetchErr(e?.message || "Could not reach Garmin");
+    }
+    setFetching(false);
+    load();
+  }
+
   if (!d?.weeks?.length) return null;
+  const cov = d.splits_coverage;
+  const missingSplits = cov ? cov.runs - cov.with_splits : 0;
+  const dec = d.decoupling || [];
+  const medDec = dec.length ? [...dec].map((x) => x.pct).sort((a, b) => a - b)[Math.floor(dec.length / 2)] : null;
   const weeks = d.weeks.filter((w) => w.easy_pct != null);
   const avgEasy = weeks.length ? Math.round(weeks.reduce((s, w) => s + w.easy_pct, 0) / weeks.length) : null;
   const last = d.weeks[d.weeks.length - 1];
@@ -349,7 +372,10 @@ export function RunInsights() {
             <div key={k} className="rounded-lg border border-line bg-panel2/50 px-3 py-1.5 text-xs">
               <span className="uppercase text-faint">{k === "half" ? "Half" : k.toUpperCase()}+</span>{" "}
               <span className="font-mono text-recovery tnum">{fmtPace(b.pace_s_per_km)}</span>{" "}
-              <span className="text-faint">{fmtNum(b.run_km, 1)}km · {fmtDate(b.date)}</span>
+              <span className="text-faint">{fmtNum(b.run_km, 1)}km · {fmtDate(b.date)}</span>{" "}
+              {b.source === "splits"
+                ? <span className="text-recovery" title="Measured from the fastest consecutive laps">exact</span>
+                : <span className="text-strength" title="Average pace of a whole run at least this long - a slower bound">approx</span>}
             </div>
           ))}
         </div>
@@ -366,6 +392,23 @@ export function RunInsights() {
           <Line type="monotone" dataKey="hard_pct" name="Hard %" stroke={COLORS.effort} strokeWidth={1.5} dot={false} connectNulls />
         </ComposedChart>
       </ResponsiveContainer>
+      )}
+      {missingSplits > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel2/50 px-3 py-2 text-xs text-muted">
+          <span>{cov.with_splits}/{cov.runs} runs have lap data. Fetch the rest for exact best efforts and aerobic decoupling.</span>
+          <button onClick={fetchSplits} disabled={fetching}
+            className="rounded-md bg-cardio px-3 py-1 text-xs font-semibold text-ink disabled:opacity-60">
+            {fetching ? "Fetching…" : "Fetch lap data"}
+          </button>
+          {fetchErr && <span role="alert" className="text-effort">{fetchErr}</span>}
+        </div>
+      )}
+      {dec.length > 0 && (
+        <div className="mt-3 text-xs text-muted">
+          Aerobic decoupling (median of {dec.length} runs):{" "}
+          <span className="font-mono text-sm tnum" style={{ color: medDec <= 5 ? COLORS.recovery : COLORS.strength }}>{medDec}%</span>
+          <span className="text-faint"> · under ~5% means HR holds steady at the same pace; higher means cardiac drift.</span>
+        </div>
       )}
       {d.weeks.some((w) => w.cadence) && (
         <>
@@ -413,6 +456,40 @@ export function TodaysCall() {
           {d.reasons.map((r) => <li key={r}>• {r}</li>)}
         </ul>
       </div>
+    </Panel>
+  );
+}
+
+export function PlanCompliance() {
+  const [weeks, setWeeks] = useState(null);
+  useEffect(() => { api.planCompliance(6).then(setWeeks).catch(() => setWeeks([])); }, []);
+  if (!weeks?.length) return null;
+  const totPlanned = weeks.reduce((s, w) => s + w.planned_km, 0);
+  const totActual = weeks.reduce((s, w) => s + w.actual_km, 0);
+  const pct = totPlanned ? Math.round((totActual / totPlanned) * 100) : null;
+  return (
+    <Panel accent={COLORS.cardio} title="Plan vs actual" sub={`running · last ${weeks.length} planned weeks${pct != null ? ` · ${pct}% of planned km` : ""}`}>
+      <div className="space-y-2">
+        {weeks.map((w) => {
+          const p = Math.min(w.km_pct ?? 0, 120);
+          const color = w.km_pct == null ? COLORS.muted : w.km_pct >= 90 && w.km_pct <= 115 ? COLORS.recovery : w.km_pct < 70 ? COLORS.effort : COLORS.strength;
+          return (
+            <div key={w.week} className="flex items-center gap-3 text-xs">
+              <span className="w-14 shrink-0 font-mono text-faint">{fmtDate(w.week)}</span>
+              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-panel2" role="img"
+                aria-label={`${w.actual_km} of ${w.planned_km} planned km`}>
+                <div className="h-full rounded-full" style={{ width: `${(p / 120) * 100}%`, background: color }} />
+                <span className="absolute inset-y-0 w-px bg-faint/60" style={{ left: `${(100 / 120) * 100}%` }} aria-hidden="true" />
+              </div>
+              <span className="w-28 shrink-0 whitespace-nowrap text-right font-mono tnum text-muted">{fmtNum(w.actual_km, 1)} / {fmtNum(w.planned_km, 0)}km</span>
+              <span className="w-16 shrink-0 whitespace-nowrap text-right font-mono tnum text-faint">{w.runs_done}/{w.planned_runs} runs</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-faint">
+        Green = 90-115% of planned distance, amber = over or slightly under, red = under 70%. The tick marks 100%. Skipped sessions are excluded; the current week counts only sessions already due.
+      </p>
     </Panel>
   );
 }

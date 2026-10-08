@@ -32,6 +32,23 @@ class RunInsightsTests(unittest.TestCase):
             self.assertEqual((w["easy_pct"], w["hard_pct"], w["long_run_pct"]), (83, 17, 100))
 
 
+class SplitInsightTests(unittest.TestCase):
+    def test_bests_and_decoupling_from_splits(self):
+        eng = create_engine("sqlite://")
+        Base.metadata.create_all(eng)
+        laps = [{"distance_m": 1000, "duration_s": 360 - i, "avg_hr": 140 if i < 4 else 154} for i in range(8)]
+        with Session(eng) as db:
+            a = run(1, 3, 8, 48, 147)
+            a.splits = laps
+            db.add(a)
+            db.commit()
+            r = run_insights(db)
+            self.assertEqual(r["bests"]["5k"]["source"], "splits")
+            self.assertEqual(r["bests"]["5k"]["time_s"], 357 + 356 + 355 + 354 + 353)
+            self.assertGreater(r["decoupling"][0]["pct"], 5)
+            self.assertEqual(r["splits_coverage"], {"with_splits": 1, "runs": 1})
+
+
 class DecideTests(unittest.TestCase):
     def test_worst_signal_wins(self):
         self.assertEqual(decide_session(10, 5, 80)[0], "hard")
