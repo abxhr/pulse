@@ -11,7 +11,7 @@ import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 const STAGES = [
   { key: "deep_h", name: "Deep", color: "#4c51bf" },
   { key: "rem_h", name: "REM", color: "#7C83FF" },
@@ -36,7 +36,7 @@ function Tip({ active, payload, label }) {
 }
 
 function hourLabel(h) {
-  if (h == null) return "—";
+  if (h == null) return "-";
   const wrapped = h % 24;
   const hh = Math.floor(wrapped);
   const mm = Math.round((wrapped - hh) * 60);
@@ -46,7 +46,7 @@ function hourLabel(h) {
   return `${h12}:${String(mm).padStart(2, "0")} ${period}`;
 }
 
-// Clean "6 PM" tick for the axis — no minutes clutter.
+// Clean "6 PM" tick for the axis - no minutes clutter.
 function hourLabelShort(h) {
   if (h == null) return "";
   const wrapped = Math.round(h) % 24;
@@ -142,7 +142,7 @@ function BedtimeRecCard({ data }) {
     <div className="flex items-center gap-3 rounded-xl border border-sleep/30 bg-sleep/10 px-4 py-3">
       <BedDouble size={18} className="text-sleep shrink-0" />
       <p className="text-xs text-txt">
-        <span className="font-medium">Aim for bed by {data.suggested_bedtime} tonight</span> — about
+        <span className="font-medium">Aim for bed by {data.suggested_bedtime} tonight</span> - about
         {" "}{data.extra_minutes} min earlier than your recent average. Repeating that for roughly
         {" "}{data.half_debt_nights} nights would close half of your estimated {fmtNum(data.debt_hours, 1)}h opportunity gap.
       </p>
@@ -254,7 +254,7 @@ export default function Sleep() {
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <ScatterChart margin={{ left: -8, right: 8, top: 10 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" type="category" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false}
                 allowDuplicatedCategory={false} />
               <YAxis dataKey="bedtime_hour" type="number" domain={[18, 32]} ticks={CONSISTENCY_TICKS}
@@ -273,7 +273,7 @@ export default function Sleep() {
       <Panel accent={COLORS.sleep} title="Sleep stages" sub={`stacked hours · last 14 nights · avg ${fmtNum(avg("total_h"), 1)}h/night`}>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={recent} margin={{ left: -8, right: 8, top: 6 }}>
-            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={20} axisLine={false} tickLine={false} />
             <YAxis tick={axis} axisLine={false} tickLine={false} width={44}
               label={{ value: "hours", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -290,7 +290,7 @@ export default function Sleep() {
       <Panel accent={COLORS.recovery} title="Sleep score vs overnight HRV" sub="30 days">
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={data} margin={{ left: -8, right: 8, top: 6 }}>
-            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
             <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={40} domain={[0, 100]}
               label={{ value: "score", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -312,7 +312,7 @@ export default function Sleep() {
       <Panel accent={COLORS.cardio} title="Overnight HR & SpO2" sub="30 days">
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={data} margin={{ left: -8, right: 8, top: 6 }}>
-            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
             <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={36}
               label={{ value: "bpm", angle: -90, position: "insideLeft", style: axisLabelStyle }} />

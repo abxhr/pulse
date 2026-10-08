@@ -72,9 +72,9 @@ function DailyInsight() {
   );
 }
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 
-const fmtWeek = (w) => (w ? `Week ${w.split("-W")[1]}, ${w.split("-W")[0]}` : "—");
+const fmtWeek = (w) => (w ? `Week ${w.split("-W")[1]}, ${w.split("-W")[0]}` : "-");
 
 function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate }) {
   if (!active || !payload?.length) return null;
@@ -123,7 +123,7 @@ export default function Dashboard() {
   useEffect(() => {
     const load = () => api.currentReading().then(setCurrent).catch(() => {});
     load();
-    const t = setInterval(load, 2 * 60 * 1000); // stress/body battery are genuinely live — refresh every 2 min
+    const t = setInterval(load, 2 * 60 * 1000); // stress/body battery are genuinely live - refresh every 2 min
     return () => clearInterval(t);
   }, []);
 
@@ -165,10 +165,10 @@ export default function Dashboard() {
             <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
             <StatTile label="Sleep score" value={s.sleep_score} color={COLORS.sleep}
               hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
-            <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "—"}
+            <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "-"}
               color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
             <StatTile label={current?.stress != null ? "Stress now" : "Avg stress"} value={current?.stress ?? s.stress} color={COLORS.strength}
-              hint={current?.stress != null ? `daily avg ${s.stress ?? "—"}` : `as of ${fmtDate(s.date)}`} />
+              hint={current?.stress != null ? `daily avg ${s.stress ?? "-"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
               hint={extra?.adaptive_step_goal
                 ? `adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}`
@@ -177,7 +177,7 @@ export default function Dashboard() {
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
             <StatTile label={current?.body_battery != null ? "Body battery now" : "Body battery peak"} value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
-              hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "—"}` : `as of ${fmtDate(s.date)}`} />
+              hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "-"}` : `as of ${fmtDate(s.date)}`} />
             <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
               hint={s.training_readiness_label} />
           </div>
@@ -227,7 +227,7 @@ export default function Dashboard() {
         <Panel accent={COLORS.recovery} title="Recovery" sub="HRV vs resting HR · 30 days">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
               <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={36}
                 label={{ value: "ms", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -255,7 +255,7 @@ export default function Dashboard() {
                   <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
               <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30}
                 label={{ value: "hours", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -282,7 +282,7 @@ export default function Dashboard() {
           sub={extra?.adaptive_step_goal ? `daily · 30 days · adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}` : "daily · 30 days"}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
               <YAxis tick={axis} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 label={{ value: "steps", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -314,7 +314,7 @@ export default function Dashboard() {
                 <stop offset="100%" stopColor={COLORS.recovery} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
             <YAxis tick={axis} axisLine={false} tickLine={false} width={30} domain={[0, 100]}
               label={{ value: "readiness", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -330,7 +330,7 @@ export default function Dashboard() {
         <Panel accent={COLORS.cardio} title="Training load" sub="weekly run km + strength volume · 12 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={d.training_load} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="week" tick={axis} axisLine={false} tickLine={false}
                 tickFormatter={(w) => w?.split("-W")[1]} />
               <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={38}
@@ -366,7 +366,7 @@ export default function Dashboard() {
                     </div>
                     <div className="text-right font-mono text-xs text-muted tnum">
                       <div className="text-txt">{a.distance_km ? `${a.distance_km} km` : `${a.duration_min}m`}</div>
-                      <div>{a.pace_per_km ? fmtPace(a.pace_per_km) : `HR ${a.avg_hr ?? "—"}`}</div>
+                      <div>{a.pace_per_km ? fmtPace(a.pace_per_km) : `HR ${a.avg_hr ?? "-"}`}</div>
                     </div>
                   </li>
                 );

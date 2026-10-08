@@ -7,7 +7,7 @@ import { COLORS, axisLabelStyle } from "../lib/format";
 import { Panel, Loading } from "./primitives";
 import { ChartLegend, useSeriesToggle } from "./ChartLegend";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 
 function hourTick(h) {
   const period = h >= 12 ? "PM" : "AM";
@@ -76,7 +76,7 @@ export default function IntradayChart() {
                   <stop offset="100%" stopColor={COLORS.sleep} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="hour" tick={axis} tickFormatter={hourTick} interval={2} axisLine={false} tickLine={false} />
               <YAxis yAxisId="l" tick={axis} axisLine={false} tickLine={false} width={30} domain={[0, 100]}
                 label={{ value: "stress", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -94,8 +94,8 @@ export default function IntradayChart() {
             { key: "avg_battery", name: "Body battery", color: COLORS.sleep },
           ]} {...toggle} />
           <div className="mt-1 flex justify-center gap-4 font-mono text-[11px] text-faint">
-            <span>avg stress {data.avg_stress ?? "—"}</span>
-            <span>max stress {data.max_stress ?? "—"}</span>
+            <span>avg stress {data.avg_stress ?? "-"}</span>
+            <span>max stress {data.max_stress ?? "-"}</span>
           </div>
         </>
       )}

@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { COLORS } from "../lib/format";
 import { Panel } from "./primitives";
 
-const LEVEL_COLOR = ["#171C28", `${COLORS.recovery}33`, `${COLORS.recovery}66`, `${COLORS.recovery}99`, COLORS.recovery];
+const LEVEL_COLOR = ["var(--color-panel2)", `${COLORS.recovery}33`, `${COLORS.recovery}66`, `${COLORS.recovery}99`, COLORS.recovery];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function ActivityCalendar() {
@@ -56,7 +56,7 @@ export default function ActivityCalendar() {
         </div>
       </div>
       <div className="mt-2 flex items-center justify-between text-[11px] text-faint">
-        <span>{hover ? `${hover.date} — ${hover.categories.length ? hover.categories.join(", ") : "nothing logged"}` : "hover a day"}</span>
+        <span>{hover ? `${hover.date} - ${hover.categories.length ? hover.categories.join(", ") : "nothing logged"}` : "hover a day"}</span>
         <span className="flex items-center gap-1">
           less {LEVEL_COLOR.map((c, i) => <span key={i} className="h-[10px] w-[10px] rounded-sm" style={{ background: c }} />)} more
         </span>

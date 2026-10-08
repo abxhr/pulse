@@ -1,24 +1,24 @@
 export const fmtDuration = (sec) => {
-  if (!sec && sec !== 0) return "—";
+  if (!sec && sec !== 0) return "-";
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
 };
 
-export const fmtHours = (sec) => (sec ? (sec / 3600).toFixed(1) + "h" : "—");
+export const fmtHours = (sec) => (sec ? (sec / 3600).toFixed(1) + "h" : "-");
 
 export const fmtPace = (secPerKm) => {
-  if (!secPerKm) return "—";
+  if (!secPerKm) return "-";
   const m = Math.floor(secPerKm / 60);
   const s = Math.round(secPerKm % 60);
   return `${m}:${String(s).padStart(2, "0")}/km`;
 };
 
 export const fmtDate = (iso) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—";
+  iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "-";
 
 export const fmtNum = (n, d = 0) =>
-  n === null || n === undefined ? "—" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
+  n === null || n === undefined ? "-" : Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 
 // activity type -> {label, color, icon-key}
 export const activityMeta = (type = "") => {
@@ -34,7 +34,7 @@ export const activityMeta = (type = "") => {
 };
 
 // Shared style for Recharts <YAxis label={{...}}> / <XAxis label={{...}}> titles.
-export const axisLabelStyle = { fill: "#5b6479", fontSize: 10, fontFamily: "JetBrains Mono", textAnchor: "middle" };
+export const axisLabelStyle = { fill: "var(--color-faint)", fontSize: 10, fontFamily: "JetBrains Mono", textAnchor: "middle" };
 
 export const COLORS = {
   recovery: "#3DD68C",

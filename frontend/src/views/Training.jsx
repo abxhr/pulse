@@ -9,11 +9,11 @@ import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
-import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard, TrainingStressBalance } from "../components/CardioExtras";
+import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZonesCard, TrainingStressBalance, RunInsights, TodaysCall } from "../components/CardioExtras";
 import { consumePendingOpen } from "../components/CommandPalette";
 import RouteHeatmap from "../components/RouteHeatmap";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 const ZONE_NAMES = ["Z1 easy", "Z2 aerobic", "Z3 tempo", "Z4 threshold", "Z5 max"];
 
@@ -35,6 +35,19 @@ function Tip({ active, payload, label }) {
   );
 }
 
+function Section({ title, sub, children }) {
+  return (
+    <section className="space-y-4" aria-label={title}>
+      <div className="flex items-baseline gap-3 pt-2">
+        <h2 className="font-display text-lg font-semibold text-txt">{title}</h2>
+        {sub && <span className="text-xs text-faint">{sub}</span>}
+        <span className="h-px flex-1 bg-line" aria-hidden="true" />
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function RacePredictions({ data }) {
   if (!data?.predictions) return null;
   const labels = { "5k": "5K", "10k": "10K", half_marathon: "Half", marathon: "Marathon" };
@@ -46,7 +59,7 @@ function RacePredictions({ data }) {
             <div className="text-[10.5px] uppercase tracking-wider text-faint">{labels[key] || key}</div>
             <div className="mt-1 font-mono text-xl font-semibold text-recovery tnum">{fmtDuration(v.seconds)}</div>
             <div className="font-mono text-[11px] text-faint">{fmtPace(v.pace_per_km)}</div>
-            <div className="mt-1 text-[9px] text-faint">{fmtDuration(v.low_seconds)}–{fmtDuration(v.high_seconds)}</div>
+            <div className="mt-1 text-[11px] text-faint">{fmtDuration(v.low_seconds)}–{fmtDuration(v.high_seconds)}</div>
           </div>
         ))}
       </div>
@@ -84,159 +97,170 @@ export default function Training() {
   const zoneChart = zones?.zones_min?.map((min, i) => ({ zone: ZONE_NAMES[i], min, color: ZONE_COLORS[i] })) || [];
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Runs" value={runs.length} hint={`${acts.length} Garmin activities total`} color={COLORS.cardio} />
-        <StatTile label="Distance" value={fmtNum(totalKm, 0)} unit="km" color={COLORS.cardio} />
-        <StatTile label="Current VO₂max" value={vo2.length ? fmtNum(vo2[vo2.length - 1].vo2max, 1) : "—"} color={COLORS.recovery} />
-        <StatTile label="Avg HR (runs)" value={fmtNum(runs.reduce((s, a) => s + (a.avg_hr || 0), 0) / (runs.length || 1))} unit="bpm" color={COLORS.effort} />
-      </div>
+    <div className="space-y-8">
+      <Section title="Today" sub="should you train hard?">
+        <TodaysCall />
+        <OverloadWarnings />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Runs" value={runs.length} hint={`${acts.length} Garmin activities total`} color={COLORS.cardio} />
+          <StatTile label="Distance" value={fmtNum(totalKm, 0)} unit="km" color={COLORS.cardio} />
+          <StatTile label="Current VO₂max" value={vo2.length ? fmtNum(vo2[vo2.length - 1].vo2max, 1) : "-"} color={COLORS.recovery} />
+          <StatTile label="Avg HR (runs)" value={fmtNum(runs.reduce((s, a) => s + (a.avg_hr || 0), 0) / (runs.length || 1))} unit="bpm" color={COLORS.effort} />
+        </div>
+      </Section>
 
-      <RaceGoalCard />
-      <TrainingStressBalance />
-      <OverloadWarnings />
+      <Section title="Race" sub="goal and estimates">
+        <RaceGoalCard />
+        <RacePredictions data={predictions} />
+      </Section>
 
-      <RacePredictions data={predictions} />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.recovery} title="VO₂max trend" sub="fitness trajectory · 90 days">
-          {vo2.length ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <ComposedChart data={vo2} margin={{ left: -8, right: 8, top: 6 }}>
-                <defs>
-                  <linearGradient id="v" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={COLORS.recovery} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={COLORS.recovery} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1c2230" vertical={false} />
-                <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
-                <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 1", "dataMax + 1"]}
-                  label={{ value: "ml/kg/min", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
-                <Tooltip content={<Tip />} />
-                <Area type="monotone" dataKey="vo2max" name="VO₂max" stroke={COLORS.recovery} strokeWidth={2} fill="url(#v)" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          ) : <Empty title="No VO₂max data" body="Runs with a compatible Garmin device populate this." />}
-        </Panel>
-
-        <Panel accent={COLORS.effort} title="Resting vs max HR" sub="90 days">
-          {hrTrend.length ? (
-            <>
+      <Section title="Fitness & load" sub="how your body is adapting">
+        <TrainingStressBalance />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Panel accent={COLORS.recovery} title="VO₂max trend" sub="fitness trajectory · 90 days">
+            {vo2.length ? (
               <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={hrTrend} margin={{ left: -8, right: 8, top: 6 }}>
-                  <CartesianGrid stroke="#1c2230" vertical={false} />
+                <ComposedChart data={vo2} margin={{ left: -8, right: 8, top: 6 }}>
+                  <defs>
+                    <linearGradient id="v" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COLORS.recovery} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={COLORS.recovery} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="var(--color-line)" vertical={false} />
                   <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
-                  <YAxis tick={axis} axisLine={false} tickLine={false} width={34}
-                    label={{ value: "bpm", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+                  <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 1", "dataMax + 1"]}
+                    label={{ value: "ml/kg/min", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
                   <Tooltip content={<Tip />} />
-                  <Line type="monotone" dataKey="resting_hr" name="Resting HR" stroke={COLORS.recovery} strokeWidth={2} dot={false}
-                    hide={hrToggle.hidden.has("resting_hr")} connectNulls />
-                  <Line type="monotone" dataKey="max_hr" name="Max HR" stroke={COLORS.effort} strokeWidth={2} dot={false}
-                    hide={hrToggle.hidden.has("max_hr")} connectNulls />
+                  <Area type="monotone" dataKey="vo2max" name="VO₂max" stroke={COLORS.recovery} strokeWidth={2} fill="url(#v)" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : <Empty title="No VO₂max data" body="Runs with a compatible Garmin device populate this." />}
+          </Panel>
+
+          <Panel accent={COLORS.effort} title="Resting vs max HR" sub="90 days">
+            {hrTrend.length ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={hrTrend} margin={{ left: -8, right: 8, top: 6 }}>
+                    <CartesianGrid stroke="var(--color-line)" vertical={false} />
+                    <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
+                    <YAxis tick={axis} axisLine={false} tickLine={false} width={34}
+                      label={{ value: "bpm", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+                    <Tooltip content={<Tip />} />
+                    <Line type="monotone" dataKey="resting_hr" name="Resting HR" stroke={COLORS.recovery} strokeWidth={2} dot={false}
+                      hide={hrToggle.hidden.has("resting_hr")} connectNulls />
+                    <Line type="monotone" dataKey="max_hr" name="Max HR" stroke={COLORS.effort} strokeWidth={2} dot={false}
+                      hide={hrToggle.hidden.has("max_hr")} connectNulls />
+                  </LineChart>
+                </ResponsiveContainer>
+                <ChartLegend series={[
+                  { key: "resting_hr", name: "Resting HR", color: COLORS.recovery },
+                  { key: "max_hr", name: "Max HR", color: COLORS.effort },
+                ]} {...hrToggle} />
+              </>
+            ) : <Empty title="No HR trend yet" body="Syncs more days to populate this." />}
+          </Panel>
+        </div>
+      </Section>
+
+      <Section title="Run analysis" sub="intensity, efficiency, pace">
+        <RunInsights />
+        <KarvonenZonesCard />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Panel accent={COLORS.strength} title="Time in HR zones" sub={`across ${zones?.activities_with_hr ?? 0} activities · 30 days`}>
+            {zoneChart.some((z) => z.min > 0) ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={zoneChart} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
+                  <CartesianGrid stroke="var(--color-line)" horizontal={false} />
+                  <XAxis type="number" tick={axis} axisLine={false} tickLine={false}
+                    label={{ value: "minutes", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
+                  <YAxis type="category" dataKey="zone" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
+                  <Tooltip contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }} cursor={{ fill: "#ffffff08" }} />
+                  <Bar dataKey="min" name="Minutes" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                    {zoneChart.map((z, i) => <Cell key={i} fill={z.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <Empty title="No HR zone data" body="Activities with HR sensor data populate this." />}
+          </Panel>
+
+          <Panel accent={COLORS.cardio} title="Pace trend" sub="last 30 runs">
+            {paceTrend.length ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={paceTrend} margin={{ left: -8, right: 8, top: 6 }}>
+                  <CartesianGrid stroke="var(--color-line)" vertical={false} />
+                  <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
+                  <YAxis tick={axis} axisLine={false} tickLine={false} width={44} reversed
+                    tickFormatter={(v) => fmtPace(v)} label={{ value: "pace", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
+                  <Tooltip content={({ active, payload, label }) => active && payload?.length ? (
+                    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
+                      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+                      <div className="text-xs text-cardio font-mono">{fmtPace(payload[0].value)}</div>
+                    </div>
+                  ) : null} />
+                  <Line type="monotone" dataKey="pace_per_km" name="Pace" stroke={COLORS.cardio} strokeWidth={2} dot={{ r: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
-              <ChartLegend series={[
-                { key: "resting_hr", name: "Resting HR", color: COLORS.recovery },
-                { key: "max_hr", name: "Max HR", color: COLORS.effort },
-              ]} {...hrToggle} />
-            </>
-          ) : <Empty title="No HR trend yet" body="Syncs more days to populate this." />}
+            ) : <Empty title="No pace data yet" body="Outdoor runs with GPS populate this." />}
+          </Panel>
+        </div>
+      </Section>
+
+      <Section title="Routes & gear">
+        <RouteHeatmap />
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <RepeatRoutes />
+          <ShoeTracker />
+        </div>
+        <IntradayChart />
+      </Section>
+
+      <Section title="History" sub="every session">
+        <Panel accent={COLORS.cardio} title="Activity log" sub={`${visibleActs.length} shown · click a row for the full breakdown`}
+          right={<select aria-label="Filter activities by sport" value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-[130px] rounded-lg border border-line bg-panel2 px-2 py-1 text-xs text-txt"><option value="run">Runs</option><option value="all">All sports</option><option value="strength">Strength</option><option value="walk_hike">Walk / hike</option><option value="ride">Ride</option><option value="swim">Swim</option><option value="paddle">Paddle</option><option value="sport">Sports</option><option value="other">Other</option></select>}>
+          {visibleActs.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-faint">
+                    <th className="py-2 pr-3 font-medium">Date</th>
+                    <th className="py-2 pr-3 font-medium">Activity</th>
+                    <th className="py-2 pr-3 text-right font-medium">Dist</th>
+                    <th className="py-2 pr-3 text-right font-medium">Time</th>
+                    <th className="py-2 pr-3 text-right font-medium">Pace</th>
+                    <th className="py-2 pr-3 text-right font-medium">Avg HR</th>
+                    <th className="py-2 text-right font-medium">TE</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono tnum text-[13px]">
+                  {visibleActs.map((a) => {
+                    const m = activityMeta(a.type);
+                    return (
+                      <tr key={a.id} onClick={() => setOpenId(a.id)} tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(a.id); } }}
+                        className="cursor-pointer border-b border-line/50 hover:bg-panel2/40 focus-visible:bg-panel2/40 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cardio">
+                        <td className="py-2 pr-3 text-muted">{fmtDate(a.date)}</td>
+                        <td className="py-2 pr-3">
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ background: COLORS[m.color] }} />
+                            <span className="font-body text-txt">{a.name || m.label}</span>
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-right text-txt">{a.distance_km ? `${a.distance_km}` : "-"}</td>
+                        <td className="py-2 pr-3 text-right text-muted">{fmtDuration(a.duration_min * 60)}</td>
+                        <td className="py-2 pr-3 text-right text-cardio">{a.pace_per_km ? fmtPace(a.pace_per_km) : "-"}</td>
+                        <td className="py-2 pr-3 text-right text-effort">{a.avg_hr ?? "-"}</td>
+                        <td className="py-2 text-right text-recovery">{a.aerobic_te != null ? fmtNum(a.aerobic_te, 1) : "-"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : <Empty title="No activities yet" body="Sync Garmin to import runs, rides and more." />}
         </Panel>
-      </div>
-
-      <KarvonenZonesCard />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.strength} title="Time in HR zones" sub={`across ${zones?.activities_with_hr ?? 0} activities · 30 days`}>
-          {zoneChart.some((z) => z.min > 0) ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={zoneChart} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
-                <CartesianGrid stroke="#1c2230" horizontal={false} />
-                <XAxis type="number" tick={axis} axisLine={false} tickLine={false}
-                  label={{ value: "minutes", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
-                <YAxis type="category" dataKey="zone" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
-                <Tooltip contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }} cursor={{ fill: "#ffffff08" }} />
-                <Bar dataKey="min" name="Minutes" radius={[0, 4, 4, 0]} maxBarSize={20}>
-                  {zoneChart.map((z, i) => <Cell key={i} fill={z.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <Empty title="No HR zone data" body="Activities with HR sensor data populate this." />}
-        </Panel>
-
-        <Panel accent={COLORS.cardio} title="Pace trend" sub="last 30 runs">
-          {paceTrend.length ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={paceTrend} margin={{ left: -8, right: 8, top: 6 }}>
-                <CartesianGrid stroke="#1c2230" vertical={false} />
-                <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={40} axisLine={false} tickLine={false} />
-                <YAxis tick={axis} axisLine={false} tickLine={false} width={44} reversed
-                  tickFormatter={(v) => fmtPace(v)} label={{ value: "pace", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
-                <Tooltip content={({ active, payload, label }) => active && payload?.length ? (
-                  <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-                    <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
-                    <div className="text-xs text-cardio font-mono">{fmtPace(payload[0].value)}</div>
-                  </div>
-                ) : null} />
-                <Line type="monotone" dataKey="pace_per_km" name="Pace" stroke={COLORS.cardio} strokeWidth={2} dot={{ r: 2 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : <Empty title="No pace data yet" body="Outdoor runs with GPS populate this." />}
-        </Panel>
-      </div>
-
-      <RouteHeatmap />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <RepeatRoutes />
-        <ShoeTracker />
-      </div>
-
-      <IntradayChart />
-
-      <Panel accent={COLORS.cardio} title="Activity log" sub={`${visibleActs.length} shown · click a row for the full breakdown`}
-        right={<select aria-label="Filter activities by sport" value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-[130px] rounded-lg border border-line bg-panel2 px-2 py-1 text-xs text-txt"><option value="run">Runs</option><option value="all">All sports</option><option value="strength">Strength</option><option value="walk_hike">Walk / hike</option><option value="ride">Ride</option><option value="swim">Swim</option><option value="paddle">Paddle</option><option value="sport">Sports</option><option value="other">Other</option></select>}>
-        {visibleActs.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-faint">
-                  <th className="py-2 pr-3 font-medium">Date</th>
-                  <th className="py-2 pr-3 font-medium">Activity</th>
-                  <th className="py-2 pr-3 text-right font-medium">Dist</th>
-                  <th className="py-2 pr-3 text-right font-medium">Time</th>
-                  <th className="py-2 pr-3 text-right font-medium">Pace</th>
-                  <th className="py-2 pr-3 text-right font-medium">Avg HR</th>
-                  <th className="py-2 text-right font-medium">TE</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono tnum text-[13px]">
-                {visibleActs.map((a) => {
-                  const m = activityMeta(a.type);
-                  return (
-                    <tr key={a.id} onClick={() => setOpenId(a.id)}
-                      className="cursor-pointer border-b border-line/50 hover:bg-panel2/40">
-                      <td className="py-2 pr-3 text-muted">{fmtDate(a.date)}</td>
-                      <td className="py-2 pr-3">
-                        <span className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full" style={{ background: COLORS[m.color] }} />
-                          <span className="font-body text-txt">{a.name || m.label}</span>
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-right text-txt">{a.distance_km ? `${a.distance_km}` : "—"}</td>
-                      <td className="py-2 pr-3 text-right text-muted">{fmtDuration(a.duration_min * 60)}</td>
-                      <td className="py-2 pr-3 text-right text-cardio">{a.pace_per_km ? fmtPace(a.pace_per_km) : "—"}</td>
-                      <td className="py-2 pr-3 text-right text-effort">{a.avg_hr ?? "—"}</td>
-                      <td className="py-2 text-right text-recovery">{a.aerobic_te != null ? fmtNum(a.aerobic_te, 1) : "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : <Empty title="No activities yet" body="Sync Garmin to import runs, rides and more." />}
-      </Panel>
+      </Section>
 
       <ActivityDetail id={openId} onClose={() => setOpenId(null)} />
     </div>

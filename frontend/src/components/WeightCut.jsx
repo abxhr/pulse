@@ -10,7 +10,7 @@ import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading } from "../components/primitives";
 import { RefeedNudge, TdeeConfidence } from "./NutritionExtras";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 const today = () => new Date().toISOString().slice(0, 10);
 
 function LogWeight({ onLogged, trendKg }) {
@@ -21,7 +21,7 @@ function LogWeight({ onLogged, trendKg }) {
   const [confirming, setConfirming] = useState(false);
 
   // Flags a likely typo (e.g. 175 instead of 75, or a stray extra digit) before
-  // it distorts the EMA — >8% off the current trend on a single entry is well
+  // it distorts the EMA - >8% off the current trend on a single entry is well
   // outside normal day-to-day water-weight swings.
   const pctOff = trendKg ? Math.abs(Number(weight) - trendKg) / trendKg : 0;
   const looksOff = weight && trendKg && pctOff > 0.08;
@@ -69,10 +69,10 @@ function LogWeight({ onLogged, trendKg }) {
       </button>
       {looksOff && (
         <p className="w-full text-[11px] text-effort">
-          That's {fmtNum(pctOff * 100, 0)}% off your recent trend ({fmtNum(trendKg, 1)}kg) — typo? Click "Log anyway" to confirm.
+          That's {fmtNum(pctOff * 100, 0)}% off your recent trend ({fmtNum(trendKg, 1)}kg) - typo? Click "Log anyway" to confirm.
         </p>
       )}
-      <p className="w-full text-[10px] text-faint">Backdate it if you're catching up on past weigh-ins — that unlocks the trend chart faster.</p>
+      <p className="w-full text-[10px] text-faint">Backdate it if you're catching up on past weigh-ins - that unlocks the trend chart faster.</p>
     </form>
   );
 }
@@ -279,7 +279,7 @@ export default function WeightCut() {
               <>
                 <StatTile label="Trend rate" value={fmtNum(rec.projection.weekly_rate_kg, 2)} unit="kg/wk"
                   color={rec.projection.weekly_rate_kg < 0 ? COLORS.recovery : COLORS.strength} />
-                <StatTile label="Goal ETA" value={rec.projection.eta_at_goal ? fmtDate(rec.projection.eta_at_goal) : "—"} color={COLORS.sleep} />
+                <StatTile label="Goal ETA" value={rec.projection.eta_at_goal ? fmtDate(rec.projection.eta_at_goal) : "-"} color={COLORS.sleep} />
               </>
             )}
           </div>
@@ -288,7 +288,7 @@ export default function WeightCut() {
         {trend.length >= 2 ? (
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={trend} margin={{ left: -8, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
               <YAxis tick={axis} axisLine={false} tickLine={false} width={40} domain={["dataMin - 1", "dataMax + 1"]}
                 label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
@@ -302,7 +302,7 @@ export default function WeightCut() {
           </ResponsiveContainer>
         ) : trend.length === 1 ? (
           <p className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-xs text-faint">
-            One weigh-in logged — log at least one more (any date) to see a trend line.
+            One weigh-in logged - log at least one more (any date) to see a trend line.
           </p>
         ) : null}
 
@@ -311,7 +311,7 @@ export default function WeightCut() {
             <div className="mb-1 text-[10.5px] uppercase tracking-wider text-faint">Body fat %</div>
             <ResponsiveContainer width="100%" height={120}>
               <LineChart data={trend.filter((r) => r.body_fat_pct != null)} margin={{ left: -8, right: 8, top: 6 }}>
-                <CartesianGrid stroke="#1c2230" vertical={false} />
+                <CartesianGrid stroke="var(--color-line)" vertical={false} />
                 <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={28} axisLine={false} tickLine={false} />
                 <YAxis tick={axis} axisLine={false} tickLine={false} width={30} domain={["dataMin - 1", "dataMax + 1"]} />
                 <Tooltip content={<Tip />} />

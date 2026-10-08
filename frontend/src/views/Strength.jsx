@@ -11,7 +11,7 @@ import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from 
 import { consumePendingOpen } from "../components/CommandPalette";
 import HevyStatus from "../components/HevyStatus";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
 
 function WeekHeatmap({ week }) {
@@ -91,7 +91,7 @@ function ExerciseProgression({ wkos }) {
   }, [wkos]);
 
   // Grouped by muscle (each group sorted by volume) when not searching; a flat
-  // volume-sorted, name-filtered list when searching — 40+ exercises in one flat
+  // volume-sorted, name-filtered list when searching - 40+ exercises in one flat
   // alphabetical dropdown was unusable once your log got long.
   const groups = useMemo(() => {
     const byMuscle = new Map();
@@ -140,16 +140,16 @@ function ExerciseProgression({ wkos }) {
           <div className="mb-2 grid grid-cols-3 gap-3">
             <StatTile label="Latest e1RM" value={fmtNum(last?.e1rm)} unit="kg" color={COLORS.effort} />
             <StatTile label="Sessions" value={entries.length} color={COLORS.muted} />
-            <StatTile label="Since first logged" value={last && first ? `${last.e1rm - first.e1rm >= 0 ? "+" : ""}${fmtNum(last.e1rm - first.e1rm)}` : "—"} unit="kg" color={COLORS.recovery} />
+            <StatTile label="Since first logged" value={last && first ? `${last.e1rm - first.e1rm >= 0 ? "+" : ""}${fmtNum(last.e1rm - first.e1rm)}` : "-"} unit="kg" color={COLORS.recovery} />
           </div>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={entries} margin={{ left: -8, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={30} axisLine={false} tickLine={false} />
               <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 5", "dataMax + 5"]}
                 label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
-                contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
                 labelFormatter={fmtDate} />
               <Line type="monotone" dataKey="e1rm" name="Est. 1RM" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
@@ -188,7 +188,7 @@ export default function Strength() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatTile label="Volume (8wk)" value={fmtNum(s.total_volume_kg)} unit="kg" color={COLORS.strength} />
         <StatTile label="Workouts (8wk)" value={s.workout_count} color={COLORS.strength} />
-        <StatTile label="Top lift" value={s.top_exercises[0]?.exercise?.split(" (")[0] || "—"} color={COLORS.effort} />
+        <StatTile label="Top lift" value={s.top_exercises[0]?.exercise?.split(" (")[0] || "-"} color={COLORS.effort} />
         <StatTile label="Best set" value={fmtNum(s.top_exercises[0]?.best_kg)} unit="kg" color={COLORS.effort} />
       </div>
 
@@ -210,12 +210,12 @@ export default function Strength() {
         <Panel accent={COLORS.strength} title="Weekly volume" sub="total kg moved · 8 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.weekly_volume} margin={{ left: -8, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" vertical={false} />
+              <CartesianGrid stroke="var(--color-line)" vertical={false} />
               <XAxis dataKey="week" tick={axis} axisLine={false} tickLine={false} tickFormatter={(w) => w?.split("-W")[1]} />
               <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
-                contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
               />
               <Bar dataKey="volume_kg" name="Volume kg" fill={COLORS.strength} radius={[3, 3, 0, 0]} maxBarSize={30} />
             </BarChart>
@@ -225,12 +225,12 @@ export default function Strength() {
         <Panel accent={COLORS.effort} title="Volume by muscle group" sub="8 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.by_muscle} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
-              <CartesianGrid stroke="#1c2230" horizontal={false} />
+              <CartesianGrid stroke="var(--color-line)" horizontal={false} />
               <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 label={{ value: "kg", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
               <YAxis type="category" dataKey="muscle" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
-                contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
                 cursor={{ fill: "#ffffff08" }}
               />
               <Bar dataKey="volume_kg" name="Volume kg" radius={[0, 4, 4, 0]} maxBarSize={20}>

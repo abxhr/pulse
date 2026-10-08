@@ -108,6 +108,8 @@ export const api = {
   addShoe: (body) => req("/shoes", { method: "POST", body: JSON.stringify(body) }),
   retireShoe: (id) => req(`/shoes/${id}/retire`, { method: "POST" }),
   assignShoe: (activityId, shoeId) => req(`/activities/${activityId}/shoe`, { method: "POST", body: JSON.stringify({ shoe_id: shoeId }) }),
+  todaysCall: () => req("/training/todays-call"),
+  runInsights: (weeks = 12) => req(`/training/run-insights?weeks=${weeks}`),
   racePredictions: () => req("/training/race-predictions"),
   hrZones: (days = 30) => req(`/activities/hr-zones?days=${days}`),
   karvonenZones: () => req("/activities/karvonen-zones"),
