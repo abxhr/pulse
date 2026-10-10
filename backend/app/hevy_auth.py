@@ -12,32 +12,38 @@ so this won't be needed again unless you log out of Hevy everywhere.
 
 Needs the browser binary once: `python -m playwright install chromium`
 """
+import argparse
 import sys
 
 from .config import settings
+from .services import hevy_mode
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="One-time Hevy login for automatic sync")
+    parser.add_argument("--label", default=None, help="local key for the saved login (default: automatic)")
+    args = parser.parse_args(argv)
+
     try:
         from hevy_unofficial import capture_tokens_via_browser, CredentialStore
     except ImportError:
         sys.exit("hevy-unofficial not installed. Run: pip install 'hevy-unofficial[core]'")
 
-    email = settings.hevy_email or input("Hevy account email (just used as a local storage key): ").strip()
+    label = args.label or settings.hevy_email or hevy_mode.DEFAULT_LABEL
 
-    print("Opening a browser window - log into Hevy there. Waiting up to 5 minutes...")
+    print("Opening a browser window - log into Hevy there. Waiting up to 5 minutes...", flush=True)
     try:
         tokens = capture_tokens_via_browser(timeout_sec=300)
     except Exception as e:
         sys.exit(
-            f"Couldn't capture a login session: {e}\n"
+            f"Couldn't capture a login session: {e}
+"
             "If this is the first run, you may need: python -m playwright install chromium"
         )
 
     store = CredentialStore(path=settings.hevy_token_store)
-    store.save(email, tokens)
-    print(f"\n✅ Success. Tokens saved to: {settings.hevy_token_store}")
-    print(f"Set these in .env, then hit Sync:\n  HEVY_MODE=unofficial\n  HEVY_EMAIL={email}")
+    store.save(label, tokens)
+    print(f"Success. Login saved to {settings.hevy_token_store}. Hevy now syncs automatically.", flush=True)
 
 
 if __name__ == "__main__":

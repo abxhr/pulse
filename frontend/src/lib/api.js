@@ -121,6 +121,7 @@ export const api = {
   restartServer: () => req("/system/restart", { method: "POST" }),
   syncGarmin: (days) => req(`/sync/garmin${days ? `?days=${days}` : ""}`, { method: "POST" }),
   syncHevy: () => req("/sync/hevy", { method: "POST" }),
+  connectHevy: () => req("/hevy/connect", { method: "POST" }),
   uploadHevyCsv: async (file) => {
     const fd = new FormData();
     fd.append("file", file);

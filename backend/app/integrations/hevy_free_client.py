@@ -18,7 +18,7 @@ Legacy fallback: paste HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN into .env directly
 """
 from __future__ import annotations
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from dateutil import parser as dtparser
 
 from ..config import settings
@@ -39,15 +39,17 @@ def _client():
             "hevy-unofficial not installed. Run: pip install 'hevy-unofficial[core]'"
         ) from e
 
-    if settings.hevy_email:
+    from ..services import hevy_mode
+    label = hevy_mode.login_label()
+    if hevy_mode.saved_labels():
         store = CredentialStore(path=settings.hevy_token_store)
-        cached = store.get(settings.hevy_email)
+        cached = store.get(label)
         if cached:
             return HevyClient(
                 access_token=cached.tokens.access_token,
                 refresh_token=cached.tokens.refresh_token,
                 user_id=cached.tokens.user_id,
-                credential_email=settings.hevy_email,
+                credential_email=label,
                 credential_store=store,  # refreshed tokens get re-persisted here automatically
             )
 
@@ -77,12 +79,15 @@ def _username(account: dict) -> str | None:
 
 
 def _dt(v):
+    """Parse to a NAIVE LOCAL datetime - the same convention as the CSV importer, so a
+    session fetched by API lines up with the one already imported from a CSV export."""
     if not v:
         return None
     try:
-        return dtparser.parse(v) if isinstance(v, str) else datetime.fromtimestamp(v)
+        dt = dtparser.parse(v) if isinstance(v, str) else datetime.fromtimestamp(v)
     except Exception:
         return None
+    return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
 
 
 def _normalize(w: dict) -> dict:
@@ -125,9 +130,13 @@ def _normalize(w: dict) -> dict:
     }
 
 
-def fetch_all_workouts(page_size: int = 50, max_pages: int = 200) -> list[dict]:
-    """Pull the full workout history via the unofficial client's real API
-    (client.users / client.workouts are pre-built resource instances)."""
+_OLDER_RUN = 25  # stop after this many consecutive workouts older than `since` (the feed is newest-first)
+
+
+def fetch_all_workouts(page_size: int = 50, max_pages: int = 200, since: "date | None" = None) -> list[dict]:
+    """Pull workouts via the unofficial client's real API (client.users / client.workouts
+    are pre-built resource instances). With `since`, stop once the feed is clearly older
+    than that date, so a routine sync fetches a page or two instead of the whole history."""
     with _client() as client:
         account = client.users.get_account()
         username = _username(account)
@@ -139,10 +148,16 @@ def fetch_all_workouts(page_size: int = 50, max_pages: int = 200) -> list[dict]:
 
         seen: set = set()
         collected: list[dict] = []
+        older = 0
         for w in client.workouts.iter_paged(username, page_size=page_size, max_pages=max_pages):
             wid = str(w.get("id") or w.get("workout_id") or "")
             if wid and wid in seen:
                 continue
             seen.add(wid)
             collected.append(w)
+            if since:
+                start = _dt(w.get("start_time") or w.get("startTime") or w.get("start"))
+                older = older + 1 if start and start.date() < since else 0
+                if older >= _OLDER_RUN:
+                    break
         return [_normalize(w) for w in collected]

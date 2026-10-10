@@ -20,7 +20,7 @@ from datetime import date, datetime
 from .db import get_session
 from .config import settings, DATA_DIR
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab, performance as performance_svc
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab, performance as performance_svc, hevy_mode
 from .integrations import garmin_client as gc
 from .schemas import PasswordBody, MealBody, WeightBody, ShoeBody, RecipeExtractUrl, RestoreBackupBody, RaceGoalBody, ShoeAssignBody, DayCompleteBody, AnomalyStatusBody, WaterBody
 
@@ -136,14 +136,12 @@ def status(db: Session = Depends(get_session)):
         f.stat().st_size > 0 for f in _token_dir.glob("*.json")
     )
     ai_providers = insights.available_providers()
-    mode = settings.hevy_mode.lower()
+    mode = hevy_mode.effective_mode()
     latest_workout = db.scalar(select(func.max(Workout.date)))
     if mode == "pro":
         hevy_ready = bool(settings.hevy_api_key)
     elif mode == "unofficial":
-        hevy_ready = bool(settings.hevy_access_token and settings.hevy_refresh_token) or (
-            bool(settings.hevy_email) and Path(settings.hevy_token_store).exists()
-        )
+        hevy_ready = hevy_mode.has_saved_login()
     else:  # csv
         hevy_ready = counts["workouts"] > 0 or any(Path(settings.hevy_import_dir).glob("*.csv"))
     logs = db.execute(select(SyncLog).order_by(SyncLog.started_at.desc()).limit(6)).scalars().all()
@@ -168,19 +166,48 @@ def status(db: Session = Depends(get_session)):
     }
 
 
+_hevy_login = {"proc": None}
+
+
+def _hevy_login_running() -> bool:
+    proc = _hevy_login["proc"]
+    return proc is not None and proc.poll() is None
+
+
 @router.get("/hevy/status")
 def hevy_status(db: Session = Depends(get_session)):
-    mode = settings.hevy_mode.lower()
+    mode = hevy_mode.effective_mode()
     latest = db.scalar(select(func.max(Workout.date)))
     last_log = db.execute(select(SyncLog).where(SyncLog.source.ilike("hevy%")).order_by(SyncLog.started_at.desc()).limit(1)).scalar_one_or_none()
     age = (date.today() - latest).days if latest else None
-    return {"mode": mode, "automatic": mode in {"unofficial", "pro"},
+    automatic = mode in {"unofficial", "pro"}
+    return {"mode": mode, "automatic": automatic, "connecting": _hevy_login_running(),
+            "can_connect": hevy_mode.has_saved_login() is False and settings.hevy_mode.lower() in {"auto", "unofficial"},
             "latest_workout": latest.isoformat() if latest else None, "age_days": age,
             "stale": age is None or age > 3,
             "last_sync": last_log.finished_at.isoformat() if last_log and last_log.finished_at else None,
             "last_status": last_log.status if last_log else None,
-            "action": None if mode in {"unofficial", "pro"} else
-                "CSV mode auto-imports files placed in backend/data/imports, but cannot download exports itself. Run python -m app.hevy_auth once and set HEVY_MODE=unofficial for hands-free sync."}
+            "last_error": last_log.message if last_log and last_log.status == "error" else None,
+            "action": None if automatic else
+                "Connect your Hevy account once and Pulse will keep your workouts up to date on its own."}
+
+
+@router.post("/hevy/connect")
+def hevy_connect(request: Request):
+    """Open Hevy's own login page in a browser window on THIS PC and save the session.
+    The password is typed on hevy.com, never into Pulse. Only allowed from the PC running the server."""
+    if not _direct_loopback(request):
+        raise HTTPException(403, "Connecting Hevy opens a browser window, so it is only available on the PC running Pulse")
+    if _hevy_login_running():
+        return {"started": False, "connecting": True}
+    import subprocess, sys
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    log_path = Path(settings.hevy_token_store).with_name("hevy_login.log")
+    _hevy_login["proc"] = subprocess.Popen(
+        [sys.executable, "-m", "app.hevy_auth"], cwd=str(Path(__file__).resolve().parent.parent),
+        stdout=open(log_path, "w"), stderr=subprocess.STDOUT, creationflags=flags,
+    )
+    return {"started": True, "connecting": True}
 
 
 # ---------- dashboard ----------
@@ -793,7 +820,7 @@ def sync_garmin(background: BackgroundTasks, days: int | None = None, full: bool
 @router.post("/sync/hevy")
 def sync_hevy(background: BackgroundTasks):
     background.add_task(sync.sync_hevy)
-    return {"started": "hevy", "mode": settings.hevy_mode}
+    return {"started": "hevy", "mode": hevy_mode.effective_mode()}
 
 
 @router.post("/sync/hevy/upload")

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bell, BellOff, DatabaseBackup, Download, LockKeyhole, Moon, Power, RefreshCw, Sun } from "lucide-react";
 import { api } from "../lib/api";
+import HevyStatus from "../components/HevyStatus";
 import { COLORS } from "../lib/format";
 import { Panel } from "../components/primitives";
 
@@ -30,10 +31,11 @@ export default function Settings({ status, onSync, syncing, onRestart, restartin
     <Panel title="Connections" sub="Data sources and intelligence providers" accent={COLORS.recovery}>
       <div className="grid gap-2 sm:grid-cols-2">
         <Connection label="Garmin" ok={conn?.garmin} detail="Health, sleep and activities" />
-        <Connection label="Hevy" ok={conn?.hevy?.configured} detail={`${conn?.hevy?.mode || "not configured"} mode`} />
+        <Connection label="Hevy" ok={conn?.hevy?.configured} detail={conn?.hevy?.automatic ? "Automatic" : "CSV import only"} />
         <Connection label="Anthropic" ok={conn?.ai?.anthropic} detail="AI coach provider" />
         <Connection label="OpenAI" ok={conn?.ai?.openai} detail="AI coach provider" />
       </div>
+      <div className="mt-3"><HevyStatus /></div>
       <button onClick={onSync} disabled={syncing} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-panel2 text-sm text-txt disabled:opacity-50">
         <RefreshCw size={15} className={syncing ? "animate-spin" : ""}/> {syncing ? "Syncing data…" : "Sync all data now"}
       </button>

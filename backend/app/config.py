@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     garmin_password: str | None = None   # only used by the one-time auth bootstrap
 
     # --- Hevy ---
-    # mode: "csv" (free export, reliable) | "unofficial" (free auto-sync) | "pro" (paid API key)
-    hevy_mode: str = "csv"
+    # mode: "auto" (default: Pro key > saved login > CSV) | "csv" | "unofficial" (free auto-sync) | "pro"
+    hevy_mode: str = "auto"
     hevy_import_dir: str = str(DATA_DIR / "imports")
     hevy_api_key: str | None = None          # pro mode
     hevy_base_url: str = "https://api.hevyapp.com"

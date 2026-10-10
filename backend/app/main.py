@@ -106,9 +106,12 @@ async def lifespan(app: FastAPI):
         from apscheduler.schedulers.background import BackgroundScheduler
         from .services import sync
         scheduler = BackgroundScheduler()
+        from datetime import datetime, timedelta
         scheduler.add_job(
-            lambda: sync.sync_all(days=settings.quick_sync_days),
+            sync.scheduled_sync,
             "interval", minutes=settings.sync_interval_minutes, id="pulse_sync",
+            next_run_time=datetime.now() + timedelta(seconds=20),  # catch up right after (re)start, not 30 min later
+            coalesce=True, max_instances=1, misfire_grace_time=3600,  # a sleeping PC runs one catch-up, not a pile
         )
         scheduler.add_job(_generate_daily_insight, "cron", hour=6, minute=0, id="pulse_daily_insight")
         scheduler.add_job(_run_push_checks, "interval", minutes=15, id="pulse_push_checks")
