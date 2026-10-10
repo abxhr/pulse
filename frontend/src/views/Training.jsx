@@ -4,8 +4,9 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { api } from "../lib/api";
-import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta, axisLabelStyle } from "../lib/format";
-import { Panel, StatTile, Loading, Empty } from "../components/primitives";
+import { useApi } from "../lib/useApi";
+import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta, axisLabelStyle, ZONE_COLORS } from "../lib/format";
+import { Panel, StatTile, Loading, Empty, ErrorState } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
@@ -14,7 +15,6 @@ import { consumePendingOpen } from "../components/CommandPalette";
 import RouteHeatmap from "../components/RouteHeatmap";
 
 const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
-const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 const ZONE_NAMES = ["Z1 easy", "Z2 aerobic", "Z3 tempo", "Z4 threshold", "Z5 max"];
 
 function Tip({ active, payload, label }) {
@@ -69,22 +69,20 @@ function RacePredictions({ data }) {
 }
 
 export default function Training() {
-  const [acts, setActs] = useState(null);
-  const [health, setHealth] = useState([]);
-  const [zones, setZones] = useState(null);
-  const [predictions, setPredictions] = useState(null);
+  const { data: acts, error: actsError, reload: reloadActs } = useApi("activities:200", () => api.activities(200));
+  const { data: healthData } = useApi("healthTrend:90", () => api.healthTrend(90));
+  const { data: zones } = useApi("hrZones:30", () => api.hrZones(30));
+  const { data: predictions } = useApi("racePredictions", () => api.racePredictions());
+  const health = healthData || [];
   const [openId, setOpenId] = useState(null);
   const [filter, setFilter] = useState("run");
   const hrToggle = useSeriesToggle();
 
   useEffect(() => {
-    api.activities(200).then(setActs).catch(() => setActs([]));
-    api.healthTrend(90).then(setHealth).catch(() => setHealth([]));
-    api.hrZones(30).then(setZones).catch(() => setZones(null));
-    api.racePredictions().then(setPredictions).catch(() => setPredictions(null));
     const pending = consumePendingOpen("activity");
     if (pending) setOpenId(pending);
   }, []);
+  if (actsError) return <ErrorState title="Couldn't load your activities" detail={actsError.message} onRetry={reloadActs} />;
   if (!acts) return <Loading label="Reading activity log…" />;
 
   const runs = acts.filter((a) => a.category === "run");

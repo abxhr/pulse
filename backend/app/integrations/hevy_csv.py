@@ -9,7 +9,7 @@ Rows are grouped into workouts -> exercises -> sets. The CSV has no workout id,
 so we derive a stable one from title + start + end (safe for dedupe/upsert).
 
 The CSV also has no muscle group, so we infer one from the exercise name with a
-keyword classifier (below) — good enough to drive the per-muscle analytics.
+keyword classifier (below) - good enough to drive the per-muscle analytics.
 """
 from __future__ import annotations
 import csv

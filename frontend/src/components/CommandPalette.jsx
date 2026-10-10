@@ -87,7 +87,7 @@ export default function CommandPalette({ onNavigate }) {
       <div className="w-full max-w-lg rounded-2xl border border-line bg-panel shadow-panel" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5 border-b border-line px-4 py-3">
           <Search size={16} className="text-faint" />
-          <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
+          <input aria-label="Search activities, workouts, recipes" ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search activities, workouts, recipes…"
             className="flex-1 bg-transparent text-sm text-txt placeholder:text-faint focus:outline-none" />
           <kbd className="rounded border border-line px-1.5 py-0.5 text-xs text-faint">Esc</kbd>

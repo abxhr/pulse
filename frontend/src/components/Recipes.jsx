@@ -111,14 +111,14 @@ function AddRecipe({ onSaved, aiStatus }) {
 
           {mode === "url" && (
             <div>
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube, TikTok, or Instagram Reel URL"
+              <input aria-label="YouTube, TikTok, or Instagram Reel URL" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube, TikTok, or Instagram Reel URL"
                 className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
               <p className="mt-1.5 text-xs text-faint">Instagram is best-effort - if it can't read the caption, paste it in via the Text tab instead. YouTube and TikTok are reliable.</p>
             </div>
           )}
 
           {mode === "text" && (
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
+            <textarea aria-label="Paste the recipe, a caption, or ingredient list here" value={text} onChange={(e) => setText(e.target.value)} rows={5}
               placeholder="Paste the recipe, a caption, or ingredient list here"
               className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
           )}
@@ -149,12 +149,12 @@ function AddRecipe({ onSaved, aiStatus }) {
           <div className="rounded-lg border border-nutrition/30 bg-nutrition/10 px-3 py-2 text-xs text-nutrition">
             {extracted.confidence || "medium"} confidence{extracted.notes ? ` - ${extracted.notes}` : ""}. Review before saving.
           </div>
-          <input value={extracted.name || ""} onChange={(e) => updateField("name", e.target.value)}
+          <input aria-label="Recipe name" value={extracted.name || ""} onChange={(e) => updateField("name", e.target.value)}
             className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           <div className="grid grid-cols-5 gap-2">
             {[["servings", ""], ["calories", "kcal"], ["protein_g", "protein g"], ["carbs_g", "carbs g"], ["fat_g", "fat g"]].map(([k, unit]) => (
               <div key={k}>
-                <input inputMode="decimal" value={extracted[k] ?? ""} onChange={(e) => updateField(k, e.target.value ? Number(e.target.value) : null)}
+                <input aria-label="Amount" inputMode="decimal" value={extracted[k] ?? ""} onChange={(e) => updateField(k, e.target.value ? Number(e.target.value) : null)}
                   className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
                 <div className="mt-0.5 text-center text-xs text-faint">{unit || "servings"}</div>
               </div>

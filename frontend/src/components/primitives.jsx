@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
+import { mix } from "../lib/format";
 
 /** A tonal surface: separated from the page by fill, not by a border or shadow.
  *  `accent` is accepted for call-site compatibility but no longer draws decoration. */
-export function Panel({ title, sub, right, className = "", children }) {
+export function Panel({ title, sub, right, className = "", children, accent: _accent }) {
   return (
     <section className={`rounded-xl bg-panel ${className}`}>
       {(title || right) && (
@@ -36,14 +37,14 @@ export function StatTile({ label, value, unit, color = "var(--color-faint)", del
   );
 }
 
-export function Chip({ children, color = "#8A93A6", solid = false }) {
+export function Chip({ children, color = "var(--color-muted)", solid = false }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
       style={
         solid
-          ? { background: color, color: "#0B0E14" }
-          : { background: `${color}1a`, color, border: `1px solid ${color}33` }
+          ? { background: color, color: "var(--color-ink)" }
+          : { background: mix(color, 10), color, border: `1px solid ${mix(color, 20)}` }
       }
     >
       {children}
@@ -62,7 +63,7 @@ export function Loading({ label = "Reading telemetry…" }) {
   );
 }
 
-export function Modal({ open, onClose, title, sub, accent, children }) {
+export function Modal({ open, onClose, title, sub, accent: _accent, children }) {
   const titleId = useId();
   const dialogRef = useRef(null);
   const closeRef = useRef(onClose);

@@ -1,4 +1,4 @@
-"""Nightly SQLite backup with rotation — this file is the only copy of years
+"""Nightly SQLite backup with rotation - this file is the only copy of years
 of health data, so it gets automated insurance rather than relying on the
 user to remember."""
 from __future__ import annotations
@@ -19,7 +19,7 @@ KEEP_DAILY = 14  # two weeks of nightly snapshots is enough to recover from any 
 def _db_path() -> Path | None:
     url = settings.database_url
     if not url.startswith("sqlite:///"):
-        return None  # not SQLite (e.g. postgres) — nothing to back up this way
+        return None  # not SQLite (e.g. postgres) - nothing to back up this way
     return Path(url.removeprefix("sqlite:///"))
 
 
@@ -30,7 +30,7 @@ def run_backup() -> Path | None:
     BACKUP_DIR.mkdir(exist_ok=True)
     dest_path = BACKUP_DIR / f"pulse-{datetime.now().strftime('%Y%m%d-%H%M%S')}.db"
 
-    # sqlite3's own backup API instead of a raw file copy — safe to run while
+    # sqlite3's own backup API instead of a raw file copy - safe to run while
     # the app is live (won't grab a half-written page mid-transaction).
     src = sqlite3.connect(str(src_path))
     dest = sqlite3.connect(str(dest_path))

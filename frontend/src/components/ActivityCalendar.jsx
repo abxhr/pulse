@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { COLORS } from "../lib/format";
+import { COLORS, mix } from "../lib/format";
 import { Panel } from "./primitives";
 
-const LEVEL_COLOR = ["var(--color-panel2)", `${COLORS.recovery}33`, `${COLORS.recovery}66`, `${COLORS.recovery}99`, COLORS.recovery];
+const LEVEL_COLOR = ["var(--color-panel2)", mix(COLORS.recovery, 20), mix(COLORS.recovery, 40), mix(COLORS.recovery, 60), COLORS.recovery];
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function ActivityCalendar() {

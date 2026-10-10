@@ -22,7 +22,7 @@ from .config import settings, DATA_DIR
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
 from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab, performance as performance_svc
 from .integrations import garmin_client as gc
-from .schemas import PasswordBody, MealBody, WeightBody, ShoeBody, RecipeExtractUrl, RestoreBackupBody
+from .schemas import PasswordBody, MealBody, WeightBody, ShoeBody, RecipeExtractUrl, RestoreBackupBody, RaceGoalBody, ShoeAssignBody, DayCompleteBody, AnomalyStatusBody, WaterBody
 
 router = APIRouter(prefix="/api")
 
@@ -245,8 +245,8 @@ def anomaly_inbox(db: Session = Depends(get_session)):
 
 
 @router.put("/anomalies/{fingerprint}")
-def update_anomaly(fingerprint: str, payload: dict = Body(...), db: Session = Depends(get_session)):
-    try: return phase2.set_anomaly(db, fingerprint, payload.get("status", "acknowledged"))
+def update_anomaly(fingerprint: str, payload: AnomalyStatusBody, db: Session = Depends(get_session)):
+    try: return phase2.set_anomaly(db, fingerprint, payload.status)
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
 
 
@@ -256,11 +256,9 @@ def manual_hydration(d: date | None = None, db: Session = Depends(get_session)):
 
 
 @router.post("/hydration/manual")
-def add_manual_hydration(payload: dict = Body(...), db: Session = Depends(get_session)):
-    try:
-        d = date.fromisoformat(payload["date"]) if payload.get("date") else None
-        return phase2.log_water(db, int(payload.get("amount_ml", 0)), d)
-    except (ValueError, TypeError) as exc: raise HTTPException(400, str(exc)) from exc
+def add_manual_hydration(payload: WaterBody, db: Session = Depends(get_session)):
+    try: return phase2.log_water(db, payload.amount_ml, payload.date)
+    except ValueError as exc: raise HTTPException(400, str(exc)) from exc
 
 
 # ---------- Phase 3 adaptive planner ----------
@@ -716,11 +714,8 @@ def get_race_goal(db: Session = Depends(get_session)):
 
 
 @router.post("/training/race-goal")
-def post_race_goal(body: dict = Body(...), db: Session = Depends(get_session)):
-    return cardio_extras.set_race_goal(
-        db, body["name"], date.fromisoformat(body["race_date"]), body["distance_type"],
-        body.get("target_time_s"),
-    )
+def post_race_goal(body: RaceGoalBody, db: Session = Depends(get_session)):
+    return cardio_extras.set_race_goal(db, body.name, body.race_date, body.distance_type, body.target_time_s)
 
 
 @router.delete("/training/race-goal")
@@ -764,8 +759,8 @@ def retire_shoe(shoe_id: int, db: Session = Depends(get_session)):
 
 
 @router.post("/activities/{activity_id}/shoe")
-def assign_shoe(activity_id: str, body: dict = Body(...), db: Session = Depends(get_session)):
-    if not cardio_extras.assign_shoe(db, activity_id, body.get("shoe_id")):
+def assign_shoe(activity_id: str, body: ShoeAssignBody, db: Session = Depends(get_session)):
+    if not cardio_extras.assign_shoe(db, activity_id, body.shoe_id):
         raise HTTPException(status_code=404, detail="activity not found")
     return {"ok": True}
 
@@ -926,9 +921,8 @@ def nutrition_trend(days: int = 14, db: Session = Depends(get_session)):
 
 
 @router.put("/nutrition/day/complete")
-def nutrition_day_complete(payload: dict = Body(...), db: Session = Depends(get_session)):
-    d = date.fromisoformat(payload.get("date") or date.today().isoformat())
-    try: return nutrition.set_day_complete(db, d, bool(payload.get("complete")))
+def nutrition_day_complete(payload: DayCompleteBody, db: Session = Depends(get_session)):
+    try: return nutrition.set_day_complete(db, payload.date or date.today(), payload.complete)
     except ValueError as exc: raise HTTPException(400, str(exc)) from exc
 
 

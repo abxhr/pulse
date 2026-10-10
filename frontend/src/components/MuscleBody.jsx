@@ -1,18 +1,20 @@
 // Simplified front/back body silhouettes with muscle regions colored by this
 // week's training volume - a lightweight stand-in for Hevy's muscle heatmap.
-const HEAT = "#F5A623"; // strength color
+import { COLORS, mix } from "../lib/format";
+
+const HEAT = COLORS.strength;
 const NEUTRAL = "var(--color-line)";
 
 function heatFill(intensity) {
   if (!intensity) return NEUTRAL;
   const alpha = 0.18 + intensity * 0.72; // 0.18 .. 0.9
-  return `${HEAT}${Math.round(alpha * 255).toString(16).padStart(2, "0")}`;
+  return mix(HEAT, Math.round(alpha * 100));
 }
 
 function Region({ d, cx, cy, rx, ry, intensity, label, onHover }) {
   const fill = heatFill(intensity);
   const shared = {
-    fill, stroke: "#2a3242", strokeWidth: 1, className: "transition-colors duration-300 cursor-default",
+    fill, stroke: "var(--color-line)", strokeWidth: 1, className: "transition-colors duration-300 cursor-default",
     onMouseEnter: () => onHover?.(label, intensity),
     onMouseLeave: () => onHover?.(null),
   };
@@ -28,8 +30,8 @@ export default function MuscleBody({ intensities = {}, onHover }) {
     <div className="flex items-center justify-center gap-6">
       {/* FRONT */}
       <svg viewBox="0 0 200 320" className="h-72 w-auto">
-        <circle cx="100" cy="26" r="16" fill="#2a3242" />
-        <rect x="92" y="40" width="16" height="14" rx="4" fill="#2a3242" />
+        <circle cx="100" cy="26" r="16" fill="var(--color-line)" />
+        <rect x="92" y="40" width="16" height="14" rx="4" fill="var(--color-line)" />
         {/* shoulders */}
         <Region cx="70" cy="66" rx="15" ry="12" intensity={i("shoulders")} label="Shoulders" onHover={onHover} />
         <Region cx="130" cy="66" rx="15" ry="12" intensity={i("shoulders")} label="Shoulders" onHover={onHover} />
@@ -53,8 +55,8 @@ export default function MuscleBody({ intensities = {}, onHover }) {
 
       {/* BACK */}
       <svg viewBox="0 0 200 320" className="h-72 w-auto">
-        <circle cx="100" cy="26" r="16" fill="#2a3242" />
-        <rect x="92" y="40" width="16" height="14" rx="4" fill="#2a3242" />
+        <circle cx="100" cy="26" r="16" fill="var(--color-line)" />
+        <rect x="92" y="40" width="16" height="14" rx="4" fill="var(--color-line)" />
         <Region cx="70" cy="66" rx="15" ry="12" intensity={i("shoulders")} label="Shoulders" onHover={onHover} />
         <Region cx="130" cy="66" rx="15" ry="12" intensity={i("shoulders")} label="Shoulders" onHover={onHover} />
         {/* back / lats */}

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Trophy, TrendingDown, Scale, BedDouble } from "lucide-react";
-import { COLORS, fmtNum, fmtDate } from "../lib/format";
+import { COLORS, fmtDate } from "../lib/format";
 import { Panel } from "./primitives";
 
 function epley(weight, reps) {

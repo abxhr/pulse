@@ -49,7 +49,7 @@ def _log_finish(db: Session, entry: SyncLog, status: str, records: int, message:
 
 _STOP_AFTER_EMPTY_DAYS = 60  # give up backfilling once this many consecutive days come back empty
 _CHUNK_SIZE = 15             # days fetched concurrently per batch
-_MAX_WORKERS = 6             # concurrent Garmin requests — enough to be fast, gentle on rate limits
+_MAX_WORKERS = 6             # concurrent Garmin requests - enough to be fast, gentle on rate limits
 
 
 def _fetch_day(client, day: date, today: date) -> tuple[date, dict, dict | None]:
@@ -88,7 +88,7 @@ def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
 
         # Daily health + sleep, fetched concurrently in chunks (newest first). Once a
         # whole chunk comes back completely empty we've gone past the start of the
-        # device's actual history — stop instead of grinding through empty years.
+        # device's actual history - stop instead of grinding through empty years.
         all_days = [today - timedelta(days=i) for i in range(days)]
         consecutive_empty = 0
         stopped = False
@@ -111,7 +111,7 @@ def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
                     is_empty = health.get("steps") is None and health.get("resting_hr") is None and not sleep
                     consecutive_empty = consecutive_empty + 1 if is_empty else 0
 
-                    # Don't write a placeholder row for a day Garmin has nothing for —
+                    # Don't write a placeholder row for a day Garmin has nothing for -
                     # otherwise every trend chart fills up with empty date gaps.
                     if not is_empty:
                         _upsert(db, DailyHealth, "date", health)

@@ -4,8 +4,9 @@ import {
 } from "recharts";
 import { Flag, Footprints, AlertTriangle, Route, Plus, X } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, fmtNum, fmtPace, fmtDate, axisLabelStyle } from "../lib/format";
-import { Panel } from "./primitives";
+import { useApi } from "../lib/useApi";
+import { COLORS, fmtNum, fmtPace, fmtDate, axisLabelStyle, ZONE_COLORS } from "../lib/format";
+import { Panel, ErrorState } from "./primitives";
 
 const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
@@ -24,8 +25,8 @@ function FormTip({ active, payload, label }) {
 }
 
 export function TrainingStressBalance() {
-  const [series, setSeries] = useState(null);
-  useEffect(() => { api.trainingStressBalance(180).then(setSeries).catch(() => setSeries([])); }, []);
+  const { data: series, error, reload } = useApi("tsb:180", () => api.trainingStressBalance(180));
+  if (error) return <ErrorState title="Couldn't load training stress balance" onRetry={reload} />;
   if (!series?.length) return null;
   const latest = series[series.length - 1];
   const formLabel = latest.form > 5 ? "Fresh - ready for a hard effort" : latest.form < -20 ? "Deeply fatigued - overtraining risk" : latest.form < -10 ? "Building fatigue" : "Balanced";
@@ -74,15 +75,12 @@ export function TrainingStressBalance() {
   );
 }
 
-const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 
 export function KarvonenZonesCard() {
-  const [zones, setZones] = useState(null);
-  const [sessions, setSessions] = useState(null);
-  useEffect(() => {
-    api.karvonenZones().then((z) => setZones(z?.zones ? z : null)).catch(() => setZones(null));
-    api.karvonenSessions().then(setSessions).catch(() => setSessions([]));
-  }, []);
+  const { data: kz, error, reload } = useApi("karvonen:zones", () => api.karvonenZones());
+  const { data: sessions } = useApi("karvonen:sessions:90", () => api.karvonenSessions());
+  if (error) return <ErrorState title="Couldn't load heart-rate zones" onRetry={reload} />;
+  const zones = kz?.zones ? kz : null;
   if (!zones) return null;
   const maxSessions = Math.max(1, ...(sessions || []).map((s) => s.sessions));
 
@@ -214,8 +212,8 @@ export function OverloadWarnings() {
 }
 
 export function RepeatRoutes() {
-  const [routes, setRoutes] = useState(null);
-  useEffect(() => { api.repeatRoutes().then(setRoutes).catch(() => setRoutes([])); }, []);
+  const { data: routes, error, reload } = useApi("repeatRoutes", () => api.repeatRoutes());
+  if (error) return <ErrorState title="Couldn't load repeat routes" onRetry={reload} />;
   if (!routes?.length) return null;
   return (
     <Panel accent={COLORS.cardio} title="Repeat routes" sub="loops you run often">
@@ -311,11 +309,9 @@ export function ShoeTracker() {
 }
 
 export function RunInsights() {
-  const [d, setD] = useState(null);
+  const { data: d, error, reload: load } = useApi("runInsights:12", () => api.runInsights(12));
   const [fetching, setFetching] = useState(false);
   const [fetchErr, setFetchErr] = useState(null);
-  const load = () => api.runInsights(12).then(setD).catch(() => setD(null));
-  useEffect(() => { load(); }, []);
 
   // Garmin splits are fetched in small batches until none remain, so each request stays fast.
   async function fetchSplits() {
@@ -332,6 +328,7 @@ export function RunInsights() {
     load();
   }
 
+  if (error) return <ErrorState title="Couldn't load run insights" onRetry={load} />;
   if (!d?.weeks?.length) return null;
   const cov = d.splits_coverage;
   const missingSplits = cov ? cov.runs - cov.with_splits : 0;
@@ -444,8 +441,8 @@ const CALL_STYLE = {
 };
 
 export function TodaysCall() {
-  const [d, setD] = useState(null);
-  useEffect(() => { api.todaysCall().then(setD).catch(() => setD(null)); }, []);
+  const { data: d, error, reload } = useApi("todaysCall", () => api.todaysCall());
+  if (error) return <ErrorState title="Couldn't work out today's call" onRetry={reload} />;
   if (!d?.call) return null;
   const st = CALL_STYLE[d.call] || CALL_STYLE.unknown;
   return (
@@ -461,8 +458,8 @@ export function TodaysCall() {
 }
 
 export function PlanCompliance() {
-  const [weeks, setWeeks] = useState(null);
-  useEffect(() => { api.planCompliance(6).then(setWeeks).catch(() => setWeeks([])); }, []);
+  const { data: weeks, error, reload } = useApi("planCompliance:6", () => api.planCompliance(6));
+  if (error) return <ErrorState title="Couldn't load plan vs actual" onRetry={reload} />;
   if (!weeks?.length) return null;
   const totPlanned = weeks.reduce((s, w) => s + w.planned_km, 0);
   const totActual = weeks.reduce((s, w) => s + w.actual_km, 0);

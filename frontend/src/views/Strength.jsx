@@ -3,7 +3,7 @@ import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { api } from "../lib/api";
-import { COLORS, fmtNum, fmtDate, fmtDuration, axisLabelStyle } from "../lib/format";
+import { COLORS, mix, fmtNum, fmtDate, fmtDuration, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import MuscleBody from "../components/MuscleBody";
 import WorkoutDetail from "../components/WorkoutDetail";
@@ -12,7 +12,7 @@ import { consumePendingOpen } from "../components/CommandPalette";
 import HevyStatus from "../components/HevyStatus";
 
 const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
-const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
+const MUSCLE_COLORS = [COLORS.strength, COLORS.effort, COLORS.cardio, COLORS.sleep, COLORS.recovery, COLORS.nutrition, COLORS.muted];
 
 function WeekHeatmap({ week }) {
   const [hover, setHover] = useState(null);
@@ -122,9 +122,9 @@ function ExerciseProgression({ wkos }) {
 
   return (
     <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley), best set weight per session">
-      <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercises…"
+      <input aria-label="Search exercises" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercises…"
         className="mb-2 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-strength/50 focus:outline-none" />
-      <select value={active} onChange={(e) => setSelected(e.target.value)}
+      <select aria-label="Exercise" value={active} onChange={(e) => setSelected(e.target.value)}
         className="mb-3 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt focus:border-strength/50 focus:outline-none">
         {filtered
           ? filtered.map((name) => <option key={name} value={name}>{name}</option>)
@@ -251,7 +251,7 @@ export default function Strength() {
               <div key={t.exercise} className="flex items-center gap-3">
                 <div className="w-40 shrink-0 truncate text-sm text-txt">{t.exercise}</div>
                 <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-panel2">
-                  <div className="h-full rounded-md" style={{ width: `${(t.volume / max) * 100}%`, background: `${MUSCLE_COLORS[i % MUSCLE_COLORS.length]}cc` }} />
+                  <div className="h-full rounded-md" style={{ width: `${(t.volume / max) * 100}%`, background: mix(MUSCLE_COLORS[i % MUSCLE_COLORS.length], 80) }} />
                 </div>
                 <div className="w-28 shrink-0 text-right font-mono text-xs text-muted tnum">
                   {fmtNum(t.volume)}kg · {t.sets}s

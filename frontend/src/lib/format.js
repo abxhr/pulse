@@ -36,12 +36,19 @@ export const activityMeta = (type = "") => {
 // Shared style for Recharts <YAxis label={{...}}> / <XAxis label={{...}}> titles.
 export const axisLabelStyle = { fill: "var(--color-faint)", fontSize: 10, fontFamily: "Instrument Sans", textAnchor: "middle" };
 
+// Theme-aware: each resolves to the dark-mode tone or the darker light-mode tone (see index.css).
+// Because they are CSS variables, never append hex alpha digits; use mix(color, percent) instead.
 export const COLORS = {
-  recovery: "#6FCB93",
-  effort: "#F0707A",
-  sleep: "#9A9DF5",
-  cardio: "#62B0F0",
-  strength: "#EDAE52",
-  nutrition: "#54C9BA",
-  muted: "#A3A8AE",
+  recovery: "rgb(var(--c-recovery))",
+  effort: "rgb(var(--c-effort))",
+  sleep: "rgb(var(--c-sleep))",
+  cardio: "rgb(var(--c-cardio))",
+  strength: "rgb(var(--c-strength))",
+  nutrition: "rgb(var(--c-nutrition))",
+  muted: "var(--color-muted)",
 };
+
+export const ZONE_COLORS = [COLORS.muted, COLORS.recovery, COLORS.strength, COLORS.effort, COLORS.sleep];
+
+/** `color` at `percent`% opacity over the page, for tinted backgrounds and borders. */
+export const mix = (color, percent) => `color-mix(in srgb, ${color} ${percent}%, transparent)`;

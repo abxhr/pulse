@@ -56,3 +56,28 @@ class RecipeExtractUrl(BaseModel):
         if not any(host == item or host.endswith("." + item) for item in allowed):
             raise ValueError("URL must be from YouTube, Instagram, or TikTok")
         return value
+
+
+class RaceGoalBody(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    race_date: date_t
+    distance_type: Literal["5k", "10k", "half_marathon", "marathon"]
+    target_time_s: int | None = Field(default=None, ge=600, le=60 * 60 * 12)
+
+
+class ShoeAssignBody(BaseModel):
+    shoe_id: int | None = Field(default=None, ge=1)
+
+
+class DayCompleteBody(BaseModel):
+    date: date_t | None = None
+    complete: bool = False
+
+
+class AnomalyStatusBody(BaseModel):
+    status: Literal["open", "acknowledged", "resolved"] = "acknowledged"
+
+
+class WaterBody(BaseModel):
+    date: date_t | None = None
+    amount_ml: int = Field(ge=1, le=5000)

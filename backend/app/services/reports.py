@@ -15,7 +15,7 @@ SCHEDULED_SCOPE = "weekly_report_auto"
 
 def _fmt_hm(seconds):
     if not seconds:
-        return "—"
+        return "-"
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     return f"{h}h {m:02d}m"
@@ -71,30 +71,30 @@ def weekly_report(db: Session, weeks: int = 1, with_ai: bool = True) -> dict:
 
 def _render_markdown(s, strength, acts, ai_text, weeks) -> str:
     lines = [
-        f"# Pulse — {weeks}-Week Performance Report",
+        f"# Pulse - {weeks}-Week Performance Report",
         f"_Generated {s['generated']}_\n",
         "## Headline",
-        f"- **Avg sleep score:** {s['avg_sleep_score'] or '—'}  ·  **Avg sleep:** {s['avg_sleep_hours'] or '—'} h",
-        f"- **Avg resting HR:** {s['avg_resting_hr'] or '—'} bpm  ·  **Avg HRV:** {s['avg_hrv'] or '—'} ms",
-        f"- **Avg readiness:** {s['avg_readiness'] or '—'}  ·  **VO₂max:** {s['current_vo2max'] or '—'}",
+        f"- **Avg sleep score:** {s['avg_sleep_score'] or '-'}  ·  **Avg sleep:** {s['avg_sleep_hours'] or '-'} h",
+        f"- **Avg resting HR:** {s['avg_resting_hr'] or '-'} bpm  ·  **Avg HRV:** {s['avg_hrv'] or '-'} ms",
+        f"- **Avg readiness:** {s['avg_readiness'] or '-'}  ·  **VO₂max:** {s['current_vo2max'] or '-'}",
         f"- **Running:** {s['total_run_km']} km  ·  **Strength volume:** {s['strength_volume_kg']:.0f} kg  ·  **Sessions:** {s['sessions']}",
         "",
     ]
     if ai_text:
         lines += ["## Analysis", ai_text, ""]
-    lines += ["## Strength — top exercises by volume"]
+    lines += ["## Strength - top exercises by volume"]
     for t in strength["top_exercises"][:6]:
-        lines.append(f"- **{t['exercise']}** — {t['volume']:.0f} kg over {t['sets']} sets (best {t['best_kg']:.0f} kg)")
+        lines.append(f"- **{t['exercise']}** - {t['volume']:.0f} kg over {t['sets']} sets (best {t['best_kg']:.0f} kg)")
     lines += ["", "## Sessions this period"]
     for a in acts[:15]:
         lines.append(
-            f"- {a['date']} · {a['type']} · {a['distance_km']} km · {a['duration_min']} min · avg HR {a['avg_hr'] or '—'}"
+            f"- {a['date']} · {a['type']} · {a['distance_km']} km · {a['duration_min']} min · avg HR {a['avg_hr'] or '-'}"
         )
     return "\n".join(lines)
 
 
 def get_or_generate_scheduled(db: Session, force: bool = False) -> dict:
-    """Auto-generated weekly report, cached once per ISO week — ready Monday
+    """Auto-generated weekly report, cached once per ISO week - ready Monday
     morning without having to remember to click Generate. Reuses the Insight
     table (scope-tagged) so no extra schema is needed for the cached markdown."""
     if not force:
@@ -117,7 +117,7 @@ def get_or_generate_scheduled(db: Session, force: bool = False) -> dict:
 
 
 def comparison_report(db: Session, weeks: int = 4) -> dict:
-    """This window vs. the equal-length window immediately before it — a
+    """This window vs. the equal-length window immediately before it - a
     single snapshot doesn't show direction, this does."""
     days = weeks * 7
 

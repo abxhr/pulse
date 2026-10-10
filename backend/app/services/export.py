@@ -1,5 +1,5 @@
 """Export the user's own logged data (meals, weigh-ins, activities, workouts)
-independent of the raw SQLite file — for backup or external analysis."""
+independent of the raw SQLite file - for backup or external analysis."""
 from __future__ import annotations
 import csv
 import io

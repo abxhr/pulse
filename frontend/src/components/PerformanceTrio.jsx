@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, Cell, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { api } from "../lib/api";
+import { useApi } from "../lib/useApi";
 import { COLORS, fmtDate, fmtNum } from "../lib/format";
 import { Panel, ErrorState } from "./primitives";
 
@@ -56,15 +56,8 @@ function Tip({ active, payload, label }) {
 }
 
 export default function PerformanceTrio() {
-  const [d, setD] = useState(null);
-  const [err, setErr] = useState(null);
-  const load = () => {
-    setErr(null);
-    api.performance(30).then(setD).catch((e) => setErr(String(e?.message || e)));
-  };
-  useEffect(load, []);
-
-  if (err) return <ErrorState title="Couldn't load recovery and strain" detail={err} onRetry={load} />;
+  const { data: d, error, reload } = useApi("performance:30", () => api.performance(30));
+  if (error) return <ErrorState title="Couldn't load recovery and strain" detail={error.message} onRetry={reload} />;
   if (!d) return null;
   const r = d.latest_scored;
   const t = d.today;
@@ -107,11 +100,11 @@ export default function PerformanceTrio() {
           <span className="flex items-center gap-1.5"><span className="h-0.5 w-4" style={{ background: COLORS.cardio }} />Strain</span>
         </div>
         <ResponsiveContainer width="100%" height={190}>
-          <ComposedChart data={d.series} margin={{ left: -18, right: -12, top: 8 }}>
+          <ComposedChart data={d.series} margin={{ left: 0, right: 0, top: 8 }}>
             <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={32} axisLine={false} tickLine={false} />
-            <YAxis yAxisId="r" domain={[0, 100]} tick={axis} axisLine={false} tickLine={false} width={36} />
-            <YAxis yAxisId="s" orientation="right" domain={[0, 21]} tick={axis} axisLine={false} tickLine={false} width={36} />
+            <YAxis yAxisId="r" domain={[0, 100]} tick={axis} axisLine={false} tickLine={false} width={34} />
+            <YAxis yAxisId="s" orientation="right" domain={[0, 21]} tick={axis} axisLine={false} tickLine={false} width={34} />
             <Tooltip content={<Tip />} cursor={{ fill: "var(--color-panel2)" }} />
             <Bar yAxisId="r" dataKey="recovery" maxBarSize={14} radius={[2, 2, 0, 0]}>
               {d.series.map((x, i) => <Cell key={i} fill={BAND[x.band] || "var(--color-line)"} fillOpacity={0.85} />)}
@@ -123,6 +116,57 @@ export default function PerformanceTrio() {
       {r.date !== t?.date && (
         <p className="mt-2 text-sm text-faint">Today isn't scored yet. Garmin hasn't reported last night's HRV, so this shows {fmtDate(r.date)}.</p>
       )}
+    </Panel>
+  );
+}
+
+/** How much sleep tonight needs, and how the last two weeks measured up to what each night needed. */
+export function SleepNeed() {
+  const { data: d, error, reload } = useApi("performance:30", () => api.performance(30));
+  if (error) return <ErrorState title="Couldn't load sleep need" detail={error.message} onRetry={reload} />;
+  if (!d?.tonight) return null;
+  const t = d.tonight;
+  const nights = d.series.slice(-14).filter((r) => r.slept_h != null);
+  if (!nights.length) return null;
+  const met = nights.filter((r) => r.slept_h >= r.sleep_need_h - 0.25).length;
+  const parts = [
+    { label: "Baseline", h: t.base_h, color: COLORS.sleep },
+    { label: "Today's strain", h: t.strain_h, color: COLORS.cardio },
+    { label: "Catching up", h: t.debt_h, color: COLORS.strength },
+  ];
+  return (
+    <Panel title="Sleep need" sub={`You met your need on ${met} of the last ${nights.length} nights`}>
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-[auto_1fr] md:items-end">
+        <div>
+          <div className="text-sm text-muted">Tonight</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-num text-6xl font-semibold leading-none tnum text-sleep">{fmtNum(t.need_h, 1)}</span>
+            <span className="text-lg text-muted">hours</span>
+          </div>
+          <ul className="mt-3 space-y-1 text-sm text-muted">
+            {parts.map((p) => (
+              <li key={p.label} className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-sm" style={{ background: p.color }} aria-hidden="true" />
+                <span className="w-28">{p.label}</span>
+                <span className="font-num text-base text-txt tnum">{p.label !== "Baseline" && p.h > 0 ? "+" : ""}{fmtNum(p.h, 1)} h</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <ResponsiveContainer width="100%" height={170}>
+          <ComposedChart data={nights} margin={{ left: 0, right: 8, top: 8 }}>
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
+            <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={24} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 11]} tick={axis} axisLine={false} tickLine={false} width={34} />
+            <Tooltip content={<Tip />} cursor={{ fill: "var(--color-panel2)" }} />
+            <Bar dataKey="slept_h" name="Slept" maxBarSize={16} radius={[2, 2, 0, 0]}>
+              {nights.map((r, i) => <Cell key={i} fill={r.slept_h >= r.sleep_need_h - 0.25 ? COLORS.sleep : COLORS.strength} />)}
+            </Bar>
+            <Line type="stepAfter" dataKey="sleep_need_h" name="Needed" stroke="var(--color-txt)" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="mt-2 text-sm text-faint">Bars are hours slept (amber when short of that night's need); the dashed line is what each night needed.</p>
     </Panel>
   );
 }

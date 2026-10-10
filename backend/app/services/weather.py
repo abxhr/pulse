@@ -1,4 +1,4 @@
-"""Current + historical weather — Open-Meteo needs no API key, just a lat/lon
+"""Current + historical weather - Open-Meteo needs no API key, just a lat/lon
 (set LATITUDE / LONGITUDE in .env)."""
 from __future__ import annotations
 import time
@@ -45,7 +45,7 @@ def current_weather() -> dict | None:
             "temperature_c": cur.get("temperature_2m"),
             "humidity_pct": cur.get("relative_humidity_2m"),
             "wind_kmh": cur.get("wind_speed_10m"),
-            "condition": _WMO_CODES.get(code, "—"),
+            "condition": _WMO_CODES.get(code, "-"),
             "code": code,
         }
     except Exception:
@@ -56,7 +56,7 @@ def current_weather() -> dict | None:
 
 
 def historical_weather(day: date) -> dict | None:
-    """Weather for a past date at the configured location — used to annotate
+    """Weather for a past date at the configured location - used to annotate
     runs (same pace in 40°C is a very different effort than a cool morning)."""
     if settings.latitude is None or settings.longitude is None:
         return None

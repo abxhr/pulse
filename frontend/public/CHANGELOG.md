@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased - a new look, and Recovery / Strain / Sleep
+
+**Added**
+
+- Recovery (0-100) scored from tonight's HRV, resting heart rate, breathing rate and sleep against your own 28-day baselines.
+- Day Strain (0-21) from heart-rate-zone load, with a strain target based on how recovered you are.
+- Sleep need and sleep performance: baseline need plus today's strain plus recent sleep debt.
+- Run insights: aerobic efficiency, easy/hard split, long-run share, cadence, exact best efforts from lap data, aerobic decoupling.
+- Today's training call and a plan-versus-actual view for running.
+
+**Changed**
+
+- A new design: condensed numerals, flat surfaces, no all-caps labels, nothing under 12px, readable in light mode.
+- Today now leads with readiness and vitals; stale-data warnings collapse into one line.
+- Cards that fail to load show what failed and a Try again button instead of vanishing.
+
+**Fixed**
+
+- Charts and coloured text were hard to read in light mode.
+- Several inputs had no accessible name; touch targets are now at least 44px.
+- Race goal and other requests with bad input return a clear error instead of a server error.
+
 ## 0.9.0 - Phase 4: personal intelligence lab
 
 **Added**

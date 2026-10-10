@@ -1,7 +1,7 @@
 """One-time setup for push notifications: generates a VAPID keypair.
 
 Run once:  cd backend && python -m app.generate_vapid_keys
-Then put the printed VAPID_PUBLIC_KEY line in your .env — the private key is
+Then put the printed VAPID_PUBLIC_KEY line in your .env - the private key is
 written straight to data/vapid_private.pem and never needs to leave the server.
 """
 import base64

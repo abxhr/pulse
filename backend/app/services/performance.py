@@ -142,7 +142,15 @@ def load(db: Session, days: int = 30) -> dict:
     health = {r.date: r for r in db.execute(select(DailyHealth).where(DailyHealth.date >= start)).scalars()}
     sleep = {r.date: r for r in db.execute(select(Sleep).where(Sleep.date >= start)).scalars()}
     acts = db.execute(select(Activity).where(Activity.date >= start - timedelta(days=1))).scalars().all()
-    series = compute_series(health, sleep, acts, end, days, personalized_sleep_target(db) or 8.0)
+    base = personalized_sleep_target(db) or 8.0
+    series = compute_series(health, sleep, acts, end, days, base)
+    # tonight's need: baseline + today's strain + the last 7 nights' shortfall
+    last7 = [sleep.get(end - timedelta(days=k)) for k in range(0, 7)]
+    debt = sum(max(0.0, base - r.total_seconds / 3600) for r in last7 if r and r.total_seconds)
+    today_strain = series[-1]["strain"] if series else None
+    tonight = {"need_h": sleep_need_h(base, today_strain, debt), "base_h": round(base, 2),
+               "strain_h": round(min(1.0, (today_strain or 0) / 21), 2), "debt_h": round(min(1.0, debt * 0.25), 2)}
     # today's recovery is unknown until Garmin has last night's HRV: fall back to the latest scored day
     scored = [r for r in series if r["recovery"] is not None]
-    return {"today": series[-1] if series else None, "latest_scored": scored[-1] if scored else None, "series": series}
+    return {"today": series[-1] if series else None, "latest_scored": scored[-1] if scored else None,
+            "tonight": tonight, "series": series}

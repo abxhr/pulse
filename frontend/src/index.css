@@ -67,6 +67,13 @@ h1, h2, h3 { font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-se
 .font-mono, .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 .font-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: 0.005em; }
 
+/* Touch devices: 44px minimum targets. Buttons that set their own height (toggles, chips) are left alone. */
+@media (pointer: coarse) {
+  button:not([class*="h-"]), select, summary, [role="button"] { min-height: 44px; }
+  button[aria-label]:not([class*="w-"]) { min-width: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) { min-height: 44px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;

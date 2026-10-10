@@ -3,11 +3,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Sparkles, ListOrdered, Footprints, Thermometer } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta } from "../lib/format";
+import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta, ZONE_COLORS } from "../lib/format";
 import { Modal, StatTile, Chip, Loading } from "./primitives";
 import RouteMap from "./RouteMap";
 
-const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
 
 function ExplainRun({ a }) {
   const [content, setContent] = useState(null);
@@ -108,7 +107,7 @@ function ShoePicker({ activityId, shoeId }) {
   return (
     <label className="flex items-center gap-2 text-xs text-muted">
       <Footprints size={14} className="text-faint" />
-      <select value={current ?? ""} onChange={change}
+      <select aria-label="Shoe" value={current ?? ""} onChange={change}
         className="rounded-lg border border-line bg-ink px-2 py-1 text-xs text-txt focus:outline-none">
         <option value="">No shoe assigned</option>
         {shoes.filter((s) => !s.retired || s.id === current).map((s) => (

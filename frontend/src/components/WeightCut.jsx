@@ -48,19 +48,19 @@ function LogWeight({ onLogged, trendKg }) {
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
       <div className="w-36">
         <label className="mb-1 block text-xs text-faint">Date</label>
-        <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)}
+        <input aria-label="Date" type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)}
           className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
       </div>
       <div className="flex-1">
         <label className="mb-1 block text-xs text-faint">Weight (kg)</label>
-        <input inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setConfirming(false); }} placeholder="e.g. 78.4"
+        <input aria-label="e.g. 78.4" inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setConfirming(false); }} placeholder="e.g. 78.4"
           className={`w-full rounded-lg border bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:outline-none ${
             looksOff ? "border-effort/60 focus:border-effort" : "border-line focus:border-nutrition/50"
           }`} />
       </div>
       <div className="w-24">
         <label className="mb-1 block text-xs text-faint">Body fat %</label>
-        <input inputMode="decimal" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="optional"
+        <input aria-label="optional" inputMode="decimal" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="optional"
           className="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
       </div>
       <button type="submit" disabled={busy || !weight}
@@ -172,12 +172,12 @@ function GoalForm({ goal, onSaved }) {
         <form onSubmit={save} className="mt-2 flex flex-wrap items-end gap-2 rounded-xl bg-panel2 p-3">
           <div>
             <label className="mb-1 block text-xs text-faint">Target weight (kg)</label>
-            <input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)}
+            <input aria-label="Target weight in kilograms" inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)}
               className="w-28 rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           </div>
           <div>
             <label className="mb-1 block text-xs text-faint">Weekly rate (kg)</label>
-            <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)}
+            <input aria-label="Weekly loss rate in kilograms" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)}
               className="w-28 rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           </div>
           <p className="w-full text-xs text-faint">Negative = losing (cut), positive = gaining. -0.4 to -0.7 kg/week is a typical sustainable cut.</p>

@@ -81,7 +81,7 @@ function BarcodeLookup({ onFound }) {
   return (
     <div className="flex items-center gap-2">
       <ScanBarcode size={15} className="shrink-0 text-faint" />
-      <input value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="Barcode / UPC number"
+      <input aria-label="Barcode / UPC number" value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="Barcode / UPC number"
         inputMode="numeric"
         className="flex-1 rounded-lg border border-line bg-ink px-2 py-1.5 text-xs text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
       <button type="button" onClick={lookup} disabled={busy || !upc.trim()}
@@ -181,7 +181,7 @@ function ScanMeal({ onEstimate, aiStatus }) {
       </label>
 
       <div className="relative">
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+        <textarea aria-label="Optional details - e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
           placeholder="Optional details - e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil"
           className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 pr-10 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
         {voice.supported && (
@@ -209,6 +209,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
   const [mode, setMode] = useState("manual"); // manual | scan
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(emptyMeal);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const [estimate, setEstimate] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
@@ -226,7 +227,6 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
     },
   }));
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   function applyEstimate(est) {
     setForm((f) => ({
@@ -331,7 +331,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
             </div>
           )}
 
-          <input autoFocus value={form.name} onChange={set("name")} placeholder="What did you eat?"
+          <input aria-label="What did you eat?" autoFocus value={form.name} onChange={set("name")} placeholder="What did you eat?"
             className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
 
           <div className="flex flex-wrap gap-1.5">
@@ -379,7 +379,6 @@ function GoalEditor({ goal, onSaved }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(goal);
   useEffect(() => setForm(goal), [goal]);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function submit(e) {
     e.preventDefault();
@@ -406,7 +405,7 @@ function GoalEditor({ goal, onSaved }) {
             onChange={(k, v) => setForm((f) => ({ ...f, [k]: v }))} />
           <div className="flex items-center gap-2">
             <label className="text-xs text-faint">Fiber target (g, optional)</label>
-            <input inputMode="numeric" value={form?.fiber_g ?? ""} onChange={(e) => setForm((f) => ({ ...f, fiber_g: e.target.value }))}
+            <input aria-label="Fibre in grams" inputMode="numeric" value={form?.fiber_g ?? ""} onChange={(e) => setForm((f) => ({ ...f, fiber_g: e.target.value }))}
               className="w-20 rounded-lg border border-line bg-ink px-2 py-1 text-center text-xs text-txt focus:outline-none" />
           </div>
           <button type="submit" className="w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-2 text-xs font-semibold text-nutrition">

@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import { api } from "../lib/api";
+import { SleepNeed } from "../components/PerformanceTrio";
 import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
@@ -269,6 +270,8 @@ export default function Sleep() {
           </div>
         </Panel>
       )}
+
+      <SleepNeed />
 
       <Panel accent={COLORS.sleep} title="Sleep stages" sub={`stacked hours, last 14 nights, avg ${fmtNum(avg("total_h"), 1)}h/night`}>
         <ResponsiveContainer width="100%" height={260}>

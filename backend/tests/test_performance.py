@@ -54,5 +54,26 @@ class PerformanceTests(unittest.TestCase):
         self.assertEqual(row["sleep_performance"], 100)
 
 
+class TonightTests(unittest.TestCase):
+    def test_tonight_need_breakdown(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import Session
+        from app.models import Base, Sleep, Activity
+        from app.services.performance import load
+        eng = create_engine("sqlite://")
+        Base.metadata.create_all(eng)
+        with Session(eng) as db:
+            for k in range(7):  # six hours a night against an 8h baseline -> debt capped to +1h
+                db.add(Sleep(date=date.today() - timedelta(days=k), total_seconds=6 * 3600))
+            db.add(Activity(id="a", date=date.today(), activity_type="running", duration_s=3600,
+                            raw={"hrTimeInZone_4": 3600}))
+            db.commit()
+            t = load(db, 14)["tonight"]
+        self.assertEqual(t["base_h"], 8.0)
+        self.assertEqual(t["debt_h"], 1.0)
+        self.assertGreater(t["strain_h"], 0.5)
+        self.assertEqual(t["need_h"], round(8.0 + t["strain_h"] + 1.0, 2))
+
+
 if __name__ == "__main__":
     unittest.main()

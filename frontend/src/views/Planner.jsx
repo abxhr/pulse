@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CalendarCheck, Check, ChevronLeft, ChevronRight, Dumbbell, Footprints, RefreshCw, Settings2, SkipForward } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, axisLabelStyle, fmtDate, fmtNum } from "../lib/format";
+import { COLORS, axisLabelStyle, fmtDate } from "../lib/format";
 import { Chip, Empty, Loading, Modal, Panel } from "../components/primitives";
 
 const KIND={run:{icon:Footprints,color:COLORS.cardio},strength:{icon:Dumbbell,color:COLORS.strength},recovery:{icon:RefreshCw,color:COLORS.recovery}};

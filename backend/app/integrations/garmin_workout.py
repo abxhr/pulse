@@ -59,7 +59,7 @@ def resolve_exercise(title: str, muscle_group: str | None) -> dict:
 
 def build_workout(title: str, exercises: list[dict]) -> tuple[StrengthWorkout, list[dict]]:
     """Build a Garmin StrengthWorkout from stored exercise/set data.
-    Returns (workout, match_report) — the report tells the caller which
+    Returns (workout, match_report) - the report tells the caller which
     exercises matched exactly vs. fell back to a category guess."""
     steps = []
     report = []

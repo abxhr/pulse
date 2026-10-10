@@ -74,7 +74,7 @@ function MemoryEditor() {
       </button>
       {open && (
         <div className="mt-2">
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+          <textarea aria-label="e.g. I don't eat pork, prefer high-protein swaps, training for a half marathon in October" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
             placeholder="e.g. I don't eat pork, prefer high-protein swaps, training for a half marathon in October…"
             className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2 text-xs text-txt placeholder:text-faint focus:border-recovery/50 focus:outline-none" />
           <button onClick={save} className="mt-1.5 rounded-lg border border-recovery/40 bg-recovery/10 px-3 py-1 text-xs font-medium text-recovery">
@@ -241,6 +241,7 @@ export default function Insights({ aiStatus }) {
 
       <div className="flex items-end gap-2 border-t border-line p-3">
         <textarea
+          aria-label="Ask your coach"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}

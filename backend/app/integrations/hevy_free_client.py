@@ -4,14 +4,14 @@ client (the same private api.hevyapp.com endpoints the Hevy *web app* uses).
 This is EXPERIMENTAL and depends on an alpha library + undocumented endpoints
 that can change. The CSV import path is the reliable fallback.
 
-One-time setup — run once, interactively, in your own terminal:
+One-time setup - run once, interactively, in your own terminal:
     pip install 'hevy-unofficial[core]'
     python -m playwright install chromium   # one-time browser binary download
     cd backend && python -m app.hevy_auth   # opens a real browser, you log in there
 
 That saves session tokens to backend/data/hevy_tokens.json (gitignored). The
 client auto-refreshes them and re-persists the refreshed pair after that, so
-recurring sync is genuinely hands-off — no token to manually rotate.
+recurring sync is genuinely hands-off - no token to manually rotate.
 
 Legacy fallback: paste HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN into .env directly
 (grabbed from hevy.com's DevTools) if you'd rather not run the browser flow.
@@ -64,7 +64,7 @@ def _client():
 
 
 def _username(account: dict) -> str | None:
-    """Defensive extraction — the private API's response shape isn't documented,
+    """Defensive extraction - the private API's response shape isn't documented,
     so try every key that plausibly holds the username."""
     for key in ("username", "user_name", "handle", "userName"):
         if account.get(key):
@@ -134,7 +134,7 @@ def fetch_all_workouts(page_size: int = 50, max_pages: int = 200) -> list[dict]:
         if not username:
             raise HevyUnavailable(
                 f"Couldn't find a username in the account response (got keys: {list(account.keys())}). "
-                "The private API's response shape may have changed — falling back to CSV import is safest."
+                "The private API's response shape may have changed - falling back to CSV import is safest."
             )
 
         seen: set = set()

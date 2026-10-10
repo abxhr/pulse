@@ -26,7 +26,7 @@ scheduler = None
 
 def _clear_stale_syncs() -> None:
     """A sync_log row stuck in 'running' means the process died mid-sync (e.g. a
-    restart during a long backfill) — mark it so it doesn't linger forever."""
+    restart during a long backfill) - mark it so it doesn't linger forever."""
     from datetime import datetime
     from sqlalchemy import select
     from .db import SessionLocal
@@ -121,7 +121,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="Pulse", version="0.11.0", lifespan=lifespan)
+app = FastAPI(title="Pulse", version=settings.app_version, lifespan=lifespan)
 app.state.log = log
 install_error_handlers(app)
 
@@ -186,7 +186,7 @@ class _NoCacheHTMLStaticFiles(StaticFiles):
     new filename), but index.html references those hashes by name. With no
     Cache-Control header at all, browsers apply heuristic caching to index.html and
     can silently keep serving a stale document (with old asset hashes that 404 after
-    a new build) for a long time with zero revalidation — this is what caused the
+    a new build) for a long time with zero revalidation - this is what caused the
     old bundle to keep loading in fresh tabs even after the SW fix and a restart.
     """
 
@@ -200,7 +200,7 @@ class _NoCacheHTMLStaticFiles(StaticFiles):
 
 
 # Serve the built frontend if present (frontend/dist). This gives you a SINGLE
-# process / single URL — ideal for a Raspberry Pi. During dev you can instead run
+# process / single URL - ideal for a Raspberry Pi. During dev you can instead run
 # Vite separately on :5173. Build it with:  cd frontend && npm run build
 _dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if settings.serve_frontend and _dist.exists():

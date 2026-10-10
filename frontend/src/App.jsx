@@ -6,6 +6,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { api } from "./lib/api";
+import { invalidate } from "./lib/useApi";
 import { COLORS } from "./lib/format";
 import Changelog from "./components/Changelog";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -69,6 +70,7 @@ export default function App() {
   const reminders = useReminders();
   const [status, setStatus] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [dataEpoch, setDataEpoch] = useState(0); // bumps when new data lands, remounting the page so cards refetch
   const [mobileNav, setMobileNav] = useState(false);
   const [mobileActions, setMobileActions] = useState(false);
   const navigate = useCallback((next) => {
@@ -97,7 +99,7 @@ export default function App() {
       if (s) {
         setStatus(s);
         const running = s.recent_syncs?.some((x) => x.status === "running");
-        if (!running) { setSyncing(false); }
+        if (!running) { setSyncing(false); invalidate(); setDataEpoch((n) => n + 1); }
       }
     }, 2500);
     return () => clearInterval(t);
@@ -115,7 +117,7 @@ export default function App() {
     setSyncing(true);
     try { await api.uploadHevyCsv(file); } catch (err) { console.error(err); }
     e.target.value = "";
-    setTimeout(() => { refresh(); setSyncing(false); }, 800);
+    setTimeout(() => { refresh(); setSyncing(false); invalidate(); setDataEpoch((n) => n + 1); }, 800);
   }
 
   const [restarting, setRestarting] = useState(false);
@@ -257,7 +259,7 @@ export default function App() {
         </header>
 
         <main id="main-content" tabIndex="-1" className="mx-auto min-w-0 max-w-6xl overflow-x-hidden px-3 py-4 pb-24 sm:px-6 sm:py-5 lg:pb-5">
-          <ErrorBoundary key={view} resetKey={view}>
+          <ErrorBoundary key={`${view}:${dataEpoch}`} resetKey={view}>
             <Suspense fallback={<Loading />}>
               {view === "insights"
                 ? <Insights aiStatus={conn?.ai} />

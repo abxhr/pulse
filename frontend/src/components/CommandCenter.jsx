@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronRight, Flag, Gauge, Moon, Scale, Shield, Target } from "lucide-react";
 import { api } from "../lib/api";
-import { COLORS, fmtNum } from "../lib/format";
+import { COLORS } from "../lib/format";
 import { Chip, Modal, Panel } from "./primitives";
 
 const tones = { training: COLORS.cardio, sleep: COLORS.sleep, nutrition: COLORS.nutrition, movement: COLORS.recovery };
@@ -15,7 +15,7 @@ function CheckIn({ open, onClose, phase, onSaved }) {
     <form onSubmit={save} className="space-y-4">
       {fields.map(([key,label])=><label key={key} className="block"><span className="mb-1.5 flex justify-between text-xs text-muted"><span>{label}</span><b className="font-mono text-txt">{form[key]}/5</b></span><input className="w-full accent-recovery" type="range" min="1" max="5" value={form[key]} onChange={e=>setForm({...form,[key]:+e.target.value})}/></label>)}
       <label className="block text-xs text-muted">Context<select value={form.context_mode} onChange={e=>setForm({...form,context_mode:e.target.value})} className="mt-1.5 w-full rounded-lg bg-panel2 px-3 py-2 text-txt"><option value="normal">Normal</option><option value="sick">Sick</option><option value="travel">Travel</option><option value="fasting">Fasting</option><option value="injured">Injured</option></select></label>
-      <textarea placeholder="Anything important? (optional)" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} className="min-h-20 w-full rounded-lg bg-panel2 px-3 py-2 text-sm text-txt"/>
+      <textarea aria-label="Anything important? (optional)" placeholder="Anything important? (optional)" value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} className="min-h-20 w-full rounded-lg bg-panel2 px-3 py-2 text-sm text-txt"/>
       <button disabled={busy} className="w-full rounded-xl bg-recovery px-4 py-3 text-sm font-semibold text-ink disabled:opacity-50">{busy?"Saving…":"Save check-in"}</button>
     </form>
   </Modal>;
