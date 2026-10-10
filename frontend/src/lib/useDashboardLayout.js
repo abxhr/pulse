@@ -2,10 +2,15 @@ import { useState, useCallback } from "react";
 
 const STORAGE_KEY = "pulse.overview.layout.v1";
 
+// The order shipped before the Today redesign. A saved layout identical to it was never customised,
+// so it adopts the new default instead of getting new sections tacked on the end.
+const LEGACY_ORDER = ["command_center", "briefing", "hero", "insights", "recovery_sleep", "steps_intraday", "readiness_trend", "training_load"];
+
 export function loadLayout(defaultOrder) {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (!saved?.order) return { order: defaultOrder, hidden: [] };
+    if (saved.order.join() === LEGACY_ORDER.join()) return { order: defaultOrder, hidden: saved.hidden || [] };
     // merge in any newly-added sections that aren't in a previously-saved order yet
     const missing = defaultOrder.filter((id) => !saved.order.includes(id));
     return { order: [...saved.order.filter((id) => defaultOrder.includes(id)), ...missing], hidden: saved.hidden || [] };

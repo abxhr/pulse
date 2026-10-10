@@ -22,7 +22,7 @@ export default function ToastHost() {
             <Icon size={18} className={ok ? "text-recovery" : "text-effort"} />
             <div className="min-w-0 flex-1 text-sm text-txt">
               {item.message}
-              {item.requestId && <div className="mt-1 font-mono text-[10px] text-faint">Reference {item.requestId.slice(0, 10)}</div>}
+              {item.requestId && <div className="mt-1 font-mono text-xs text-faint">Reference {item.requestId.slice(0, 10)}</div>}
             </div>
             <button aria-label="Dismiss notification" onClick={() => setItems((current) => current.filter((x) => x.id !== item.id))} className="text-faint hover:text-txt"><X size={15}/></button>
           </div>

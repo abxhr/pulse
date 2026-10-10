@@ -11,7 +11,7 @@ import { PRFeed, PlateauList, VolumeLandmarks, SymmetryCheck, RestDayRec } from 
 import { consumePendingOpen } from "../components/CommandPalette";
 import HevyStatus from "../components/HevyStatus";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 const MUSCLE_COLORS = ["#F5A623", "#FF5C7A", "#38BDF8", "#7C83FF", "#3DD68C", "#a3a8ff", "#f0883e"];
 
 function WeekHeatmap({ week }) {
@@ -40,7 +40,7 @@ function WeekHeatmap({ week }) {
         <div className="flex gap-1 rounded-full bg-ink p-0.5">
           {[["volume", "Volume"], ["recency", "Recency"]].map(([m, label]) => (
             <button key={m} onClick={() => setMode(m)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${mode === m ? "bg-strength text-ink" : "text-muted"}`}>
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${mode === m ? "bg-strength text-ink" : "text-muted"}`}>
               {label}
             </button>
           ))}
@@ -121,7 +121,7 @@ function ExerciseProgression({ wkos }) {
   if (!flatOptions.length) return null;
 
   return (
-    <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley) · best set weight per session">
+    <Panel accent={COLORS.effort} title="Exercise progression" sub="estimated 1RM (Epley), best set weight per session">
       <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search exercises…"
         className="mb-2 w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-strength/50 focus:outline-none" />
       <select value={active} onChange={(e) => setSelected(e.target.value)}
@@ -149,7 +149,7 @@ function ExerciseProgression({ wkos }) {
               <YAxis tick={axis} axisLine={false} tickLine={false} width={34} domain={["dataMin - 5", "dataMax + 5"]}
                 label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
-                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "Instrument Sans", fontSize: 12 }}
                 labelFormatter={fmtDate} />
               <Line type="monotone" dataKey="e1rm" name="Est. 1RM" stroke={COLORS.effort} strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
@@ -207,7 +207,7 @@ export default function Strength() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.strength} title="Weekly volume" sub="total kg moved · 8 weeks">
+        <Panel accent={COLORS.strength} title="Weekly volume" sub="total kg moved, 8 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={s.weekly_volume} margin={{ left: -8, right: 8, top: 6 }}>
               <CartesianGrid stroke="var(--color-line)" vertical={false} />
@@ -215,7 +215,7 @@ export default function Strength() {
               <YAxis tick={axis} axisLine={false} tickLine={false} width={52} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 label={{ value: "kg", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
               <Tooltip
-                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "Instrument Sans", fontSize: 12 }}
               />
               <Bar dataKey="volume_kg" name="Volume kg" fill={COLORS.strength} radius={[3, 3, 0, 0]} maxBarSize={30} />
             </BarChart>
@@ -228,9 +228,9 @@ export default function Strength() {
               <CartesianGrid stroke="var(--color-line)" horizontal={false} />
               <XAxis type="number" tick={axis} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 label={{ value: "kg", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
-              <YAxis type="category" dataKey="muscle" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
+              <YAxis type="category" dataKey="muscle" tick={{ ...axis, fontFamily: "Instrument Sans" }} axisLine={false} tickLine={false} width={80} />
               <Tooltip
-                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+                contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "Instrument Sans", fontSize: 12 }}
                 cursor={{ fill: "#ffffff08" }}
               />
               <Bar dataKey="volume_kg" name="Volume kg" radius={[0, 4, 4, 0]} maxBarSize={20}>
@@ -243,7 +243,7 @@ export default function Strength() {
 
       <ExerciseProgression wkos={wkos} />
 
-      <Panel accent={COLORS.strength} title="Top exercises" sub="by volume · 8 weeks">
+      <Panel accent={COLORS.strength} title="Top exercises" sub="by volume, 8 weeks">
         <div className="space-y-2">
           {s.top_exercises.map((t, i) => {
             const max = s.top_exercises[0]?.volume || 1;
@@ -262,11 +262,11 @@ export default function Strength() {
         </div>
       </Panel>
 
-      <Panel accent={COLORS.strength} title="Workout history" sub={`${wkos.length} total · click a row for the full breakdown`}>
+      <Panel accent={COLORS.strength} title="Workout history" sub={`${wkos.length} total, click a row for the full breakdown`}>
         <div className="max-h-[480px] overflow-y-auto overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-panel">
-              <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-faint">
+              <tr className="border-b border-line text-xs text-faint">
                 <th className="py-2 pr-3 font-medium">Date</th>
                 <th className="py-2 pr-3 font-medium">Workout</th>
                 <th className="py-2 pr-3 text-right font-medium">Volume</th>
@@ -277,7 +277,7 @@ export default function Strength() {
             <tbody className="font-mono tnum text-[13px]">
               {wkos.map((w) => (
                 <tr key={w.id} onClick={() => setOpenId(w.id)}
-                  className="cursor-pointer border-b border-line/50 hover:bg-panel2/40">
+                  className="cursor-pointer border-b border-line/50 hover:bg-panel2">
                   <td className="py-2 pr-3 text-muted">{fmtDate(w.date)}</td>
                   <td className="py-2 pr-3 font-body text-txt">{w.title || "Workout"}</td>
                   <td className="py-2 pr-3 text-right text-strength">{fmtNum(w.volume_kg)}kg</td>

@@ -11,8 +11,8 @@ const SUGGESTIONS = [
   "Is my sleep affecting my readiness?",
   "What should my training focus be next week?",
   "Analyze my strength progress and suggest progression.",
-  "What if I cut carbs 20% — how would that affect my training capacity?",
-  "What if I added a third strength session per week — model the recovery tradeoff.",
+  "What if I cut carbs 20% - how would that affect my training capacity?",
+  "What if I added a third strength session per week - model the recovery tradeoff.",
 ];
 
 function WeeklyDigest() {
@@ -42,7 +42,7 @@ function WeeklyDigest() {
         <div className="flex items-center gap-2">
           {open && (
             <span onClick={(e) => { e.stopPropagation(); refresh(); }}
-              className="flex items-center gap-1 text-[11px] text-faint hover:text-txt">
+              className="flex items-center gap-1 text-xs text-faint hover:text-txt">
               <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> refresh
             </span>
           )}
@@ -69,7 +69,7 @@ function MemoryEditor() {
 
   return (
     <div className="border-b border-line px-5 py-2.5">
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <BrainCircuit size={12} /> {open ? "Hide preferences" : "Coach preferences"}
       </button>
       {open && (
@@ -77,7 +77,7 @@ function MemoryEditor() {
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
             placeholder="e.g. I don't eat pork, prefer high-protein swaps, training for a half marathon in October…"
             className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2 text-xs text-txt placeholder:text-faint focus:border-recovery/50 focus:outline-none" />
-          <button onClick={save} className="mt-1.5 rounded-lg border border-recovery/40 bg-recovery/10 px-3 py-1 text-[11px] font-medium text-recovery">
+          <button onClick={save} className="mt-1.5 rounded-lg border border-recovery/40 bg-recovery/10 px-3 py-1 text-xs font-medium text-recovery">
             {saved ? "Saved" : "Save"}
           </button>
         </div>
@@ -153,20 +153,20 @@ export default function Insights({ aiStatus }) {
       <header className="flex items-center justify-between border-b border-line px-5 py-3">
         <div className="flex items-center gap-2">
           <button onClick={testConnection} disabled={probe?.busy} title="Non-billable provider connection test"
-            className="hidden rounded-full border border-line px-2.5 py-1 text-[10px] text-muted hover:text-txt sm:block">
+            className="hidden rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:text-txt sm:block">
             {probe?.busy ? "testing…" : "test AI"}
           </button>
           <Sparkles size={16} className="text-recovery" />
           <h3 className="font-display text-sm font-semibold text-txt">Coach</h3>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden text-[10px] text-faint sm:inline">sees last 30 days ·</span>
+          <span className="hidden text-xs text-faint sm:inline">sees last 30 days ·</span>
           <div className="flex gap-1 rounded-full bg-panel2 p-0.5">
             {options.map((o) => (
               <button key={o.label} onClick={() => setProvider(o.id)}
                 disabled={o.id && o.ok === false}
                 title={o.id && o.ok === false ? `${o.label} key not configured` : undefined}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${
                   provider === o.id ? "bg-recovery text-ink" : "text-muted hover:text-txt"
                 }`}>
                 {o.label}
@@ -176,7 +176,7 @@ export default function Insights({ aiStatus }) {
         </div>
       </header>
 
-      {probe && !probe.busy && <div className="flex flex-wrap gap-2 border-b border-line px-5 py-2 text-[10px]">
+      {probe && !probe.busy && <div className="flex flex-wrap gap-2 border-b border-line px-5 py-2 text-xs">
         {probe.error ? <span className="text-effort">{probe.error}</span> : Object.entries(probe).map(([name,s])=><span key={name} className={s.reachable?"text-recovery":"text-effort"}>{name}: {s.reachable?"connected":s.configured?"unreachable":"not configured"}</span>)}
       </div>}
 
@@ -197,14 +197,14 @@ export default function Insights({ aiStatus }) {
             <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
               m.role === "user"
                 ? "bg-cardio/15 text-txt border border-cardio/25"
-                : "bg-panel2/70 border border-line"
+                : "bg-panel2 border border-line"
             }`}>
               {m.role === "assistant"
                 ? (
                   <>
                     <div className="md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
                     <button onClick={() => saveAsRecipe(i, m.content)} disabled={recipeState[i] === "saving"}
-                      className="mt-2 flex items-center gap-1.5 text-[11px] text-faint transition hover:text-nutrition disabled:opacity-50">
+                      className="mt-2 flex items-center gap-1.5 text-xs text-faint transition hover:text-nutrition disabled:opacity-50">
                       {recipeState[i] === "saved" ? <><Check size={12} className="text-nutrition" /> Saved to recipes</>
                         : recipeState[i] === "saving" ? "Saving…"
                         : recipeState[i] === "error" ? "Couldn't find a recipe in this reply"
@@ -218,7 +218,7 @@ export default function Insights({ aiStatus }) {
         ))}
         {busy && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-2xl border border-line bg-panel2/70 px-4 py-3">
+            <div className="flex items-center gap-2 rounded-2xl bg-panel2 px-4 py-3">
               <span className="h-2 w-2 animate-pulse rounded-full bg-recovery" />
               <span className="font-mono text-xs text-muted">analyzing your telemetry…</span>
             </div>
@@ -232,7 +232,7 @@ export default function Insights({ aiStatus }) {
         <div className="flex flex-wrap gap-2 px-5 pb-2">
           {SUGGESTIONS.map((s) => (
             <button key={s} onClick={() => send(s)}
-              className="rounded-full border border-line bg-panel2/60 px-3 py-1.5 text-xs text-muted transition hover:border-recovery/40 hover:text-txt">
+              className="rounded-full bg-panel2 px-3 py-1.5 text-xs text-muted transition hover:border-recovery/40 hover:text-txt">
               {s}
             </button>
           ))}
@@ -246,7 +246,7 @@ export default function Insights({ aiStatus }) {
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
           rows={1}
           placeholder="Ask your coach…"
-          className="max-h-32 flex-1 resize-none rounded-xl border border-line bg-panel2/60 px-4 py-2.5 text-sm text-txt outline-none placeholder:text-faint focus:border-recovery/40"
+          className="max-h-32 flex-1 resize-none rounded-xl bg-panel2 px-4 py-2.5 text-sm text-txt outline-none placeholder:text-faint focus:border-recovery/40"
         />
         {voice.supported && (
           <button onClick={voice.toggle} title="Voice input"

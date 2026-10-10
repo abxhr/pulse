@@ -4,36 +4,44 @@
 
 :root {
   color-scheme: dark;
-  --color-ink: #0B0E14;
-  --color-panel: #121620;
-  --color-panel2: #171C28;
-  --color-line: #232a38;
-  --color-txt: #E6E9F0;
-  --color-muted: #8A93A6;
-  --color-faint: #5b6479;
-  --bg-grid-opacity: 0.015;
-  --bg-glow-1: rgba(124, 131, 255, 0.08);
-  --bg-glow-2: rgba(56, 189, 248, 0.06);
-  --md-heading: #f2f4f8;
-  --md-body: #cfd5e2;
-  --md-code-bg: #1c2230;
+  /* Warm charcoal, not blue-black: surfaces separate by tone, not by borders. */
+  --color-ink: #0F1113;
+  --color-panel: #16191C;
+  --color-panel2: #1E2227;
+  --color-line: #2A2F35;
+  --color-txt: #ECE9E2;
+  --color-muted: #A3A8AE;
+  --color-faint: #7F868D;
+  --c-recovery: 111 203 147;
+  --c-effort: 240 112 122;
+  --c-sleep: 154 157 245;
+  --c-cardio: 98 176 240;
+  --c-strength: 237 174 82;
+  --c-nutrition: 84 201 186;
+  --md-heading: #f2f0ea;
+  --md-body: #cbcfd4;
+  --md-code-bg: #1E2227;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-ink: #F4F6FB;
-  --color-panel: #FFFFFF;
-  --color-panel2: #F0F2F8;
-  --color-line: #DCE1EC;
-  --color-txt: #1A1E2A;
-  --color-muted: #5C6478;
-  --color-faint: #8890A0;
-  --bg-grid-opacity: 0.03;
-  --bg-glow-1: rgba(124, 131, 255, 0.10);
-  --bg-glow-2: rgba(56, 189, 248, 0.08);
-  --md-heading: #12151f;
-  --md-body: #3a4152;
-  --md-code-bg: #e7eaf2;
+  --color-ink: #F0EFEB;
+  --color-panel: #FAF9F6;
+  --color-panel2: #ECEBE6;
+  --color-line: #D9D7D0;
+  --color-txt: #17191B;
+  --color-muted: #555B61;
+  --color-faint: #70767C;
+  /* darker variants so coloured text passes contrast on paper */
+  --c-recovery: 20 124 70;
+  --c-effort: 196 48 62;
+  --c-sleep: 84 86 205;
+  --c-cardio: 20 104 180;
+  --c-strength: 160 98 8;
+  --c-nutrition: 12 120 108;
+  --md-heading: #12151a;
+  --md-body: #3a4046;
+  --md-code-bg: #e5e4de;
 }
 
 html,
@@ -47,17 +55,30 @@ body {
   min-width: 0;
   overflow-x: hidden;
   background-color: var(--color-ink);
-  /* subtle instrument-panel grid + vignette */
-  background-image:
-    radial-gradient(1200px 800px at 85% -10%, var(--bg-glow-1), transparent 60%),
-    radial-gradient(1000px 700px at -10% 110%, var(--bg-glow-2), transparent 55%),
-    linear-gradient(rgba(127, 127, 127, var(--bg-grid-opacity)) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(127, 127, 127, var(--bg-grid-opacity)) 1px, transparent 1px);
-  background-size: auto, auto, 40px 40px, 40px 40px;
   color: var(--color-txt);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3 { font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; }
+.font-mono, .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.font-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: 0.005em; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--c-recovery));
+  outline-offset: 2px;
 }
 
 .tnum {
@@ -82,14 +103,14 @@ body {
 /* thin scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a3242 transparent;
+  scrollbar-color: var(--color-line) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2a3242;
+  background: var(--color-line);
   border-radius: 8px;
 }
 
@@ -102,7 +123,7 @@ body {
 
 /* markdown rendering inside insight/report bubbles */
 .md :is(h1, h2, h3) {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Barlow Condensed", system-ui, sans-serif;
   color: var(--md-heading);
   margin: 0.8em 0 0.4em;
   line-height: 1.2;
@@ -115,14 +136,14 @@ body {
 .md li { margin: 0.2em 0; color: var(--md-body); }
 .md strong { color: var(--md-heading); font-weight: 600; }
 .md code {
-  font-family: "JetBrains Mono", monospace;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   background: var(--md-code-bg);
   padding: 0.1em 0.35em;
   border-radius: 4px;
   font-size: 0.85em;
 }
 .md hr { border: none; border-top: 1px solid var(--color-line); margin: 1em 0; }
-/* Route-map overlays — readable against CARTO's dark street tiles and shared
+/* Route-map overlays - readable against CARTO's dark street tiles and shared
    by mouse hover (desktop) and tap popups (installed phone PWA). */
 .pulse-route-tooltip.leaflet-tooltip,
 .pulse-route-popup .leaflet-popup-content-wrapper {

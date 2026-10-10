@@ -51,7 +51,7 @@ export function PRFeed({ wkos }) {
     <Panel accent={COLORS.effort} title="PRs this month" sub={`${recent.length} new estimated 1RM${recent.length === 1 ? "" : "s"}`}>
       <div className="space-y-1.5">
         {recent.slice(0, 10).map((p, i) => (
-          <div key={i} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+          <div key={i} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
             <span className="flex items-center gap-2 text-sm text-txt"><Trophy size={14} className="text-effort" /> {p.exercise}</span>
             <span className="font-mono text-xs text-effort tnum">{p.e1rm}kg · {fmtDate(p.date)}</span>
           </div>
@@ -84,7 +84,7 @@ export function PlateauList({ wkos }) {
       const peak = Math.max(...recent.map((e) => e.e1rm));
       const latest = recent[recent.length - 1].e1rm;
       if (latest < peak * 0.98 && recent[0].e1rm >= peak * 0.95) {
-        // hasn't set a new best across the whole window — plateaued, not just an off day
+        // hasn't set a new best across the whole window - plateaued, not just an off day
         const stillPlateaued = recent.every((e) => e.e1rm <= peak * 1.01);
         if (stillPlateaued) {
           out.push({ name, sessions: recent.length, peak: Math.round(peak), latest: Math.round(latest) });
@@ -99,13 +99,13 @@ export function PlateauList({ wkos }) {
     <Panel accent={COLORS.strength} title="Possible plateaus" sub={`e1RM hasn't set a new best in ${plateaus[0]?.sessions}+ sessions`}>
       <div className="space-y-1.5">
         {plateaus.map((p) => (
-          <div key={p.name} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+          <div key={p.name} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
             <span className="flex items-center gap-2 text-sm text-txt"><TrendingDown size={14} className="text-strength" /> {p.name}</span>
             <span className="font-mono text-xs text-faint tnum">peak {p.peak}kg · now {p.latest}kg</span>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">Screening signal only: machine changes, exercise order and fatigue can explain a dip. Review before changing your program.</p>
+      <p className="mt-2 text-xs text-faint">Screening signal only: machine changes, exercise order and fatigue can explain a dip. Review before changing your program.</p>
     </Panel>
   );
 }
@@ -150,7 +150,7 @@ export function VolumeLandmarks({ wkos }) {
   const zoneColor = { "below MEV": COLORS.muted, "in range": COLORS.recovery, "approaching MRV": COLORS.strength, "above MRV": COLORS.effort };
 
   return (
-    <Panel accent={COLORS.recovery} title="Volume landmarks" sub={`weekly sets vs evidence-based ranges · week of ${rows[0]?.week}`}>
+    <Panel accent={COLORS.recovery} title="Volume landmarks" sub={`weekly sets vs evidence-based ranges, week of ${rows[0]?.week}`}>
       <div className="space-y-2">
         {rows.map((r) => (
           <div key={r.muscle}>
@@ -165,7 +165,7 @@ export function VolumeLandmarks({ wkos }) {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">Shaded band = MEV–MAV (maintenance to max adaptive volume). Approximate, evidence-informed ranges — not personalized prescriptions.</p>
+      <p className="mt-2 text-xs text-faint">Shaded band = MEV–MAV (maintenance to max adaptive volume). Approximate, evidence-informed ranges - not personalized prescriptions.</p>
     </Panel>
   );
 }
@@ -191,20 +191,20 @@ export function SymmetryCheck({ wkos }) {
     const ratio = data.push / data.pull;
     rows.push({
       label: "Push : Pull", ratio: ratio.toFixed(2),
-      flag: ratio > 1.4 ? "push-dominant — shoulder health risk" : ratio < 0.7 ? "pull-dominant" : null,
+      flag: ratio > 1.4 ? "push-dominant - shoulder health risk" : ratio < 0.7 ? "pull-dominant" : null,
     });
   }
   if (data.quad > 0 && data.ham > 0) {
     const ratio = data.quad / data.ham;
     rows.push({
       label: "Quad : Hamstring", ratio: ratio.toFixed(2),
-      flag: ratio > 2.2 ? "quad-dominant — knee/hamstring injury risk" : ratio < 0.8 ? "hamstring-dominant" : null,
+      flag: ratio > 2.2 ? "quad-dominant - knee/hamstring injury risk" : ratio < 0.8 ? "hamstring-dominant" : null,
     });
   }
   if (!rows.length) return null;
 
   return (
-    <Panel accent={COLORS.muted} title="Symmetry check" sub="volume ratios · 8 weeks">
+    <Panel accent={COLORS.muted} title="Symmetry check" sub="volume ratios, 8 weeks">
       <div className="space-y-2">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center justify-between">
@@ -214,7 +214,7 @@ export function SymmetryCheck({ wkos }) {
         ))}
       </div>
       {rows.some((r) => r.flag) && (
-        <p className="mt-2 text-[11px] text-effort">{rows.find((r) => r.flag)?.flag}</p>
+        <p className="mt-2 text-xs text-effort">{rows.find((r) => r.flag)?.flag}</p>
       )}
     </Panel>
   );
@@ -239,15 +239,15 @@ export function RestDayRec({ week, health }) {
 
   if (!rec) return null;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
+    <div className="flex items-center gap-3 rounded-xl bg-panel2 px-4 py-3">
       <BedDouble size={16} className={rec.recovered ? "text-recovery" : "text-effort"} />
       <p className="text-xs text-txt">
         {rec.recovered ? (
-          <>HRV ({rec.hrv}ms) is at/above your baseline ({rec.avgHrv}ms) — recovered enough to train.
-            {rec.untrained.length > 0 && ` ${rec.untrained.slice(0, 3).join(", ")} not hit yet this week — good candidates.`}
+          <>HRV ({rec.hrv}ms) is at/above your baseline ({rec.avgHrv}ms) - recovered enough to train.
+            {rec.untrained.length > 0 && ` ${rec.untrained.slice(0, 3).join(", ")} not hit yet this week - good candidates.`}
           </>
         ) : (
-          <>HRV ({rec.hrv}ms) is below baseline ({rec.avgHrv}ms) — favor a lighter session or active recovery today.</>
+          <>HRV ({rec.hrv}ms) is below baseline ({rec.avgHrv}ms) - favor a lighter session or active recovery today.</>
         )}
       </p>
     </div>

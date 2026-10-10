@@ -10,7 +10,7 @@ import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading } from "../components/primitives";
 import { RefeedNudge, TdeeConfidence } from "./NutritionExtras";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 const today = () => new Date().toISOString().slice(0, 10);
 
 function LogWeight({ onLogged, trendKg }) {
@@ -47,19 +47,19 @@ function LogWeight({ onLogged, trendKg }) {
   return (
     <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
       <div className="w-36">
-        <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Date</label>
+        <label className="mb-1 block text-xs text-faint">Date</label>
         <input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)}
           className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
       </div>
       <div className="flex-1">
-        <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Weight (kg)</label>
+        <label className="mb-1 block text-xs text-faint">Weight (kg)</label>
         <input inputMode="decimal" value={weight} onChange={(e) => { setWeight(e.target.value); setConfirming(false); }} placeholder="e.g. 78.4"
           className={`w-full rounded-lg border bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:outline-none ${
             looksOff ? "border-effort/60 focus:border-effort" : "border-line focus:border-nutrition/50"
           }`} />
       </div>
       <div className="w-24">
-        <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Body fat %</label>
+        <label className="mb-1 block text-xs text-faint">Body fat %</label>
         <input inputMode="decimal" value={bodyFat} onChange={(e) => setBodyFat(e.target.value)} placeholder="optional"
           className="w-full rounded-lg border border-line bg-ink px-3 py-2 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
       </div>
@@ -68,11 +68,11 @@ function LogWeight({ onLogged, trendKg }) {
         {busy ? "…" : confirming ? "Log anyway" : "Log"}
       </button>
       {looksOff && (
-        <p className="w-full text-[11px] text-effort">
+        <p className="w-full text-xs text-effort">
           That's {fmtNum(pctOff * 100, 0)}% off your recent trend ({fmtNum(trendKg, 1)}kg) - typo? Click "Log anyway" to confirm.
         </p>
       )}
-      <p className="w-full text-[10px] text-faint">Backdate it if you're catching up on past weigh-ins - that unlocks the trend chart faster.</p>
+      <p className="w-full text-xs text-faint">Backdate it if you're catching up on past weigh-ins - that unlocks the trend chart faster.</p>
     </form>
   );
 }
@@ -89,14 +89,14 @@ function WeightHistory({ trend, onChanged }) {
 
   return (
     <div>
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <ChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
         {trend.length} weigh-in{trend.length === 1 ? "" : "s"} logged
       </button>
       {open && (
         <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-line bg-ink p-2">
           {rows.map((r) => (
-            <div key={r.date} className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-panel2/60">
+            <div key={r.date} className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-panel2">
               <span className="text-muted">{fmtDate(r.date)}</span>
               <span className="font-mono text-txt tnum">
                 {fmtNum(r.weight_kg, 1)}kg{r.body_fat_pct != null ? ` · ${fmtNum(r.body_fat_pct, 1)}% BF` : ""}
@@ -120,20 +120,20 @@ function GoalHistoryList() {
   useEffect(() => { if (open && !history) api.goalHistory().then(setHistory).catch(() => setHistory([])); }, [open, history]);
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <History size={12} /> Goal history
       </button>
     );
   }
   return (
     <div>
-      <button onClick={() => setOpen(false)} className="mb-1.5 flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={() => setOpen(false)} className="mb-1.5 flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <History size={12} /> Hide history
       </button>
       {history?.length ? (
         <div className="space-y-1">
           {history.map((h) => (
-            <div key={h.id} className="flex items-center justify-between rounded-lg border border-line bg-panel2/40 px-3 py-1.5 text-xs">
+            <div key={h.id} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-1.5 text-xs">
               <span className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: PHASE_COLOR[h.phase] }} />
                 {PHASE_LABEL[h.phase]}
@@ -165,22 +165,22 @@ function GoalForm({ goal, onSaved }) {
 
   return (
     <div>
-      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <Settings2 size={12} /> {goal?.target_weight_kg ? "Edit goal" : "Set a goal"}
       </button>
       {open && (
-        <form onSubmit={save} className="mt-2 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel2/60 p-3">
+        <form onSubmit={save} className="mt-2 flex flex-wrap items-end gap-2 rounded-xl bg-panel2 p-3">
           <div>
-            <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Target weight (kg)</label>
+            <label className="mb-1 block text-xs text-faint">Target weight (kg)</label>
             <input inputMode="decimal" value={target} onChange={(e) => setTarget(e.target.value)}
               className="w-28 rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           </div>
           <div>
-            <label className="mb-1 block text-[10px] uppercase tracking-wide text-faint">Weekly rate (kg)</label>
+            <label className="mb-1 block text-xs text-faint">Weekly rate (kg)</label>
             <input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)}
               className="w-28 rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           </div>
-          <p className="w-full text-[10px] text-faint">Negative = losing (cut), positive = gaining. -0.4 to -0.7 kg/week is a typical sustainable cut.</p>
+          <p className="w-full text-xs text-faint">Negative = losing (cut), positive = gaining. -0.4 to -0.7 kg/week is a typical sustainable cut.</p>
           <button type="submit" className="rounded-lg border border-nutrition/40 bg-nutrition/10 px-4 py-2 text-xs font-semibold text-nutrition">
             Save
           </button>
@@ -217,7 +217,7 @@ function CutCoach() {
     <div>
       {!content && !busy && (
         <button onClick={ask}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-3 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
           <Sparkles size={15} /> Analyze my progress
         </button>
       )}
@@ -226,7 +226,7 @@ function CutCoach() {
       {content && (
         <>
           <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
-          <button onClick={ask} className="mt-2 text-[11px] text-faint hover:text-txt">Re-analyze</button>
+          <button onClick={ask} className="mt-2 text-xs text-faint hover:text-txt">Re-analyze</button>
         </>
       )}
     </div>
@@ -236,8 +236,8 @@ function CutCoach() {
 function Tip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(label)}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-xs">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
@@ -308,7 +308,7 @@ export default function WeightCut() {
 
         {trend.some((r) => r.body_fat_pct != null) && (
           <div>
-            <div className="mb-1 text-[10.5px] uppercase tracking-wider text-faint">Body fat %</div>
+            <div className="mb-1 text-xs text-faint">Body fat %</div>
             <ResponsiveContainer width="100%" height={120}>
               <LineChart data={trend.filter((r) => r.body_fat_pct != null)} margin={{ left: -8, right: 8, top: 6 }}>
                 <CartesianGrid stroke="var(--color-line)" vertical={false} />
@@ -329,27 +329,27 @@ export default function WeightCut() {
         <RefeedNudge data={rec?.refeed_nudge} />
 
         {rec && (
-          <div className="rounded-xl border border-line bg-panel2/60 p-3">
+          <div className="rounded-xl bg-panel2 p-3">
             {rec.ready ? (
               <>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10.5px] uppercase tracking-wider text-faint">Recommended daily macros</span>
-                  <span className="font-mono text-[10px] text-faint">
+                  <span className="text-xs text-faint">Recommended daily macros</span>
+                  <span className="font-mono text-xs text-faint">
                     TDEE ~{fmtNum(rec.tdee_estimate)}kcal ({rec.tdee_source === "energy_balance" ? "from your logs" : "Garmin estimate"}
                     {rec.tdee_raw && Math.abs(rec.tdee_raw - rec.tdee_estimate) >= 10 ? `, smoothed from ${fmtNum(rec.tdee_raw)}` : ""})
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  <div><div className="font-mono text-lg font-semibold text-nutrition tnum">{fmtNum(rec.target_calories)}</div><div className="text-[10px] text-faint">kcal</div></div>
-                  <div><div className="font-mono text-lg font-semibold text-strength tnum">{fmtNum(rec.protein_g)}</div><div className="text-[10px] text-faint">protein g</div></div>
-                  <div><div className="font-mono text-lg font-semibold text-cardio tnum">{fmtNum(rec.carbs_g)}</div><div className="text-[10px] text-faint">carbs g</div></div>
-                  <div><div className="font-mono text-lg font-semibold text-effort tnum">{fmtNum(rec.fat_g)}</div><div className="text-[10px] text-faint">fat g</div></div>
+                  <div><div className="font-mono text-lg font-semibold text-nutrition tnum">{fmtNum(rec.target_calories)}</div><div className="text-xs text-faint">kcal</div></div>
+                  <div><div className="font-mono text-lg font-semibold text-strength tnum">{fmtNum(rec.protein_g)}</div><div className="text-xs text-faint">protein g</div></div>
+                  <div><div className="font-mono text-lg font-semibold text-cardio tnum">{fmtNum(rec.carbs_g)}</div><div className="text-xs text-faint">carbs g</div></div>
+                  <div><div className="font-mono text-lg font-semibold text-effort tnum">{fmtNum(rec.fat_g)}</div><div className="text-xs text-faint">fat g</div></div>
                 </div>
                 <button
                   onClick={() => api.setNutritionGoal({
                     calories: rec.target_calories, protein_g: rec.protein_g, carbs_g: rec.carbs_g, fat_g: rec.fat_g,
                   })}
-                  className="mt-2 w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-1.5 text-[11px] font-semibold text-nutrition">
+                  className="mt-2 w-full rounded-lg border border-nutrition/40 bg-nutrition/10 py-1.5 text-xs font-semibold text-nutrition">
                   Use as my nutrition target
                 </button>
                 <div className="mt-2">

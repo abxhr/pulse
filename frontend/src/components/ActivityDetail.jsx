@@ -63,7 +63,7 @@ function SplitsTable({ activityId }) {
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-line text-[10px] uppercase tracking-wider text-faint">
+                <tr className="border-b border-line text-xs text-faint">
                   <th className="py-1.5 pr-2 font-medium">#</th>
                   <th className="py-1.5 pr-2 text-right font-medium">Dist</th>
                   <th className="py-1.5 pr-2 text-right font-medium">Pace</th>
@@ -76,9 +76,9 @@ function SplitsTable({ activityId }) {
                   <tr key={s.index} className="border-b border-line/40">
                     <td className="py-1.5 pr-2 text-muted">{s.index}</td>
                     <td className="py-1.5 pr-2 text-right text-txt">{fmtNum((s.distance_m || 0) / 1000, 2)}</td>
-                    <td className="py-1.5 pr-2 text-right text-cardio">{s.pace_s_per_km ? fmtPace(s.pace_s_per_km) : "—"}</td>
-                    <td className="py-1.5 pr-2 text-right text-recovery">{s.gap_s_per_km ? fmtPace(s.gap_s_per_km) : "—"}</td>
-                    <td className="py-1.5 text-right text-effort">{s.avg_hr ?? "—"}</td>
+                    <td className="py-1.5 pr-2 text-right text-cardio">{s.pace_s_per_km ? fmtPace(s.pace_s_per_km) : "-"}</td>
+                    <td className="py-1.5 pr-2 text-right text-recovery">{s.gap_s_per_km ? fmtPace(s.gap_s_per_km) : "-"}</td>
+                    <td className="py-1.5 text-right text-effort">{s.avg_hr ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -148,9 +148,9 @@ export default function ActivityDetail({ id, onClose }) {
           {a.has_route && <RouteMap activityId={a.id} />}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="Distance" value={a.distance_km || "—"} unit="km" color={COLORS.cardio} />
+            <StatTile label="Distance" value={a.distance_km || "-"} unit="km" color={COLORS.cardio} />
             <StatTile label="Duration" value={fmtDuration((a.moving_duration_min || a.duration_min) * 60)} color={COLORS.cardio} />
-            <StatTile label="Pace" value={a.pace_per_km ? fmtPace(a.pace_per_km) : "—"} color={COLORS.cardio} />
+            <StatTile label="Pace" value={a.pace_per_km ? fmtPace(a.pace_per_km) : "-"} color={COLORS.cardio} />
             {a.gap_pace_per_km != null && a.gap_pace_per_km !== a.pace_per_km && (
               <StatTile label="Grade-adj. pace" value={fmtPace(a.gap_pace_per_km)} color={COLORS.recovery} hint="flat-effort equivalent" />
             )}
@@ -159,17 +159,17 @@ export default function ActivityDetail({ id, onClose }) {
             <StatTile label="Calories" value={fmtNum(a.calories)} color={COLORS.strength} />
             <StatTile label="Elevation" value={fmtNum(a.elevation_gain_m)} unit="m" color={COLORS.muted} />
             <StatTile label="Cadence" value={fmtNum(a.avg_cadence)} color={COLORS.muted} />
-            <StatTile label="VO₂max" value={a.vo2max != null ? fmtNum(a.vo2max, 1) : "—"} color={COLORS.recovery} />
+            <StatTile label="VO₂max" value={a.vo2max != null ? fmtNum(a.vo2max, 1) : "-"} color={COLORS.recovery} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <StatTile label="Aerobic TE" value={a.aerobic_te != null ? fmtNum(a.aerobic_te, 1) : "—"} hint={a.aerobic_te_message} color={COLORS.recovery} />
-            <StatTile label="Anaerobic TE" value={a.anaerobic_te != null ? fmtNum(a.anaerobic_te, 1) : "—"} hint={a.anaerobic_te_message} color={COLORS.effort} />
+            <StatTile label="Aerobic TE" value={a.aerobic_te != null ? fmtNum(a.aerobic_te, 1) : "-"} hint={a.aerobic_te_message} color={COLORS.recovery} />
+            <StatTile label="Anaerobic TE" value={a.anaerobic_te != null ? fmtNum(a.anaerobic_te, 1) : "-"} hint={a.anaerobic_te_message} color={COLORS.effort} />
           </div>
 
           {totalZoneMin > 0 && (
             <div>
-              <div className="mb-2 text-[10.5px] uppercase tracking-wider text-faint">Time in HR zones</div>
+              <div className="mb-2 text-xs text-faint">Time in HR zones</div>
               <div className="flex h-3 overflow-hidden rounded-full bg-panel2">
                 {[1, 2, 3, 4, 5].map((z) => {
                   const min = a.hr_zones_min[`zone_${z}_min`] || 0;
@@ -183,7 +183,7 @@ export default function ActivityDetail({ id, onClose }) {
                 {[1, 2, 3, 4, 5].map((z) => {
                   const min = a.hr_zones_min[`zone_${z}_min`] || 0;
                   return min > 0 ? (
-                    <span key={z} className="flex items-center gap-1.5 text-[11px] text-muted">
+                    <span key={z} className="flex items-center gap-1.5 text-xs text-muted">
                       <span className="h-2 w-2 rounded-full" style={{ background: ZONE_COLORS[z - 1] }} />
                       Z{z} {min}m
                     </span>
@@ -204,7 +204,7 @@ export default function ActivityDetail({ id, onClose }) {
                 <span className="flex items-center gap-1">
                   <Thermometer size={12} /> {fmtNum(a.weather.temperature_c, 0)}°C
                   {a.weather.humidity_pct != null && ` · ${fmtNum(a.weather.humidity_pct, 0)}% humidity`}
-                  {a.weather.temperature_c >= 32 && <span className="text-effort"> — hot effort, pace naturally suffers</span>}
+                  {a.weather.temperature_c >= 32 && <span className="text-effort"> - hot effort, pace naturally suffers</span>}
                 </span>
               )}
             </div>

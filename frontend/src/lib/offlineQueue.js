@@ -21,7 +21,7 @@ export function enqueueMeal(payload) {
   return items.length;
 }
 
-// Meal logging is the primary "log this from my phone with no signal" case —
+// Meal logging is the primary "log this from my phone with no signal" case -
 // syncs automatically once the connection comes back.
 export async function flushQueue() {
   const items = getQueue();

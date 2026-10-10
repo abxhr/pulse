@@ -34,14 +34,14 @@ export const activityMeta = (type = "") => {
 };
 
 // Shared style for Recharts <YAxis label={{...}}> / <XAxis label={{...}}> titles.
-export const axisLabelStyle = { fill: "var(--color-faint)", fontSize: 10, fontFamily: "JetBrains Mono", textAnchor: "middle" };
+export const axisLabelStyle = { fill: "var(--color-faint)", fontSize: 10, fontFamily: "Instrument Sans", textAnchor: "middle" };
 
 export const COLORS = {
-  recovery: "#3DD68C",
-  effort: "#FF5C7A",
-  sleep: "#7C83FF",
-  cardio: "#38BDF8",
-  strength: "#F5A623",
-  nutrition: "#2DD4BF",
-  muted: "#8A93A6",
+  recovery: "#6FCB93",
+  effort: "#F0707A",
+  sleep: "#9A9DF5",
+  cardio: "#62B0F0",
+  strength: "#EDAE52",
+  nutrition: "#54C9BA",
+  muted: "#A3A8AE",
 };

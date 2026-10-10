@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 
-// Web Speech API — Chrome/Edge/Safari support it under the webkit-prefixed
+// Web Speech API - Chrome/Edge/Safari support it under the webkit-prefixed
 // name; no server round-trip, transcription happens in the browser.
 const SpeechRecognition = typeof window !== "undefined"
   ? window.SpeechRecognition || window.webkitSpeechRecognition

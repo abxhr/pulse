@@ -20,7 +20,7 @@ from datetime import date, datetime
 from .db import get_session
 from .config import settings, DATA_DIR
 from .models import Workout, Activity, DailyHealth, Sleep, SyncLog, Insight, IntradayHealth
-from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab
+from .services import analytics, insights, reports, sync, nutrition, weight as weight_svc, recipes, weather as weather_svc, cardio_extras, export as export_svc, push as push_svc, backup as backup_svc, auth as auth_svc, phase2, planner, lab, performance as performance_svc
 from .integrations import garmin_client as gc
 from .schemas import PasswordBody, MealBody, WeightBody, ShoeBody, RecipeExtractUrl, RestoreBackupBody
 
@@ -688,6 +688,11 @@ def training_load(weeks: int = 12, db: Session = Depends(get_session)):
 @router.get("/training/race-predictions")
 def race_predictions(db: Session = Depends(get_session)):
     return analytics.race_predictions(db) or {}
+
+
+@router.get("/performance")
+def performance(days: int = Query(30, ge=7, le=120), db: Session = Depends(get_session)):
+    return performance_svc.load(db, days)
 
 
 @router.get("/training/plan-compliance")

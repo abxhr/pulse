@@ -7,15 +7,15 @@ import { api } from "../lib/api";
 import { COLORS, fmtNum, fmtPace, fmtDate, axisLabelStyle } from "../lib/format";
 import { Panel } from "./primitives";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
 function FormTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const p = payload[0]?.payload;
   if (!p) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(label)}</div>
       <div className="text-xs text-recovery">Fitness (CTL) {p.fitness}</div>
       <div className="text-xs text-effort">Fatigue (ATL) {p.fatigue}</div>
       <div className="text-xs text-sleep">Form (TSB) {p.form}</div>
@@ -32,19 +32,19 @@ export function TrainingStressBalance() {
   const formColor = latest.form > 5 ? COLORS.recovery : latest.form < -20 ? COLORS.effort : latest.form < -10 ? COLORS.strength : COLORS.sleep;
 
   return (
-    <Panel accent={COLORS.sleep} title="Training stress balance" sub="Fitness / Fatigue / Form (Banister model) · 180 days">
+    <Panel accent={COLORS.sleep} title="Training stress balance" sub="Fitness / Fatigue / Form (Banister model), 180 days">
       <div className="mb-3 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Fitness</div>
-          <div className="font-mono text-xl font-semibold text-recovery tnum">{latest.fitness}</div>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Fitness</div>
+          <div className="font-num text-xl font-semibold text-recovery tnum">{latest.fitness}</div>
         </div>
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Fatigue</div>
-          <div className="font-mono text-xl font-semibold text-effort tnum">{latest.fatigue}</div>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Fatigue</div>
+          <div className="font-num text-xl font-semibold text-effort tnum">{latest.fatigue}</div>
         </div>
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Form</div>
-          <div className="font-mono text-xl font-semibold tnum" style={{ color: formColor }}>{latest.form}</div>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Form</div>
+          <div className="font-num text-xl font-semibold tnum" style={{ color: formColor }}>{latest.form}</div>
         </div>
       </div>
       <p className="mb-3 text-xs" style={{ color: formColor }}>{formLabel}</p>
@@ -66,7 +66,7 @@ export function TrainingStressBalance() {
           <Line type="monotone" dataKey="fatigue" name="Fatigue" stroke={COLORS.effort} strokeWidth={1.5} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
-      <p className="mt-2 text-[11px] text-faint">
+      <p className="mt-2 text-xs text-faint">
         Fitness/Fatigue are exponentially-weighted training load (42d / 7d time constants). Form = Fitness − Fatigue -
         positive means fresh, sustained negative means accumulating fatigue.
       </p>
@@ -87,7 +87,7 @@ export function KarvonenZonesCard() {
   const maxSessions = Math.max(1, ...(sessions || []).map((s) => s.sessions));
 
   return (
-    <Panel accent={COLORS.effort} title="Personalized HR zones" sub={`Karvonen · max ${zones.max_hr} · resting ${zones.resting_hr}bpm`}>
+    <Panel accent={COLORS.effort} title="Personalized HR zones" sub={`Karvonen, max ${zones.max_hr}, resting ${zones.resting_hr}bpm`}>
       <div className="space-y-2">
         {zones.zones.map((z, i) => {
           const s = sessions?.find((x) => x.zone === z.name);
@@ -99,12 +99,12 @@ export function KarvonenZonesCard() {
               <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-panel2">
                 <div className="h-full rounded-full" style={{ width: `${((s?.sessions || 0) / maxSessions) * 100}%`, background: ZONE_COLORS[i] }} />
               </div>
-              <span className="w-6 shrink-0 text-right font-mono text-[11px] text-faint tnum">{s?.sessions || 0}</span>
+              <span className="w-6 shrink-0 text-right font-mono text-xs text-faint tnum">{s?.sessions || 0}</span>
             </div>
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-faint">
+      <p className="mt-2 text-xs text-faint">
         Zones from heart-rate-reserve (your actual max/resting HR), not a generic %-of-max estimate.
         Session counts are by average HR per run, not a full time-in-zone breakdown.
       </p>
@@ -144,7 +144,7 @@ export function RaceGoalCard() {
   if (!race && !form) {
     return (
       <button onClick={() => setForm(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio">
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-3 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio">
         <Flag size={15} /> Set a race goal
       </button>
     );
@@ -152,19 +152,19 @@ export function RaceGoalCard() {
 
   if (form) {
     return (
-      <form onSubmit={save} className="flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel2/60 p-3">
+      <form onSubmit={save} className="flex flex-wrap items-end gap-2 rounded-xl bg-panel2 p-3">
         <div className="flex-1 min-w-[140px]">
-          <label htmlFor="race-name" className="mb-1 block text-[11px] uppercase tracking-wide text-faint">Race name</label>
+          <label htmlFor="race-name" className="mb-1 block text-xs text-faint">Race name</label>
           <input id="race-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. City Half"
             className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-cardio/50 focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="race-date" className="mb-1 block text-[11px] uppercase tracking-wide text-faint">Date</label>
+          <label htmlFor="race-date" className="mb-1 block text-xs text-faint">Date</label>
           <input id="race-date" type="date" value={raceDate} onChange={(e) => setRaceDate(e.target.value)}
             className="rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-cardio/50 focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="race-dist" className="mb-1 block text-[11px] uppercase tracking-wide text-faint">Distance</label>
+          <label htmlFor="race-dist" className="mb-1 block text-xs text-faint">Distance</label>
           <select id="race-dist" value={dist} onChange={(e) => setDist(e.target.value)}
             className="rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-cardio/50 focus:outline-none">
             {DIST_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
@@ -177,17 +177,17 @@ export function RaceGoalCard() {
   }
 
   return (
-    <Panel accent={COLORS.cardio} title={race.name} sub={`${race.distance_label} · ${fmtDate(race.race_date)}`}
+    <Panel accent={COLORS.cardio} title={race.name} sub={`${race.distance_label}, ${fmtDate(race.race_date)}`}
       right={<button onClick={clear} aria-label="Clear race goal" className="text-faint hover:text-effort"><X size={15} /></button>}>
       <div className="flex items-center gap-4">
         <Flag size={24} className="text-cardio" />
         <div>
-          <div className="font-mono text-2xl font-semibold text-cardio tnum">{race.days_left}</div>
-          <div className="text-[11px] text-faint">days to go</div>
+          <div className="font-num text-2xl font-semibold text-cardio tnum">{race.days_left}</div>
+          <div className="text-xs text-faint">days to go</div>
         </div>
         {race.in_taper && (
           <div className="ml-auto rounded-lg border border-strength/30 bg-strength/10 px-3 py-2 text-right">
-            <div className="text-[10px] uppercase tracking-wide text-strength">Taper week</div>
+            <div className="text-xs text-strength">Taper week</div>
             <div className="font-mono text-sm text-strength tnum">
               target ~{fmtNum(race.target_weekly_km, 0)}km <span className="text-faint">({Math.round(race.taper_pct * 100)}% of peak)</span>
             </div>
@@ -221,12 +221,12 @@ export function RepeatRoutes() {
     <Panel accent={COLORS.cardio} title="Repeat routes" sub="loops you run often">
       <div className="space-y-2">
         {routes.map((r, i) => (
-          <div key={i} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+          <div key={i} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
             <div className="flex items-center gap-2.5">
               <Route size={15} className="text-cardio" />
               <div>
                 <div className="text-sm text-txt">{fmtNum(r.distance_km, 1)}km loop</div>
-                <div className="text-[11px] text-faint">{r.runs} runs · last {fmtDate(r.last_run_date)}</div>
+                <div className="text-xs text-faint">{r.runs} runs · last {fmtDate(r.last_run_date)}</div>
               </div>
             </div>
             <div className="text-right font-mono text-xs tnum">
@@ -269,14 +269,14 @@ export function ShoeTracker() {
     <Panel accent={COLORS.muted} title="Shoe mileage" sub="cumulative km per pair"
       right={<button onClick={() => setAdding((a) => !a)} aria-label="Add shoe" className="text-faint hover:text-txt"><Plus size={16} /></button>}>
       {adding && (
-        <form onSubmit={add} className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border border-line bg-panel2/60 p-3">
+        <form onSubmit={add} className="mb-3 flex flex-wrap items-end gap-2 rounded-xl bg-panel2 p-3">
           <div className="flex-1 min-w-[120px]">
-            <label htmlFor="shoe-name" className="mb-1 block text-[11px] uppercase tracking-wide text-faint">Shoe name</label>
+            <label htmlFor="shoe-name" className="mb-1 block text-xs text-faint">Shoe name</label>
             <input id="shoe-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pegasus 40"
               className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:outline-none" />
           </div>
           <div>
-            <label htmlFor="shoe-km" className="mb-1 block text-[11px] uppercase tracking-wide text-faint">Target km</label>
+            <label htmlFor="shoe-km" className="mb-1 block text-xs text-faint">Target km</label>
             <input id="shoe-km" inputMode="numeric" value={target} onChange={(e) => setTarget(e.target.value)}
               className="w-24 rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:outline-none" />
           </div>
@@ -286,7 +286,7 @@ export function ShoeTracker() {
       {active.length ? (
         <div className="space-y-2">
           {active.map((s) => (
-            <div key={s.id} className="rounded-lg border border-line bg-panel2/50 px-3 py-2">
+            <div key={s.id} className="rounded-lg bg-panel2 px-3 py-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="flex items-center gap-2 text-txt"><Footprints size={14} className="text-muted" /> {s.name}</span>
                 <span className="font-mono text-xs text-faint tnum">{fmtNum(s.total_km, 0)} / {fmtNum(s.target_km, 0)}km</span>
@@ -298,7 +298,7 @@ export function ShoeTracker() {
                 }} />
               </div>
               {s.pct_used >= 90 && (
-                <button onClick={() => retire(s.id)} className="mt-1.5 text-[10px] text-faint hover:text-effort">retire this pair</button>
+                <button onClick={() => retire(s.id)} className="mt-1.5 text-xs text-faint hover:text-effort">retire this pair</button>
               )}
             </div>
           ))}
@@ -345,23 +345,23 @@ export function RunInsights() {
   const longHigh = last.long_run_pct > 40 && d.weeks.length > 0 && last.km >= 15;
 
   return (
-    <Panel accent={COLORS.cardio} title="Run insights" sub="aerobic efficiency · easy/hard split · long-run share">
+    <Panel accent={COLORS.cardio} title="Run insights" sub="aerobic efficiency, easy/hard split, long-run share">
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Efficiency 4wk</div>
-          <div className="font-mono text-xl font-semibold tnum" style={{ color: efColor }}>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Efficiency 4wk</div>
+          <div className="font-num text-xl font-semibold tnum" style={{ color: efColor }}>
             {ef == null ? "-" : `${ef > 0 ? "+" : ""}${ef}%`}
           </div>
         </div>
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Easy time</div>
-          <div className="font-mono text-xl font-semibold tnum" style={{ color: avgEasy >= 75 ? COLORS.recovery : COLORS.strength }}>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Easy time</div>
+          <div className="font-num text-xl font-semibold tnum" style={{ color: avgEasy >= 75 ? COLORS.recovery : COLORS.strength }}>
             {avgEasy == null ? "-" : `${avgEasy}%`}
           </div>
         </div>
-        <div className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5 text-center">
-          <div className="text-[10px] uppercase tracking-wide text-faint">Long run</div>
-          <div className="font-mono text-xl font-semibold tnum" style={{ color: longHigh ? COLORS.strength : COLORS.cardio }}>
+        <div className="rounded-xl bg-panel2 px-3 py-2.5 text-center">
+          <div className="text-xs text-faint">Long run</div>
+          <div className="font-num text-xl font-semibold tnum" style={{ color: longHigh ? COLORS.strength : COLORS.cardio }}>
             {last.long_run_pct ?? "-"}%
           </div>
         </div>
@@ -369,8 +369,8 @@ export function RunInsights() {
       {Object.keys(d.bests || {}).length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
           {Object.entries(d.bests).map(([k, b]) => (
-            <div key={k} className="rounded-lg border border-line bg-panel2/50 px-3 py-1.5 text-xs">
-              <span className="uppercase text-faint">{k === "half" ? "Half" : k.toUpperCase()}+</span>{" "}
+            <div key={k} className="rounded-lg bg-panel2 px-3 py-1.5 text-xs">
+              <span className=" text-faint">{k === "half" ? "Half" : k.toUpperCase()}+</span>{" "}
               <span className="font-mono text-recovery tnum">{fmtPace(b.pace_s_per_km)}</span>{" "}
               <span className="text-faint">{fmtNum(b.run_km, 1)}km · {fmtDate(b.date)}</span>{" "}
               {b.source === "splits"
@@ -394,7 +394,7 @@ export function RunInsights() {
       </ResponsiveContainer>
       )}
       {missingSplits > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel2/50 px-3 py-2 text-xs text-muted">
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-panel2 px-3 py-2 text-xs text-muted">
           <span>{cov.with_splits}/{cov.runs} runs have lap data. Fetch the rest for exact best efforts and aerobic decoupling.</span>
           <button onClick={fetchSplits} disabled={fetching}
             className="rounded-md bg-cardio px-3 py-1 text-xs font-semibold text-ink disabled:opacity-60">
@@ -412,7 +412,7 @@ export function RunInsights() {
       )}
       {d.weeks.some((w) => w.cadence) && (
         <>
-          <div className="mt-3 text-[11px] uppercase tracking-wide text-faint">Cadence (spm) · weekly average</div>
+          <div className="mt-3 text-xs text-faint">Cadence (spm) · weekly average</div>
           <ResponsiveContainer width="100%" height={90}>
             <LineChart data={d.weeks} margin={{ left: -8, right: 8, top: 6 }}>
               <XAxis dataKey="week" tick={axis} tickFormatter={(w) => w.slice(-3)} axisLine={false} tickLine={false} />
@@ -429,7 +429,7 @@ export function RunInsights() {
           <span className="text-txt">{d.pace_bands.steady}</span> steady · <span className="text-txt">{d.pace_bands.faster}</span> faster (±8%).
         </p>
       )}
-      <p className="mt-2 text-[11px] text-faint">
+      <p className="mt-2 text-xs text-faint">
         Efficiency = speed per heartbeat, last 4 weeks vs the 4 before (up = fitter at the same effort). Easy = HR zones 1-2;
         the dashed line is the common 80% easy target. Long run is your longest run as a share of that week's km (~30-35% is typical).
       </p>
@@ -449,7 +449,7 @@ export function TodaysCall() {
   if (!d?.call) return null;
   const st = CALL_STYLE[d.call] || CALL_STYLE.unknown;
   return (
-    <Panel accent={st.color} title="Today's call" sub="recovery risk · load balance · Garmin readiness">
+    <Panel accent={st.color} title="Today's call" sub="recovery risk, load balance, Garmin readiness">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         <div className="font-display text-3xl font-semibold" style={{ color: st.color }}>{st.label}</div>
         <ul className="space-y-0.5 text-xs text-muted">
@@ -487,7 +487,7 @@ export function PlanCompliance() {
           );
         })}
       </div>
-      <p className="mt-2 text-[11px] text-faint">
+      <p className="mt-2 text-xs text-faint">
         Green = 90-115% of planned distance, amber = over or slightly under, red = under 70%. The tick marks 100%. Skipped sessions are excluded; the current week counts only sessions already due.
       </p>
     </Panel>

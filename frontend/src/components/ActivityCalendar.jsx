@@ -31,12 +31,12 @@ export default function ActivityCalendar() {
   const activeDays = days.filter((d) => d.level > 0).length;
 
   return (
-    <Panel accent={COLORS.recovery} title="Activity calendar" sub={`${activeDays} of ${days.length} days logged something · last 12 months`}>
+    <Panel accent={COLORS.recovery} title="Activity calendar" sub={`${activeDays} of ${days.length} days logged something, last 12 months`}>
       <div className="overflow-x-auto">
         <div className="relative inline-block" style={{ paddingLeft: 2 }}>
           <div className="relative mb-1 h-3" style={{ width: weeks.length * 13 }}>
             {monthLabels.map((m) => (
-              <span key={m.wi} className="absolute text-[10px] text-faint" style={{ left: m.wi * 13 }}>{m.label}</span>
+              <span key={m.wi} className="absolute text-xs text-faint" style={{ left: m.wi * 13 }}>{m.label}</span>
             ))}
           </div>
           <div className="flex gap-[3px]">
@@ -55,7 +55,7 @@ export default function ActivityCalendar() {
           </div>
         </div>
       </div>
-      <div className="mt-2 flex items-center justify-between text-[11px] text-faint">
+      <div className="mt-2 flex items-center justify-between text-xs text-faint">
         <span>{hover ? `${hover.date} - ${hover.categories.length ? hover.categories.join(", ") : "nothing logged"}` : "hover a day"}</span>
         <span className="flex items-center gap-1">
           less {LEVEL_COLOR.map((c, i) => <span key={i} className="h-[10px] w-[10px] rounded-sm" style={{ background: c }} />)} more

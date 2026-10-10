@@ -4,7 +4,7 @@ import { fmtDate } from "../lib/format";
 export function FreshnessBadge({ item, compact=false }) {
   if (!item) return null;
   const stale=item.stale;
-  return <span title={`${item.label} · source: ${item.source}`} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${stale?"border-strength/30 bg-strength/10 text-strength":"border-recovery/20 bg-recovery/10 text-recovery"}`}>
+  return <span title={`${item.label} · source: ${item.source}`} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${stale?"border-strength/30 bg-strength/10 text-strength":"border-recovery/20 bg-recovery/10 text-recovery"}`}>
     {stale?<AlertTriangle size={10}/>:<CheckCircle2 size={10}/>} {compact ? (stale?"stale":"current") : `${item.latest_date?`as of ${fmtDate(item.latest_date)}`:"no data"} · ${item.source}`}
   </span>;
 }

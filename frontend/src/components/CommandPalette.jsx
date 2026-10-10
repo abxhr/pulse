@@ -90,17 +90,17 @@ export default function CommandPalette({ onNavigate }) {
           <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search activities, workouts, recipes…"
             className="flex-1 bg-transparent text-sm text-txt placeholder:text-faint focus:outline-none" />
-          <kbd className="rounded border border-line px-1.5 py-0.5 text-[10px] text-faint">Esc</kbd>
+          <kbd className="rounded border border-line px-1.5 py-0.5 text-xs text-faint">Esc</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto p-2">
           {!data && <p className="px-3 py-4 text-center text-xs text-faint">loading…</p>}
           {data && q && !results.length && <p className="px-3 py-4 text-center text-xs text-faint">No matches.</p>}
           {results.slice(0, 20).map((r) => (
             <button key={`${r.kind}-${r.id}`} onClick={() => select(r)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-panel2/60">
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-panel2">
               <r.icon size={15} className="text-faint" />
               <span className="flex-1 truncate text-sm text-txt">{r.label}</span>
-              <span className="text-[11px] text-faint">{r.sub}</span>
+              <span className="text-xs text-faint">{r.sub}</span>
             </button>
           ))}
         </div>

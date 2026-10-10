@@ -7,7 +7,7 @@ export default function LayoutSettings({ open, onClose, sections, layout }) {
   const byId = Object.fromEntries(sections.map((s) => [s.id, s]));
 
   return (
-    <Modal open={open} onClose={onClose} title="Customize Overview" sub="Reorder or hide panels — saved on this device" accent={COLORS.recovery}>
+    <Modal open={open} onClose={onClose} title="Customize Overview" sub="Reorder or hide panels - saved on this device" accent={COLORS.recovery}>
       <div className="space-y-1.5">
         {order.map((id, i) => {
           const s = byId[id];
@@ -32,7 +32,7 @@ export default function LayoutSettings({ open, onClose, sections, layout }) {
           );
         })}
       </div>
-      <button onClick={reset} className="mt-4 flex items-center gap-1.5 text-[11px] text-faint hover:text-txt">
+      <button onClick={reset} className="mt-4 flex items-center gap-1.5 text-xs text-faint hover:text-txt">
         <RotateCcw size={12} /> Reset to default layout
       </button>
     </Modal>
@@ -42,7 +42,7 @@ export default function LayoutSettings({ open, onClose, sections, layout }) {
 export function CustomizeButton({ onClick }) {
   return (
     <button onClick={onClick} title="Customize layout"
-      className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1.5 text-[11px] text-muted transition hover:border-recovery/40 hover:text-txt">
+      className="flex items-center gap-1.5 rounded-lg bg-panel2 px-2.5 py-1.5 text-xs text-muted transition hover:border-recovery/40 hover:text-txt">
       <LayoutGrid size={13} />
     </button>
   );
