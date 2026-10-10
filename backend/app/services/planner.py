@@ -180,3 +180,28 @@ def recovery_forecast(db:Session)->list[dict]:
         d=date.today()+timedelta(days=i); load=loads[d.isoformat()]; fitness += (load-fitness)*(2/43); fatigue += (load-fatigue)*(2/8); form=fitness-fatigue
         out.append({"date":d.isoformat(),"planned_load":round(load,1),"fitness":round(fitness,1),"fatigue":round(fatigue,1),"form":round(form,1),"readiness":"fresh" if form>5 else "balanced" if form>-10 else "fatigued" if form>-20 else "overreached"})
     return out
+
+
+def run_compliance(db: Session, weeks: int = 6) -> list[dict]:
+    """Planned vs actual running per week (oldest first). Only weeks that have
+    a stored plan appear - we never generate plans for the past. Skipped
+    sessions are excluded; for the current week only sessions already due count."""
+    this = _week_start()
+    out = []
+    for i in range(weeks - 1, -1, -1):
+        start = this - timedelta(weeks=i); end = start + timedelta(days=6)
+        rows = [r for r in db.execute(select(PlannedSession).where(
+            PlannedSession.date >= start, PlannedSession.date <= end, PlannedSession.kind == "run",
+        )).scalars().all() if r.status != "skipped" and r.date <= date.today()]
+        if not rows:
+            continue
+        acts = [a for a in db.execute(select(Activity).where(Activity.date >= start, Activity.date <= end)).scalars().all()
+                if "run" in (a.activity_type or "").lower()]
+        run_days = {a.date for a in acts}
+        planned_km = sum((r.target or {}).get("distance_km") or 0 for r in rows)
+        done = sum(1 for r in rows if r.date in run_days or r.status == "completed")
+        actual_km = sum((a.distance_m or 0) for a in acts) / 1000
+        out.append({"week": start.isoformat(), "planned_runs": len(rows), "runs_done": done,
+                    "planned_km": round(planned_km, 1), "actual_km": round(actual_km, 1),
+                    "km_pct": round(actual_km / planned_km * 100) if planned_km else None})
+    return out

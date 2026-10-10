@@ -2,7 +2,7 @@
 
 Auth model: you authenticate ONCE via `python -m app.auth_garmin` (handles MFA).
 That writes long-lived OAuth tokens to settings.garmin_token_store. This module
-then loads those cached tokens — your Garmin password is never held by the server.
+then loads those cached tokens - your Garmin password is never held by the server.
 
 The garminconnect library returns Garmin's raw JSON, whose shapes drift over time,
 so every extractor below is defensive (.get chains, try/except) and we always keep
@@ -143,7 +143,7 @@ def fetch_sleep(client, day: date) -> dict | None:
 
     def _ms(key):
         """Garmin's '...Local' timestamps are epoch ms with the local offset already
-        baked in — interpreting as UTC gives the correct wall-clock time directly.
+        baked in - interpreting as UTC gives the correct wall-clock time directly.
         (Using fromtimestamp() here would apply the *server's* timezone on top,
         double-shifting it.)"""
         ms = dto.get(key)
@@ -188,7 +188,7 @@ def fetch_sleep(client, day: date) -> dict | None:
 _RUN_TYPES = {"running", "trail_running", "treadmill_running", "track_running"}
 
 
-# Physiologically/sensor-implausible bounds — same principle as the pace fix
+# Physiologically/sensor-implausible bounds - same principle as the pace fix
 # below: a glitched sensor reading is worse than no reading, since a bad
 # number silently pollutes every average/chart/PR check downstream while a
 # missing one is at least visibly absent. Bounds are deliberately generous
@@ -222,7 +222,7 @@ def fetch_activities(client, start: date, end: date) -> list[dict]:
         pace = None
         # Below ~300m the recorded distance is almost always a GPS/footpod glitch
         # (treadmill runs without a footpod, indoor activities logged with near-zero
-        # distance) rather than a real short effort — dividing by it produces
+        # distance) rather than a real short effort - dividing by it produces
         # nonsense paces like "1192:19/km". Leave pace unset rather than lie.
         min_distance = 1000 if atype == "treadmill_running" else 300
         if atype in _RUN_TYPES and dist and dur and dist >= min_distance:
@@ -272,7 +272,7 @@ def _parse_day(s):
 
 
 def fetch_current_reading(client) -> dict:
-    """The most recent actual stress + body battery reading Garmin has synced —
+    """The most recent actual stress + body battery reading Garmin has synced -
     NOT the same as the daily summary's avg_stress/body_battery_high, which are
     statistics for the whole day (average / peak-so-far) and barely change hour
     to hour. This is the true 'right now' value, at whatever resolution Garmin's
@@ -305,7 +305,7 @@ def fetch_current_reading(client) -> dict:
 
 
 def fetch_intraday_stress(client, day: date) -> dict | None:
-    """Hourly-bucketed stress + body battery for one day — fetched on demand
+    """Hourly-bucketed stress + body battery for one day - fetched on demand
     (Garmin returns ~3-minute resolution; we average into hourly buckets so the
     chart stays readable instead of a 480-point noise cloud)."""
     ds = day.isoformat()
@@ -325,7 +325,7 @@ def fetch_intraday_stress(client, day: date) -> dict | None:
         h = datetime.fromtimestamp(ts_ms / 1000).hour
         hourly[h]["stress"].append(val)
     for point in bb_pts:
-        # [timestamp, status, level, version] — keep only measured points
+        # [timestamp, status, level, version] - keep only measured points
         if len(point) < 3 or point[1] != "MEASURED" or point[2] is None:
             continue
         h = datetime.fromtimestamp(point[0] / 1000).hour
@@ -346,7 +346,7 @@ def fetch_intraday_stress(client, day: date) -> dict | None:
 
 
 def fetch_route(client, activity_id: str) -> list[dict] | None:
-    """GPS polyline for one activity — fetched on demand (not stored in bulk sync)
+    """GPS polyline for one activity - fetched on demand (not stored in bulk sync)
     since most users only ever look at a handful of route maps."""
     try:
         details = client.get_activity_details(activity_id, maxpoly=2000)
@@ -364,22 +364,25 @@ def fetch_route(client, activity_id: str) -> list[dict] | None:
 
 
 def _minetti_cost(grade: float) -> float:
-    """Energy cost of running (J/kg/m) at a given gradient — Minetti et al. 2002,
+    """Energy cost of running (J/kg/m) at a given gradient - Minetti et al. 2002,
     the standard basis for grade-adjusted pace calculators. grade is a decimal
     (0.05 = 5% incline)."""
     i = max(-0.45, min(0.45, grade))  # model is only validated in this range
     return 155.4 * i**5 - 30.4 * i**4 - 43.3 * i**3 + 46.3 * i**2 + 19.5 * i + 3.6
 
 
-def fetch_splits(client, activity_id: str) -> list[dict] | None:
-    """Per-km/mile splits for one activity — fetched on demand like the route,
+def fetch_splits(client, activity_id: str, strict: bool = False) -> list[dict] | None:
+    """Per-km/mile splits for one activity - fetched on demand like the route,
     not stored in bulk sync. Includes grade-adjusted pace (GAP): the flat-ground
-    pace that would cost the same effort, via the Minetti running-cost model —
-    raw pace alone is misleading on hilly splits."""
+    pace that would cost the same effort, via the Minetti running-cost model -
+    raw pace alone is misleading on hilly splits. With strict=True a Garmin/API
+    error is raised instead of looking like "this activity has no splits"."""
     try:
         data = client.get_activity_splits(activity_id)
     except Exception as e:
         log.debug("activity_splits %s: %s", activity_id, e)
+        if strict:
+            raise
         return None
     splits = data.get("lapDTOs") if isinstance(data, dict) else None
     if not splits:
@@ -409,7 +412,7 @@ def fetch_splits(client, activity_id: str) -> list[dict] | None:
 
 
 def fetch_hydration(client, day: date) -> dict | None:
-    """Garmin's logged/estimated fluid intake — captured on the device/app but
+    """Garmin's logged/estimated fluid intake - captured on the device/app but
     not previously surfaced anywhere in Pulse."""
     try:
         d = client.get_hydration_data(day.isoformat())

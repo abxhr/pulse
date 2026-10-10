@@ -9,6 +9,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ..models import DailyHealth, Sleep, Activity, Workout, Meal, BodyWeight, SyncLog
+from .run_splits import best_window, decoupling_pct
 
 
 def _avg(values):
@@ -18,8 +19,8 @@ def _avg(values):
 
 def latest_health(db: Session) -> DailyHealth | None:
     """Most recent day with real data. The literal newest date row is often an
-    empty shell — Garmin frequently hasn't finished computing resting HR / stress
-    / body battery for today (or the last day or two) yet — so prefer a day that
+    empty shell - Garmin frequently hasn't finished computing resting HR / stress
+    / body battery for today (or the last day or two) yet - so prefer a day that
     actually has something, falling back to the bare newest row if truly nothing
     has synced."""
     row = db.execute(
@@ -154,7 +155,7 @@ def karvonen_zones(db: Session) -> dict | None:
     """Personalized HR zones from the heart-rate-reserve method (Karvonen):
     target = (max - resting) * intensity% + resting. Generic %-of-max bands
     (what most trackers ship by default) systematically under/over-shoot for
-    anyone with an unusually low resting HR — this uses your actual measured
+    anyone with an unusually low resting HR - this uses your actual measured
     values instead."""
     max_hr = db.execute(select(func.max(Activity.max_hr))).scalar()
     resting = db.execute(
@@ -174,7 +175,7 @@ def karvonen_zones(db: Session) -> dict | None:
 
 
 def sessions_by_karvonen_zone(db: Session, days: int = 90) -> list[dict]:
-    """Buckets each run by which personalized zone its average HR falls in —
+    """Buckets each run by which personalized zone its average HR falls in -
     approximate (avg HR per session, not a true time-in-zone breakdown, since
     we don't store second-by-second HR streams), but zone thresholds are
     genuinely personalized rather than generic %-of-max bands."""
@@ -189,7 +190,7 @@ def sessions_by_karvonen_zone(db: Session, days: int = 90) -> list[dict]:
     zones = kz["zones"]
     for a in acts:
         if a.avg_hr < zones[0]["low_bpm"]:
-            continue  # below Z1 — pre-warmup / very easy, not counted
+            continue  # below Z1 - pre-warmup / very easy, not counted
         for i, z in enumerate(zones):
             is_last = i == len(zones) - 1
             if z["low_bpm"] <= a.avg_hr <= (10**9 if is_last else z["high_bpm"]):
@@ -199,7 +200,7 @@ def sessions_by_karvonen_zone(db: Session, days: int = 90) -> list[dict]:
 
 
 def hr_zone_summary(db: Session, days: int = 30) -> dict:
-    """Time-in-HR-zone across recent activities — sourced from each activity's raw
+    """Time-in-HR-zone across recent activities - sourced from each activity's raw
     Garmin payload (hrTimeInZone_1..5), which we already store but don't aggregate."""
     start = date.today() - timedelta(days=days)
     rows = db.execute(
@@ -260,7 +261,7 @@ def sleep_trend(db: Session, days: int = 30) -> list[dict]:
 
 
 def sleep_consistency(db: Session, days: int = 30) -> dict:
-    """How stable bedtime/wake time are — a big lever on actual sleep quality that
+    """How stable bedtime/wake time are - a big lever on actual sleep quality that
     the raw score alone doesn't capture."""
     trend = sleep_trend(db, days)
     bedtimes = [r["bedtime_hour"] for r in trend if r["bedtime_hour"] is not None]
@@ -406,7 +407,7 @@ _TRACKED_MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps", "core",
 
 def activity_calendar(db: Session, days: int = 365) -> list[dict]:
     """GitHub-contributions-style daily log density across everything tracked
-    (cardio, strength, meals, weigh-ins) — a level 0-4 per day based on how
+    (cardio, strength, meals, weigh-ins) - a level 0-4 per day based on how
     many different categories you logged, for a single at-a-glance view of
     how consistently you're actually using the app vs. just on good weeks."""
     start = date.today() - timedelta(days=days)
@@ -438,7 +439,7 @@ def activity_calendar(db: Session, days: int = 365) -> list[dict]:
 
 def muscle_recency(db: Session, days: int = 60) -> dict:
     """Days since each muscle group was last trained, and a 0-1 'overdue'
-    intensity (capped at 10 days) for reusing the same heatmap body diagram —
+    intensity (capped at 10 days) for reusing the same heatmap body diagram -
     this week's volume alone doesn't tell you a muscle's been neglected for
     three weeks if it just happened to get hit once this Monday."""
     start = date.today() - timedelta(days=days)
@@ -470,7 +471,7 @@ def muscle_recency(db: Session, days: int = 60) -> dict:
 
 
 def strength_this_week(db: Session) -> dict:
-    """Per-muscle-group volume + sets for the current Monday-Sunday week —
+    """Per-muscle-group volume + sets for the current Monday-Sunday week -
     feeds the muscle-heatmap body diagram."""
     today = date.today()
     monday = today - timedelta(days=today.weekday())
@@ -515,7 +516,7 @@ _RACE_DISTANCES = {
 def race_predictions(db: Session) -> dict | None:
     """Predicted race times from current VO2max, using the standard ACSM running
     VO2-cost equation (VO2 = 0.2*v + 3.5) combined with Daniels'-style %VO2max
-    sustainability by race duration. A well-known approximation, not a lab test —
+    sustainability by race duration. A well-known approximation, not a lab test -
     framed as a ballpark, not gospel."""
     v = latest_vo2max(db)
     if not v or not v.vo2max:
@@ -554,7 +555,7 @@ def _week_key(d: date) -> str:
 
 def personalized_sleep_target(db: Session) -> float | None:
     """Garmin adaptively computes your actual nightly sleep need (age, recent
-    sleep history, training load, HRV) rather than a flat 8h — pulling that
+    sleep history, training load, HRV) rather than a flat 8h - pulling that
     instead of a hardcoded default personalizes the debt tracker per-user
     with zero extra input."""
     rows = db.execute(
@@ -651,7 +652,7 @@ _WHAT_CHANGED_METRICS = [
 
 def what_changed(db: Session, days: int = 7) -> dict | None:
     """One-line callout for the single metric that moved the most vs. its own
-    trailing average — a cheap way to surface the day's most notable signal
+    trailing average - a cheap way to surface the day's most notable signal
     without the user having to scan every chart themselves."""
     trend = health_trend(db, days + 1)
     if len(trend) < 4:
@@ -687,20 +688,20 @@ def what_changed(db: Session, days: int = 7) -> dict | None:
 
 def chronotype(db: Session, days: int = 60) -> dict | None:
     """Classifies sleep-timing tendency from actual bedtime/wake distribution
-    rather than asking — useful for deciding whether to fight your schedule or
+    rather than asking - useful for deciding whether to fight your schedule or
     lean into it."""
     c = sleep_consistency(db, days)
     bt = c["avg_bedtime_hour"]
     if bt is None or c["nights"] < 7:
         return None
     if bt < 22:
-        label, desc = "Early bird", "You naturally wind down early — training/eating late likely costs you sleep quality."
+        label, desc = "Early bird", "You naturally wind down early - training/eating late likely costs you sleep quality."
     elif bt < 23.5:
-        label, desc = "Average", "Your bedtime sits close to the population average — no strong lean either way."
+        label, desc = "Average", "Your bedtime sits close to the population average - no strong lean either way."
     elif bt < 25:
-        label, desc = "Night owl leaning", "You consistently go down later than average — a late bedtime isn't a discipline problem, it's your rhythm."
+        label, desc = "Night owl leaning", "You consistently go down later than average - a late bedtime isn't a discipline problem, it's your rhythm."
     else:
-        label, desc = "Strong night owl", "Your bedtime is well past midnight on average — fighting this with an early alarm is a recurring sleep-debt source."
+        label, desc = "Strong night owl", "Your bedtime is well past midnight on average - fighting this with an early alarm is a recurring sleep-debt source."
     return {"label": label, "description": desc, "avg_bedtime_hour": bt, "avg_wake_hour": c["avg_wake_hour"]}
 
 
@@ -720,7 +721,7 @@ def _pearson(pairs: list[tuple[float, float]]) -> float | None:
 
 def sleep_performance_correlation(db: Session, days: int = 90) -> dict:
     """Correlates last night's sleep score with next-day readiness, strength
-    volume, and run pace — the actual payoff question for someone optimizing
+    volume, and run pace - the actual payoff question for someone optimizing
     training around recovery, not just eyeballing two separate charts."""
     start = date.today() - timedelta(days=days)
     sleep_rows = {r.date: r.sleep_score for r in db.execute(
@@ -768,7 +769,7 @@ def sleep_performance_correlation(db: Session, days: int = 90) -> dict:
 
 
 def bedtime_recommendation(db: Session, target_hours: float = 8.0) -> dict | None:
-    """A concrete "go to bed by X" suggestion, not just a debt number — spreads
+    """A concrete "go to bed by X" suggestion, not just a debt number - spreads
     clearing half the current deficit over the next 3 nights."""
     debt = sleep_debt(db, target_hours=target_hours)
     c = sleep_consistency(db, 14)
@@ -807,7 +808,7 @@ def why_last_night_bad(db: Session) -> dict | None:
     mean = sum(baseline) / len(baseline)
     sd = _std(baseline)
     if not sd or latest.sleep_score >= mean - 0.75 * sd:
-        return None  # last night wasn't notably bad — nothing to explain
+        return None  # last night wasn't notably bad - nothing to explain
 
     def _clock(dt) -> str:
         h12 = dt.hour % 12 or 12
@@ -826,13 +827,13 @@ def why_last_night_bad(db: Session) -> dict | None:
     if latest.avg_stress and latest.avg_stress > 30:
         reasons.append(f"Elevated overnight stress (avg {latest.avg_stress})")
     if (latest.awake_count or 0) >= 5:
-        reasons.append(f"Restless night — {latest.awake_count} awakenings")
+        reasons.append(f"Restless night - {latest.awake_count} awakenings")
 
     return {
         "date": d.isoformat(),
         "score": latest.sleep_score,
         "baseline_mean": round(mean, 1),
-        "reasons": reasons or ["No obvious same-day cause found in logged data — could be untracked (travel, alcohol, illness)."],
+        "reasons": reasons or ["No obvious same-day cause found in logged data - could be untracked (travel, alcohol, illness)."],
     }
 
 
@@ -855,8 +856,8 @@ _CORR_LABELS = {
 def correlation_miner(db: Session, days: int = 90, top_n: int = 6) -> list[dict]:
     """Scans every pair of tracked daily metrics for the strongest correlations,
     instead of only ever checking the one hardcoded pair (sleep -> next-day
-    readiness). Surfaces genuinely non-obvious relationships — e.g. "your
-    resting HR runs higher on days you eat less protein" — that nobody
+    readiness). Surfaces genuinely non-obvious relationships - e.g. "your
+    resting HR runs higher on days you eat less protein" - that nobody
     thought to build a dedicated chart for."""
     start = date.today() - timedelta(days=days)
     by_date: dict = defaultdict(dict)
@@ -904,7 +905,7 @@ def correlation_miner(db: Session, days: int = 90, top_n: int = 6) -> list[dict]
     for i, a in enumerate(metrics):
         for b in metrics[i + 1:]:
             if frozenset((a, b)) in _CORR_TRIVIAL_PAIRS:
-                continue  # same underlying signal by construction — not an insight
+                continue  # same underlying signal by construction - not an insight
             pairs = [(day[a], day[b]) for day in by_date.values() if a in day and b in day]
             if len(pairs) < 15:
                 continue  # too few overlapping days for the correlation to mean anything
@@ -920,7 +921,7 @@ def correlation_miner(db: Session, days: int = 90, top_n: int = 6) -> list[dict]
 
 def adaptive_step_goal(db: Session) -> dict | None:
     """A step target that scales with your own trailing activity level instead
-    of a flat 10k — 10k is arbitrary and doesn't know if you're mid-taper or
+    of a flat 10k - 10k is arbitrary and doesn't know if you're mid-taper or
     mid-base-building. Targets 5% above your trailing 14-day average, so it
     rises as you get more active and eases during legitimately lighter weeks
     instead of reading as failure."""
@@ -935,7 +936,7 @@ def adaptive_step_goal(db: Session) -> dict | None:
 
 
 def overtraining_risk(db: Session) -> dict | None:
-    """Composite illness/overtraining risk — a single weighted score instead
+    """Composite illness/overtraining risk - a single weighted score instead
     of separate single-metric anomaly checks. The real value of combining
     signals: each one alone might sit within normal noise, but several
     *mildly* off at once (HRV a bit low, RHR a bit up, behind on sleep, load
@@ -993,7 +994,7 @@ def training_stress_balance(db: Session, days: int = 180) -> list[dict]:
     into Fitness (CTL, 42-day time constant), Fatigue (ATL, 7-day time
     constant), and Form (TSB = CTL - ATL). Positive form means you're fresh
     and ready for a hard effort or a race; deeply negative form for weeks is
-    the classic overtraining signature — a single number that actually
+    the classic overtraining signature - a single number that actually
     integrates the whole training history instead of just this week's ACWR."""
     lookback = days + 60  # extra history so day-1's EWMA isn't starting from zero
     start = date.today() - timedelta(days=lookback)
@@ -1030,7 +1031,7 @@ def training_stress_balance(db: Session, days: int = 180) -> list[dict]:
 
 
 def training_load_ratio(db: Session) -> dict | None:
-    """Acute:chronic workload ratio (7-day load ÷ 28-day-average-as-a-week) — the
+    """Acute:chronic workload ratio (7-day load ÷ 28-day-average-as-a-week) - the
     standard sports-science injury-risk heuristic. >1.5 means recent load has
     spiked well past what the body's adapted to; <0.8 means detraining."""
     start = date.today() - timedelta(days=28)
@@ -1070,3 +1071,121 @@ def training_load_ratio(db: Session) -> dict | None:
         "ratio": ratio,
         "zone": zone,
     }
+
+
+_RUN_TYPES = ("running", "trail_running", "track_running")
+
+
+def run_insights(db: Session, weeks: int = 12) -> dict | None:
+    """Three runner signals the other cards don't show: aerobic efficiency
+    (speed per heartbeat, 4wk vs prior 4wk), weekly easy/moderate/hard minutes
+    from Garmin's stored hrTimeInZone_*, and long-run share of weekly km."""
+    start = date.today() - timedelta(weeks=weeks)
+    runs = db.execute(select(Activity).where(
+        Activity.date >= start, Activity.activity_type.in_(_RUN_TYPES),
+        Activity.distance_m >= 2000, Activity.duration_s > 0,
+    ).order_by(Activity.date)).scalars().all()
+    if not runs:
+        return None
+
+    def ef(a):  # m/min per bpm; higher = fitter at the same effort
+        return (a.distance_m / a.duration_s * 60) / a.avg_hr if a.avg_hr else None
+
+    def mean_ef(lo, hi):
+        v = [e for a in runs if lo <= a.date < hi and (e := ef(a))]
+        return sum(v) / len(v) if v else None
+
+    today = date.today()
+    now, prev = mean_ef(today - timedelta(weeks=4), today + timedelta(days=1)), mean_ef(today - timedelta(weeks=8), today - timedelta(weeks=4))
+    ef_change = round((now / prev - 1) * 100, 1) if now and prev else None
+
+    wk: dict = defaultdict(lambda: {"easy": 0.0, "moderate": 0.0, "hard": 0.0, "km": 0.0, "long_km": 0.0})
+    for a in runs:
+        w = wk[_week_key(a.date)]
+        km = a.distance_m / 1000
+        w["km"] += km
+        if a.avg_cadence:
+            w.setdefault("cad", []).append(a.avg_cadence)
+        w["long_km"] = max(w["long_km"], km)
+        raw = a.raw or {}
+        z = [(raw.get(f"hrTimeInZone_{i}") or 0) / 60 for i in range(1, 6)]
+        w["easy"] += z[0] + z[1]
+        w["moderate"] += z[2]
+        w["hard"] += z[3] + z[4]
+
+    out = []
+    for k in sorted(wk):
+        w = wk[k]
+        tot = w["easy"] + w["moderate"] + w["hard"]
+        out.append({
+            "week": k, "km": round(w["km"], 1),
+            "easy_pct": round(w["easy"] / tot * 100) if tot else None,
+            "hard_pct": round(w["hard"] / tot * 100) if tot else None,
+            "long_run_pct": round(w["long_km"] / w["km"] * 100) if w["km"] else None,
+            "cadence": round(sum(w["cad"]) / len(w["cad"])) if w.get("cad") else None,
+        })
+    # Best efforts: a run's fastest window from cached splits when it has them,
+    # else the whole run if it is at least that long (a looser lower bound).
+    bests = {}
+    for label, km in (("5k", 5), ("10k", 10), ("half", 21.0975)):
+        cands = []
+        for a in runs:
+            t = best_window(a.splits, km * 1000) if a.splits else None
+            if t is not None:
+                cands.append((t / km, a, "splits"))
+            elif a.distance_m >= km * 1000 and not a.splits:
+                cands.append((a.duration_s / a.distance_m * 1000, a, "whole run"))
+        if cands:
+            pace, b, src = min(cands, key=lambda c: c[0])
+            bests[label] = {"pace_s_per_km": round(pace), "time_s": round(pace * km),
+                            "run_km": round(b.distance_m / 1000, 1), "date": b.date.isoformat(), "source": src}
+
+    decoupling = []
+    for a in runs:
+        d = decoupling_pct(a.splits) if a.splits else None
+        if d is not None:
+            decoupling.append({"date": a.date.isoformat(), "pct": d, "km": round(a.distance_m / 1000, 1)})
+
+    # Pace bands relative to your own median (per-run averages; no split data).
+    paces = sorted(a.duration_s / a.distance_m * 1000 for a in runs)
+    med = paces[len(paces) // 2]
+    bands = {"easier": 0, "steady": 0, "faster": 0}
+    for p in paces:
+        bands["easier" if p > med * 1.08 else "faster" if p < med * 0.92 else "steady"] += 1
+    return {"efficiency_change_pct": ef_change, "weeks": out, "bests": bests,
+            "pace_bands": bands, "median_pace_s_per_km": round(med),
+            "decoupling": decoupling, "splits_coverage": {"with_splits": sum(1 for a in runs if a.splits), "runs": len(runs)}}
+
+
+def decide_session(risk: int | None, form: float | None, readiness: int | None) -> tuple[str, list[str]]:
+    """Pure rule: worst signal wins. Returns (call, reasons)."""
+    reasons, level = [], 0  # 0 hard ok, 1 moderate, 2 easy, 3 rest
+    if risk is not None:
+        lvl = 3 if risk >= 75 else 2 if risk >= 50 else 1 if risk >= 25 else 0
+        if lvl: reasons.append(f"Overtraining/illness risk score {risk}")
+        level = max(level, lvl)
+    if form is not None:
+        lvl = 2 if form < -20 else 1 if form < -10 else 0
+        if lvl: reasons.append(f"Form (TSB) {form}: accumulated fatigue")
+        level = max(level, lvl)
+    if readiness is not None:
+        lvl = 2 if readiness < 30 else 1 if readiness < 50 else 0
+        if lvl: reasons.append(f"Garmin readiness {readiness}")
+        level = max(level, lvl)
+    if risk is None and form is None and readiness is None:
+        return "unknown", ["Not enough data yet"]
+    if not reasons:
+        reasons = ["Recovery signals and load balance look good"]
+    return ("hard", "moderate", "easy", "rest")[level], reasons
+
+
+def todays_call(db: Session) -> dict:
+    risk = overtraining_risk(db)
+    tsb = training_stress_balance(db, 30)
+    h = latest_health(db)
+    call, reasons = decide_session(
+        risk["score"] if risk else None,
+        tsb[-1]["form"] if tsb else None,
+        h.training_readiness if h else None,
+    )
+    return {"call": call, "reasons": reasons}

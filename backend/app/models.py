@@ -106,6 +106,7 @@ class Activity(Base):
     source: Mapped[str] = mapped_column(String(16), default="garmin")
     shoe_id: Mapped[int | None] = mapped_column(Integer)
     route_points: Mapped[list | None] = mapped_column(JSON)  # cached [{lat,lon},...] for the route heatmap
+    splits: Mapped[list | None] = mapped_column(JSON)  # cached Garmin laps (see gc.fetch_splits); [] = checked, none
     raw: Mapped[dict | None] = mapped_column(JSON)
 
 
@@ -155,7 +156,7 @@ class Meal(Base):
     fat_g: Mapped[float | None] = mapped_column(Float)
     fiber_g: Mapped[float | None] = mapped_column(Float)
     notes: Mapped[str | None] = mapped_column(Text)
-    satiety: Mapped[str | None] = mapped_column(String(16))  # hungry|satisfied|very_full — quick adherence tag
+    satiety: Mapped[str | None] = mapped_column(String(16))  # hungry|satisfied|very_full - quick adherence tag
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -207,7 +208,7 @@ class CutGoal(Base):
 
 
 class RaceGoal(Base):
-    """A target race — drives the countdown badge and taper plan on Cardio."""
+    """A target race - drives the countdown badge and taper plan on Cardio."""
     __tablename__ = "race_goal"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -232,7 +233,7 @@ class Shoe(Base):
 
 
 class GoalHistory(Base):
-    """Archived cut/bulk/maintenance phases — CutGoal only ever holds the
+    """Archived cut/bulk/maintenance phases - CutGoal only ever holds the
     current one; this is the "you were cutting Jan-Mar, then maintained
     through May" longer story."""
     __tablename__ = "goal_history"
@@ -279,7 +280,7 @@ class Insight(Base):
 
 
 class PushSubscription(Base):
-    """A browser's Push API subscription — lets the backend send notifications
+    """A browser's Push API subscription - lets the backend send notifications
     even when the app tab isn't open (unlike the old foreground-only version)."""
     __tablename__ = "push_subscription"
 
@@ -301,7 +302,7 @@ class PushLog(Base):
 
 
 class TdeeState(Base):
-    """Single-row Bayesian smoothing state for the TDEE estimate — blending
+    """Single-row Bayesian smoothing state for the TDEE estimate - blending
     each new raw calculation with the prior smoothed value instead of
     replacing it outright, so the macro recommendation doesn't visibly jump
     around as new data arrives."""

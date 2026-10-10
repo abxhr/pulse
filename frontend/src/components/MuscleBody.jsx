@@ -1,7 +1,7 @@
 // Simplified front/back body silhouettes with muscle regions colored by this
-// week's training volume — a lightweight stand-in for Hevy's muscle heatmap.
+// week's training volume - a lightweight stand-in for Hevy's muscle heatmap.
 const HEAT = "#F5A623"; // strength color
-const NEUTRAL = "#1c2230";
+const NEUTRAL = "var(--color-line)";
 
 function heatFill(intensity) {
   if (!intensity) return NEUTRAL;
@@ -40,7 +40,7 @@ export default function MuscleBody({ intensities = {}, onHover }) {
         {/* biceps */}
         <Region d="M52,68 L68,64 L66,112 L50,110 Z" intensity={i("biceps")} label="Biceps" onHover={onHover} />
         <Region d="M148,68 L132,64 L134,112 L150,110 Z" intensity={i("biceps")} label="Biceps" onHover={onHover} />
-        {/* forearms (not tracked — neutral) */}
+        {/* forearms (not tracked - neutral) */}
         <Region d="M49,112 L64,114 L60,152 L47,150 Z" intensity={0} label="Forearms" onHover={onHover} />
         <Region d="M151,112 L136,114 L140,152 L153,150 Z" intensity={0} label="Forearms" onHover={onHover} />
         {/* quads */}

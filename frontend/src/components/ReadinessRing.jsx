@@ -48,14 +48,14 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
               y1={cy + Math.sin(a) * rt}
               x2={cx + Math.cos(a) * (rt + (i % 5 === 0 ? 6 : 3))}
               y2={cy + Math.sin(a) * (rt + (i % 5 === 0 ? 6 : 3))}
-              stroke={lit ? color : "#232a38"}
+              stroke={lit ? color : "var(--color-line)"}
               strokeWidth={i % 5 === 0 ? 1.6 : 1}
               opacity={lit ? 0.9 : 0.5}
             />
           );
         })}
         {/* track */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1c2230" strokeWidth={stroke} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--color-line)" strokeWidth={stroke} />
         {/* readiness arc */}
         <motion.circle
           cx={cx}
@@ -73,7 +73,7 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
           transform={`rotate(-90 ${cx} ${cy})`}
         />
         {/* body battery inner arc */}
-        <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="#1c2230" strokeWidth={5} />
+        <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="var(--color-line)" strokeWidth={5} />
         <motion.circle
           cx={cx}
           cy={cy}
@@ -98,7 +98,7 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}
         >
-          {score ?? "—"}
+          {score ?? "-"}
         </motion.span>
         <span className="text-xs font-medium" style={{ color }}>
           {label || ""}

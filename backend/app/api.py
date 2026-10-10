@@ -148,6 +148,7 @@ def status(db: Session = Depends(get_session)):
         hevy_ready = counts["workouts"] > 0 or any(Path(settings.hevy_import_dir).glob("*.csv"))
     logs = db.execute(select(SyncLog).order_by(SyncLog.started_at.desc()).limit(6)).scalars().all()
     return {
+        "version": settings.app_version,
         "connections": {
             "garmin": garmin_ready,
             "hevy": {"mode": mode, "configured": hevy_ready,
@@ -197,7 +198,7 @@ def dashboard(db: Session = Depends(get_session)):
 
 @router.get("/dashboard/extra")
 def dashboard_extra(db: Session = Depends(get_session)):
-    """Secondary Overview widgets that are a bit heavier to compute — split out
+    """Secondary Overview widgets that are a bit heavier to compute - split out
     of /dashboard so the main hero panel stays fast."""
     return {
         "sleep_debt": analytics.sleep_debt(db, target_hours=analytics.personalized_sleep_target(db) or settings.sleep_target_hours),
@@ -385,7 +386,7 @@ def health_intraday(d: str | None = None, db: Session = Depends(get_session)):
 
 @router.get("/health/current")
 def health_current(db: Session = Depends(get_session)):
-    """Live current stress + body battery reading — bypasses the DB entirely,
+    """Live current stress + body battery reading - bypasses the DB entirely,
     always a fresh call to Garmin, since these change throughout the day and the
     stored daily row only has the day's average/peak stats."""
     try:
@@ -448,8 +449,8 @@ def karvonen_sessions_route(days: int = 90, db: Session = Depends(get_session)):
 def route_heatmap(db: Session = Depends(get_session)):
     """Every cached route overlaid on one map. Routes are cached lazily (see
     /sync below and single-activity route views) rather than fetched live here
-    — fetching dozens of live Garmin calls in one request would be far too slow.
-    Registered before /activities/{activity_id} — FastAPI matches path routes
+    - fetching dozens of live Garmin calls in one request would be far too slow.
+    Registered before /activities/{activity_id} - FastAPI matches path routes
     in registration order, so a literal path here must come first or it'd be
     swallowed by the {activity_id} route with activity_id="route-heatmap"."""
     rows = db.execute(
@@ -474,7 +475,7 @@ def route_heatmap(db: Session = Depends(get_session)):
 @router.post("/activities/route-heatmap/sync")
 def route_heatmap_sync(batch_size: int = 8, db: Session = Depends(get_session)):
     """Fetches+caches routes for a batch of runs that don't have one yet.
-    Call repeatedly from the UI (with a progress bar) until done=True —
+    Call repeatedly from the UI (with a progress bar) until done=True -
     keeps each request fast instead of one giant fetch-everything call."""
     missing = db.execute(
         select(Activity)
@@ -586,6 +587,8 @@ def activity_splits_route(activity_id: str, db: Session = Depends(get_session)):
     a = db.get(Activity, activity_id)
     if not a:
         raise HTTPException(status_code=404, detail="activity not found")
+    if a.splits:
+        return {"splits": a.splits}
     try:
         client = gc.make_client()
     except gc.GarminUnavailable as e:
@@ -593,7 +596,34 @@ def activity_splits_route(activity_id: str, db: Session = Depends(get_session)):
     splits = gc.fetch_splits(client, activity_id)
     if not splits:
         raise HTTPException(status_code=404, detail="no split data for this activity")
+    a.splits = splits
+    db.commit()
     return {"splits": splits}
+
+
+@router.post("/activities/splits/sync")
+def splits_sync(batch_size: int = Query(8, ge=1, le=25), db: Session = Depends(get_session)):
+    """Caches splits for a batch of runs that don't have them yet - same
+    call-until-done contract as the route heatmap sync."""
+    pending = (Activity.splits.is_(None), Activity.activity_type.in_(("running", "trail_running", "track_running")))
+    missing = db.execute(
+        select(Activity).where(*pending).order_by(Activity.date.desc()).limit(batch_size)
+    ).scalars().all()
+    if not missing:
+        return {"fetched": 0, "done": True}
+    try:
+        client = gc.make_client()
+    except gc.GarminUnavailable as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    for a in missing:
+        try:
+            a.splits = gc.fetch_splits(client, a.id, strict=True) or []  # [] = checked, nothing there
+        except Exception as e:  # Garmin error/rate limit: keep progress, leave the rest unmarked to retry
+            db.commit()
+            raise HTTPException(status_code=502, detail=f"Garmin request failed: {e}")
+    db.commit()
+    remaining = db.scalar(select(func.count()).select_from(Activity).where(*pending))
+    return {"fetched": len(missing), "done": remaining == 0, "remaining": remaining}
 
 
 @router.get("/workouts/{workout_id}")
@@ -615,7 +645,7 @@ def workout_detail(workout_id: str, db: Session = Depends(get_session)):
 @router.post("/workouts/{workout_id}/push-to-garmin")
 def push_workout_to_garmin(workout_id: str, db: Session = Depends(get_session)):
     """Upload this workout to Garmin Connect as a structured strength workout and
-    push it to your watch. Exercise matching against Garmin's catalog is best-effort —
+    push it to your watch. Exercise matching against Garmin's catalog is best-effort -
     the response reports which exercises matched exactly vs. fell back to a broad
     category guess, so sets/reps/weight are always preserved either way."""
     w = db.get(Workout, workout_id)
@@ -658,6 +688,21 @@ def training_load(weeks: int = 12, db: Session = Depends(get_session)):
 @router.get("/training/race-predictions")
 def race_predictions(db: Session = Depends(get_session)):
     return analytics.race_predictions(db) or {}
+
+
+@router.get("/training/plan-compliance")
+def plan_compliance(weeks: int = Query(6, ge=1, le=26), db: Session = Depends(get_session)):
+    return planner.run_compliance(db, weeks)
+
+
+@router.get("/training/todays-call")
+def todays_call(db: Session = Depends(get_session)):
+    return analytics.todays_call(db)
+
+
+@router.get("/training/run-insights")
+def run_insights(weeks: int = 12, db: Session = Depends(get_session)):
+    return analytics.run_insights(db, weeks) or {}
 
 
 @router.get("/training/race-goal")
@@ -728,7 +773,7 @@ def _restart_process():
 
 @router.post("/system/restart")
 def restart_server(background: BackgroundTasks):
-    """Re-exec the server process in place — picks up a fresh .env, clears any
+    """Re-exec the server process in place - picks up a fresh .env, clears any
     stuck-in-memory state, without needing to touch the machine."""
     background.add_task(_restart_process)
     return {"status": "restarting"}
@@ -737,7 +782,7 @@ def restart_server(background: BackgroundTasks):
 # ---------- sync (runs in background; poll /status) ----------
 # The plain endpoints default to a fast "quick sync" (last quick_sync_days) so the
 # Sync button and the 30-min scheduler stay quick. Pass ?full=true for a deep
-# backfill over the full default_backfill_days window (slow — years of history).
+# backfill over the full default_backfill_days window (slow - years of history).
 @router.post("/sync/garmin")
 def sync_garmin(background: BackgroundTasks, days: int | None = None, full: bool = False):
     n = days or (settings.default_backfill_days if full else settings.quick_sync_days)
@@ -800,7 +845,7 @@ def create_insight(payload: dict = Body(default={}), db: Session = Depends(get_s
 
 @router.get("/insights/daily")
 def daily_insight(db: Session = Depends(get_session)):
-    """Cached once-a-day briefing for the Overview page — generated automatically
+    """Cached once-a-day briefing for the Overview page - generated automatically
     if today's doesn't exist yet, otherwise returns the cached one instantly."""
     try:
         return insights.get_or_generate_daily(db)
@@ -818,7 +863,7 @@ def refresh_daily_insight(db: Session = Depends(get_session)):
 
 @router.get("/insights/weekly")
 def weekly_digest(db: Session = Depends(get_session)):
-    """Cached once-a-week proactive digest — a standing check-in rather than
+    """Cached once-a-week proactive digest - a standing check-in rather than
     only ever responding to on-demand chat questions."""
     try:
         return insights.get_or_generate_weekly(db)
@@ -956,7 +1001,7 @@ async def analyze_meal(
     provider: str | None = Form(default=None),
 ):
     """AI-estimate macros from a meal photo and/or free-text description
-    (e.g. weighed ingredients). Returns an estimate to prefill the add-meal form —
+    (e.g. weighed ingredients). Returns an estimate to prefill the add-meal form -
     nothing is saved here; the user still confirms via POST /nutrition/meals."""
     image_b64 = media_type = None
     if image is not None and image.filename:
@@ -983,7 +1028,7 @@ async def extract_recipe(
 ):
     """Extract a structured recipe + per-serving macros from screenshots, a
     YouTube/TikTok/Instagram URL, and/or pasted text. Returns the extraction for
-    the user to review/edit — POST /recipes to actually save it."""
+    the user to review/edit - POST /recipes to actually save it."""
     source_type = "text"
     combined_text_parts = [text] if text else []
 

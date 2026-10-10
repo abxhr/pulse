@@ -12,7 +12,7 @@ import { FavoriteMeals, StreakBadge, ProteinTimingChart, HydrationCard } from ".
 import { useVoiceInput } from "../lib/useVoiceInput";
 import { enqueueMeal, getQueue, flushQueue } from "../lib/offlineQueue";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"];
 const MACROS = [
   { key: "calories", label: "Calories", unit: "kcal", color: COLORS.nutrition },
@@ -72,7 +72,7 @@ function BarcodeLookup({ onFound }) {
       onFound(p);
       setUpc("");
     } catch {
-      setErr("Not found — try manual entry.");
+      setErr("Not found - try manual entry.");
     } finally {
       setBusy(false);
     }
@@ -144,7 +144,7 @@ function ScanMeal({ onEstimate, aiStatus }) {
       setPreview(null);
       setNotes("");
     } catch (err) {
-      setError("Couldn't read that meal — try adding more detail, or enter it manually.");
+      setError("Couldn't read that meal - try adding more detail, or enter it manually.");
     } finally {
       setBusy(false);
     }
@@ -182,7 +182,7 @@ function ScanMeal({ onEstimate, aiStatus }) {
 
       <div className="relative">
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-          placeholder="Optional details — e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil"
+          placeholder="Optional details - e.g. 150g rice, 200g chicken breast, 1 tbsp olive oil"
           className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 pr-10 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
         {voice.supported && (
           <button type="button" onClick={voice.toggle} title="Voice input"
@@ -326,7 +326,7 @@ const AddMealForm = forwardRef(function AddMealForm({ onAdded, aiStatus }, ref) 
               <ImageIcon size={13} className="mt-0.5 shrink-0" />
               <span>
                 AI estimate ({estimate.confidence || "medium"} confidence)
-                {estimate.notes ? ` — ${estimate.notes}` : ""}. Review before saving.
+                {estimate.notes ? ` - ${estimate.notes}` : ""}. Review before saving.
               </span>
             </div>
           )}
@@ -477,7 +477,7 @@ export default function Nutrition({ aiStatus }) {
     <div className="space-y-4">
       {queued > 0 && (
         <div className="rounded-xl border border-strength/30 bg-strength/10 px-4 py-2.5 text-xs text-strength">
-          {queued} meal{queued === 1 ? "" : "s"} logged offline — will sync automatically once you're back online.
+          {queued} meal{queued === 1 ? "" : "s"} logged offline - will sync automatically once you're back online.
         </div>
       )}
 
@@ -516,7 +516,7 @@ export default function Nutrition({ aiStatus }) {
               (totals?.calories ?? 0) - burned.calories_total > 0 ? "text-effort" : "text-recovery"
             }`}>
               {(totals?.calories ?? 0) - burned.calories_total > 0 ? "+" : ""}{fmtNum((totals?.calories ?? 0) - burned.calories_total)}
-            </div> : <div className="font-mono text-lg font-semibold text-faint">—</div>}
+            </div> : <div className="font-mono text-lg font-semibold text-faint">-</div>}
           </div>
         </div>
       )}
@@ -527,7 +527,7 @@ export default function Nutrition({ aiStatus }) {
 
       <AddMealForm ref={formRef} onAdded={refresh} aiStatus={aiStatus} />
 
-      <button disabled={!meals?.length} onClick={toggleComplete} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition disabled:opacity-40 ${today.complete?"border-recovery/30 bg-recovery/10 text-recovery":"border-line bg-panel2 text-muted"}`}><CheckCircle2 size={16}/>{today.complete?"Day marked complete — net calories are valid":"Finished logging today? Mark day complete"}</button>
+      <button disabled={!meals?.length} onClick={toggleComplete} className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition disabled:opacity-40 ${today.complete?"border-recovery/30 bg-recovery/10 text-recovery":"border-line bg-panel2 text-muted"}`}><CheckCircle2 size={16}/>{today.complete?"Day marked complete - net calories are valid":"Finished logging today? Mark day complete"}</button>
 
       <Panel accent={COLORS.nutrition} title="Today's meals" sub={meals?.length ? `${meals.length} logged` : "nothing logged yet"}>
         {!meals?.length ? (
@@ -567,7 +567,7 @@ export default function Nutrition({ aiStatus }) {
       <Panel accent={COLORS.nutrition} title="Calories" sub="last 14 days">
         {trendChart.length ? <ResponsiveContainer width="100%" height={200}>
           <BarChart data={trendChart} margin={{ left: -18, right: 8, top: 6 }}>
-            <CartesianGrid stroke="#1c2230" vertical={false} />
+            <CartesianGrid stroke="var(--color-line)" vertical={false} />
             <XAxis dataKey="date" tick={axis} tickFormatter={fmtDate} minTickGap={20} axisLine={false} tickLine={false} />
             <YAxis tick={axis} axisLine={false} tickLine={false} width={34} />
             <Tooltip content={<Tip />} cursor={{ fill: "#ffffff08" }} />

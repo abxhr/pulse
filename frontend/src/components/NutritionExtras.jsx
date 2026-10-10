@@ -7,7 +7,7 @@ import { api } from "../lib/api";
 import { COLORS, fmtNum } from "../lib/format";
 import { Panel } from "./primitives";
 
-const axis = { stroke: "#5b6479", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
 
 export function FavoriteMeals({ onRelog }) {
   const [favs, setFavs] = useState([]);
@@ -64,11 +64,11 @@ export function ProteinTimingChart() {
     <Panel accent={COLORS.strength} title="Protein timing" sub="distribution across today">
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={chart} margin={{ left: -18, right: 8, top: 6 }}>
-          <CartesianGrid stroke="#1c2230" vertical={false} />
+          <CartesianGrid stroke="var(--color-line)" vertical={false} />
           <XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} />
           <YAxis tick={axis} axisLine={false} tickLine={false} width={30} />
           <Tooltip
-            contentStyle={{ background: "#171C28", border: "1px solid #232a38", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+            contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
             formatter={(v, n, p) => [`${fmtNum(v)}g`, p.payload.name]} />
           <Bar dataKey="protein_g" fill={COLORS.strength} radius={[4, 4, 0, 0]} maxBarSize={40} />
         </BarChart>
@@ -120,7 +120,7 @@ export function TdeeConfidence({ data }) {
     <div className="flex items-start gap-2 text-[11px] text-faint">
       <Info size={13} className="mt-0.5 shrink-0" style={{ color: colors[data.confidence] }} />
       <span>
-        <span className="font-medium" style={{ color: colors[data.confidence] }}>{data.confidence} confidence</span> — {data.method}.
+        <span className="font-medium" style={{ color: colors[data.confidence] }}>{data.confidence} confidence</span> - {data.method}.
         {data.days_for_higher_confidence > 0 && ` ${data.days_for_higher_confidence} more logged days to firm this up.`}
       </span>
     </div>
