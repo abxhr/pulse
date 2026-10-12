@@ -16,3 +16,7 @@ dist/
 
 # os
 .DS_Store
+
+# local tooling
+.claude/
+.playwright-mcp/

@@ -4,6 +4,11 @@
 
 **Added**
 
+- A Coach that can act, not just talk: it reads every part of the app, logs meals/water/weight/check-ins, records injuries, sets your race, writes sessions into your plan, and answers with charts, stat tiles, plans and buttons. Anything destructive waits for your click.
+- Race readiness: an honest "will I be OK?" for any distance (custom km supported), based on your longest run, volume and days left, with a day-by-day bridge plan you can add to your plan in one tap.
+- Injuries: log one (or tell the Coach) and the planner stops scheduling work that loads it, e.g. a wrist injury turns upper-body sessions into lower-body ones.
+- A daily briefing from the Coach at the top of Today, rewritten when an injury or race changes. Coach is also one click (or Ctrl+J) away on every screen.
+
 - Recovery (0-100) scored from tonight's HRV, resting heart rate, breathing rate and sleep against your own 28-day baselines.
 - Day Strain (0-21) from heart-rate-zone load, with a strain target based on how recovered you are.
 - Sleep need and sleep performance: baseline need plus today's strain plus recent sleep debt.

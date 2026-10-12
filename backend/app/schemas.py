@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date as date_t
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 class PasswordBody(BaseModel):
@@ -61,8 +61,15 @@ class RecipeExtractUrl(BaseModel):
 class RaceGoalBody(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     race_date: date_t
-    distance_type: Literal["5k", "10k", "half_marathon", "marathon"]
-    target_time_s: int | None = Field(default=None, ge=600, le=60 * 60 * 12)
+    distance_type: Literal["5k", "10k", "half_marathon", "marathon", "custom"]
+    distance_km: float | None = Field(default=None, ge=1, le=250)
+    target_time_s: int | None = Field(default=None, ge=600, le=60 * 60 * 24)
+
+    @model_validator(mode="after")
+    def custom_needs_distance(self):
+        if self.distance_type == "custom" and not self.distance_km:
+            raise ValueError("distance_km is required for a custom distance")
+        return self
 
 
 class ShoeAssignBody(BaseModel):

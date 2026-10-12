@@ -120,7 +120,7 @@ def gen(days: int = 90):
             ))
     db.commit()
     db.close()
-    print(f"✅ Seeded {days} days of demo data. Start the server and open the dashboard.")
+    print(f"Seeded {days} days of demo data. Start the server and open the dashboard.")
 
 
 if __name__ == "__main__":

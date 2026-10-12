@@ -52,7 +52,7 @@ function WeekHeatmap({ week }) {
           ? mode === "volume"
             ? `${hover}${hoveredVolume ? ` · ${fmtNum(hoveredVolume.volume_kg)}kg · ${hoveredVolume.sets} sets` : " · not hit yet"}`
             : `${hover}${hoveredRecency?.days_since != null ? ` · ${hoveredRecency.days_since}d ago` : " · not trained in 60d"}`
-          : "hover a region"}
+          : "tap a muscle"}
       </div>
       {mode === "volume" && !week.workout_count && (
         <p className="mt-2 text-center text-xs text-faint">No workouts logged yet this week.</p>

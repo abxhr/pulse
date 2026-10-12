@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
+import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
@@ -18,60 +16,8 @@ import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
 import { useDashboardLayout } from "../lib/useDashboardLayout";
 import DataFreshness, { FreshnessBadge } from "../components/DataFreshness";
 import CommandCenter from "../components/CommandCenter";
-
-function DailyInsight() {
-  const [insight, setInsight] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const [open, setOpen] = useState(false);
-
-  const load = () => api.dailyInsight().then(setInsight).catch((e) => setErr(String(e)));
-  useEffect(() => { load(); }, []);
-
-  async function refresh() {
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await api.refreshDailyInsight();
-      setInsight(res);
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (err) {
-    return (
-      <Panel accent={COLORS.recovery} title="Today's briefing">
-        <p className="text-xs text-faint">
-          {err.includes("not set") ? "Add an AI key in .env and restart the server to enable daily briefings." : err}
-        </p>
-      </Panel>
-    );
-  }
-  if (!insight) return null;
-
-  return (
-    <Panel accent={COLORS.recovery} title="Today's briefing"
-      sub={open ? `auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "tap to expand"}
-      right={
-        <div className="flex items-center gap-2">
-          {open && (
-            <button onClick={refresh} disabled={busy} title="Refresh"
-              className="flex items-center gap-1.5 rounded-lg bg-panel2 px-2.5 py-1 text-xs text-muted transition hover:border-recovery/40 disabled:opacity-50">
-              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
-            </button>
-          )}
-          <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
-            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      }>
-      {open && <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>}
-    </Panel>
-  );
-}
+import Briefing from "../components/coach/Briefing";
+import RaceReadiness from "../components/RaceReadiness";
 
 const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
@@ -97,7 +43,6 @@ const SECTIONS = [
   { id: "hero", label: "Readiness + Vitals" },
   { id: "performance", label: "Recovery, strain & sleep" },
   { id: "command_center", label: "Daily plan, goals & alerts" },
-  { id: "briefing", label: "Today's briefing" },
   { id: "insights", label: "Sleep debt, load ratio & alerts" },
   { id: "recovery_sleep", label: "Recovery & Sleep charts" },
   { id: "steps_intraday", label: "Steps & intraday" },
@@ -143,7 +88,6 @@ export default function Dashboard() {
   const sections = {
     performance: <PerformanceTrio />,
     command_center: <CommandCenter data={command} onRefresh={refreshCommand} />,
-    briefing: <DailyInsight />,
 
     hero: (
       <Panel
@@ -154,7 +98,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
           <div className="flex flex-col items-center gap-3">
             <ReadinessRing score={s.training_readiness} label={s.training_readiness_label} bodyBattery={bb} />
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
               {s.training_status && <Chip color={COLORS.cardio}>{s.training_status}</Chip>}
               {s.hrv_status && <Chip color={COLORS.recovery}>HRV {s.hrv_status}</Chip>}
             </div>
@@ -364,6 +308,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
+      {/* Intelligence first: the Coach's read on today and on the race, ahead of any layout-sortable sections. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Briefing />
+        <RaceReadiness />
+      </div>
       <div className="flex justify-end">
         <CustomizeButton onClick={() => setShowLayout(true)} />
       </div>

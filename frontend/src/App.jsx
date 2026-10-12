@@ -15,6 +15,7 @@ import { useReminders } from "./lib/useReminders";
 import { Loading } from "./components/primitives";
 import AuthGate from "./components/AuthGate";
 import QuickLog from "./components/QuickLog";
+import CoachDock from "./components/coach/CoachDock";
 import ToastHost from "./components/ToastHost";
 import { hashForRoute, routeFromHash } from "./lib/navigation";
 
@@ -87,6 +88,12 @@ export default function App() {
   }, []);
 
   const refresh = useCallback(() => api.status().then(setStatus).catch(() => {}), []);
+  // The Coach changed something: remount the page so cards refetch, except on the Coach page (it holds the live chat).
+  useEffect(() => {
+    const changed = () => { if (hashView() !== "insights") setDataEpoch((n) => n + 1); };
+    window.addEventListener("pulse:data-changed", changed);
+    return () => window.removeEventListener("pulse:data-changed", changed);
+  }, []);
   const checkAuth = useCallback(() => api.authStatus().then(setAuth).catch(() => setAuth({ configured: true, authenticated: false, setup_allowed: false })), []);
   useEffect(() => { checkAuth(); const lock=()=>checkAuth(); window.addEventListener("pulse:unauthorized", lock); return()=>window.removeEventListener("pulse:unauthorized", lock); }, [checkAuth]);
   useEffect(() => { if (auth?.authenticated) refresh(); }, [refresh, auth?.authenticated]);
@@ -281,7 +288,8 @@ export default function App() {
       </nav>
 
       <Changelog open={showChangelog} onClose={() => setShowChangelog(false)} />
-      <QuickLog onNavigate={navigate} />
+      {view !== "insights" && <QuickLog onNavigate={navigate} />}
+      <CoachDock view={view} />
       <CommandPalette onNavigate={navigate} />
       <ToastHost />
     </div>

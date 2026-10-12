@@ -12,12 +12,24 @@ from ..models import RaceGoal, Shoe, Activity
 from .analytics import training_load
 
 _RACE_LABELS = {"5k": "5K", "10k": "10K", "half_marathon": "Half Marathon", "marathon": "Marathon"}
+RACE_KM = {"5k": 5.0, "10k": 10.0, "half_marathon": 21.0975, "marathon": 42.195}
+
+
+def race_km(distance_type: str, distance_km: float | None = None) -> float:
+    return distance_km or RACE_KM.get(distance_type, 21.0975)
+
+
+def distance_type_for(km: float) -> str:
+    """Snap to a standard distance when within 0.3 km, otherwise it is a custom race."""
+    return next((t for t, d in RACE_KM.items() if abs(d - km) <= 0.3), "custom")
 
 
 def _serialize_race(g: RaceGoal) -> dict:
+    km = race_km(g.distance_type, g.distance_km)
     return {
         "id": g.id, "name": g.name, "race_date": g.race_date.isoformat(),
-        "distance_type": g.distance_type, "distance_label": _RACE_LABELS.get(g.distance_type, g.distance_type),
+        "distance_type": g.distance_type, "distance_km": round(km, 2),
+        "distance_label": _RACE_LABELS.get(g.distance_type) or f"{km:g} km",
         "target_time_s": g.target_time_s,
     }
 
@@ -27,9 +39,11 @@ def get_active_race(db: Session) -> dict | None:
     return _serialize_race(g) if g else None
 
 
-def set_race_goal(db: Session, name: str, race_date: date, distance_type: str, target_time_s: int | None) -> dict:
+def set_race_goal(db: Session, name: str, race_date: date, distance_type: str, target_time_s: int | None,
+                  distance_km: float | None = None) -> dict:
     db.execute(RaceGoal.__table__.update().values(active=False))
-    g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s, active=True)
+    g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s,
+                 distance_km=distance_km if distance_type == "custom" else None, active=True)
     db.add(g)
     db.commit()
     return _serialize_race(g)

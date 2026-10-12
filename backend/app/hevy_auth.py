@@ -36,8 +36,7 @@ def main(argv=None):
         tokens = capture_tokens_via_browser(timeout_sec=300)
     except Exception as e:
         sys.exit(
-            f"Couldn't capture a login session: {e}
-"
+            f"Couldn't capture a login session: {e}\n"
             "If this is the first run, you may need: python -m playwright install chromium"
         )
 

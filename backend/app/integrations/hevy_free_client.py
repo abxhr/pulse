@@ -123,7 +123,7 @@ def _normalize(w: dict) -> dict:
     return {
         "id": f"hevy-{wid}", "date": start.date() if start else None,
         "start_time": start, "end_time": end,
-        "title": w.get("title"), "description": w.get("description"),
+        "title": w.get("title") or w.get("name"), "description": w.get("description"),
         "duration_s": duration, "volume_kg": round(volume, 1),
         "set_count": set_count, "exercise_count": len(exercises),
         "exercises": exercises, "source": "hevy-api", "raw": w,
@@ -133,10 +133,11 @@ def _normalize(w: dict) -> dict:
 _OLDER_RUN = 25  # stop after this many consecutive workouts older than `since` (the feed is newest-first)
 
 
-def fetch_all_workouts(page_size: int = 50, max_pages: int = 200, since: "date | None" = None) -> list[dict]:
+def fetch_all_workouts(page_size: int = 5, max_pages: int = 1000, since: "date | None" = None) -> list[dict]:
     """Pull workouts via the unofficial client's real API (client.users / client.workouts
     are pre-built resource instances). With `since`, stop once the feed is clearly older
     than that date, so a routine sync fetches a page or two instead of the whole history."""
+    # Hevy's private API rejects limit > 5 with an empty HTTP 400, so keep page_size at 5
     with _client() as client:
         account = client.users.get_account()
         username = _username(account)

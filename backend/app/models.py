@@ -215,6 +215,7 @@ class RaceGoal(Base):
     name: Mapped[str] = mapped_column(String(255))
     race_date: Mapped[date_t] = mapped_column(Date)
     distance_type: Mapped[str] = mapped_column(String(16))  # 5k|10k|half_marathon|marathon
+    distance_km: Mapped[float | None] = mapped_column(Float)  # exact distance; required when distance_type == "custom"
     target_time_s: Mapped[int | None] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -277,6 +278,7 @@ class Insight(Base):
     provider: Mapped[str | None] = mapped_column(String(32))
     model: Mapped[str | None] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
+    blocks: Mapped[list | None] = mapped_column(JSON)  # rich Coach reply: ordered text/chart/stats/plan/action blocks
 
 
 class PushSubscription(Base):
@@ -448,3 +450,19 @@ class HealthAnnotation(Base):
     label: Mapped[str] = mapped_column(String(128))
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Injury(Base):
+    """An injury or niggle the owner is carrying. Drives planner restrictions and
+    the Coach's race-readiness reasoning."""
+    __tablename__ = "injury"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    area: Mapped[str] = mapped_column(String(64))            # e.g. "wrist (TFCC)", "left knee"
+    side: Mapped[str | None] = mapped_column(String(16))     # left | right | both
+    started: Mapped[date_t] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | recovering | resolved
+    pain: Mapped[int | None] = mapped_column(Integer)        # latest 0-10
+    restrictions: Mapped[list | None] = mapped_column(JSON)  # plain-language limits, e.g. ["no loaded wrist extension"]
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

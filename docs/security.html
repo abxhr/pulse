@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy | Pulse</title><meta name="description" content="How Pulse keeps your health data on your own machine.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./">Home</a><a href="features.html">Features</a><a href="setup.html">Set up</a><a href="integrations.html">Integrations</a><a href="phone.html">Phone</a><a href="security.html" aria-current=page>Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>Privacy</h1><p class="lede">Your health data lives in a SQLite file on your computer. The only thing that leaves is what you choose to send to an AI.</p></section>
+<h2>Where your data lives</h2><p>In <code>backend/data/pulse.db</code>, plus cached login tokens next to it. That folder and your <code>.env</code> are git-ignored, so they never reach the repository. Pulse has no account and no cloud service of its own.</p>
+<h2>What goes to the AI</h2><p>Only when you use the Coach or generate a report narrative, and only with your own key. It receives a compact JSON summary of daily aggregates and trends, not raw activity or sleep records.</p>
+<h2>Sign-in and protections</h2>
+<ul><li>One password you choose (10 characters or more), stored as a salted scrypt hash. Setting or resetting it is only allowed from the computer running Pulse.</li>
+<li>All health data and every change require sign-in. Failed logins are rate limited.</li>
+<li>Strict browser headers, including a Content-Security-Policy, and restricted cross-origin access (<code>CORS_ORIGINS</code>).</li>
+<li>Upload size limits, and backups you can take and restore locally.</li></ul>
+<h2>What this site and repository contain</h2>
+<p>Only code and invented demo data. The screenshots come from a demo database created by <code>python -m app.seed</code>. If you fork it, keep <code>.env</code> and <code>backend/data/</code> out of git; the included <code>.gitignore</code> already does.</p>
+<p>Found a security problem? Please open an issue on <a href="https://github.com/abxhr/pulse">GitHub</a> without including any personal data.</p>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>

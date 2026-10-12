@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up | Pulse</title><meta name="description" content="Install Pulse on your own computer in a few minutes, with demo data first.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./">Home</a><a href="features.html">Features</a><a href="setup.html" aria-current=page>Set up</a><a href="integrations.html">Integrations</a><a href="phone.html">Phone</a><a href="security.html">Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>Set it up</h1><p class="lede">Pulse runs on your own computer: a Python backend with a SQLite file, and a React frontend. Start with the demo data, then connect your own accounts when you like.</p></section>
+<h2>You need</h2>
+<ul><li>Python 3.10 or newer, Node.js 18 or newer, and Git</li><li>Optional, for your own data: a Garmin account (a device that records sleep and HRV) and a Hevy account (free is fine)</li><li>Optional: an Anthropic or OpenAI API key for the Coach</li></ul>
+<h2>1. Get the code</h2>
+<pre><code>git clone https://github.com/abxhr/pulse.git
+cd pulse</code></pre>
+<h2>2. Install the backend</h2>
+<pre><code>cd backend
+python -m venv .venv
+# macOS / Linux:
+source .venv/bin/activate
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</code></pre>
+<h2>3. Create your settings file</h2>
+<pre><code>cd ..
+cp .env.example .env      # Windows: copy .env.example .env</code></pre>
+<p>The defaults run as they are. <code>.env</code> is where any keys go later, and it is git-ignored so it never gets committed.</p>
+<h2 id="demo">4. Load the demo data</h2>
+<pre><code>cd backend
+python -m app.seed</code></pre>
+<p>This fills a local database with 90 days of invented sleep, runs and workouts so you can look around before connecting anything. To clear it later: <code>python -m app.seed --wipe</code>, or delete <code>backend/data/pulse.db</code>.</p>
+<h2>5. Build the frontend and run</h2>
+<pre><code>cd ../frontend
+npm install
+npm run build
+cd ../backend
+python -m app.main</code></pre>
+<p>Open <a href="http://localhost:8080">http://localhost:8080</a> <b>on the same computer</b>. The first time, Pulse asks you to choose a password (at least 10 characters). Setting the first password is only allowed from the computer running Pulse.</p>
+<div class="note"><b>Developing instead?</b> <code>./dev.sh</code> (or <code>dev.bat</code> on Windows) runs backend and frontend with hot reload, and the app is at <code>http://localhost:5173</code>.</div>
+<h2>6. Connect your own data</h2>
+<p>When you are done exploring, wipe the demo and connect real accounts:</p>
+<ol class="steps">
+<li><b>Garmin.</b> Run <code>cd backend &amp;&amp; python -m app.auth_garmin</code> once. It asks for your login and any 2FA code and caches tokens locally in <code>backend/data/</code>. Your password is not stored in <code>.env</code>.</li>
+<li><b>Hevy.</b> Pick a mode with <code>HEVY_MODE</code> in <code>.env</code>. <code>csv</code> is the simplest. See <a href="integrations.html">Integrations</a>.</li>
+<li><b>Coach (optional).</b> Add <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> to <code>.env</code> and set <code>AI_PROVIDER</code>.</li>
+<li>Restart the server and press <b>Sync</b>. With <code>ENABLE_SCHEDULER=true</code> it then keeps itself up to date.</li>
+</ol>
+<h2>Keep it running</h2>
+<table><tr><th>System</th><th>How</th></tr>
+<tr><td>Windows</td><td>Put a shortcut to <code>backend/start_server_hidden.vbs</code> in <code>shell:startup</code>. It runs <code>start_server.bat</code> with no console window.</td></tr>
+<tr><td>Linux / Raspberry Pi</td><td>A <code>systemd</code> service running <code>backend/.venv/bin/python -m app.main</code> with <code>Restart=always</code>.</td></tr></table>
+<h2>Troubleshooting</h2>
+<ul><li><b>Garmin asks for MFA again.</b> Re-run <code>python -m app.auth_garmin</code>.</li>
+<li><b>Hevy CSV imported 0 workouts.</b> Use the Workouts export, not a routines export.</li>
+<li><b>Can't reach it from your phone.</b> Check <code>HOST=0.0.0.0</code>, that you built the frontend, and that your firewall allows the port. See <a href="phone.html">Phone</a>.</li>
+<li><b>Blank readiness or HRV.</b> That needs a Garmin device that records them; very old dates may be empty.</li></ul>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"          # bind to all interfaces so your phone can reach it on the LAN
     port: int = 8000
     serve_frontend: bool = True    # serve the built frontend from FastAPI (single process, one URL)
-    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080,https://abxhr-core.tail551b1d.ts.net"
+    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080"
     trusted_proxy_ips: str = "127.0.0.1,::1"
     max_upload_mb: int = 16
     login_attempts: int = 5

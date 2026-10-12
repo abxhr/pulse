@@ -16,6 +16,7 @@ from .config import settings
 from .db import init_db, SessionLocal
 from .services import auth as auth_svc
 from .api import router
+from .agent_api import router as agent_router
 from .errors import error_response, install_error_handlers
 
 logging.basicConfig(level=logging.INFO)
@@ -65,11 +66,11 @@ def _sanitize_existing_activities() -> None:
 
 def _generate_daily_insight() -> None:
     from .db import SessionLocal
-    from .services import insights
+    from .services import agent
     db = SessionLocal()
     try:
-        insights.get_or_generate_daily(db)
-        log.info("Daily insight generated")
+        agent.briefing(db)
+        log.info("Daily briefing generated")
     except Exception as e:
         log.warning("Daily insight generation failed (will retry on next Overview load): %s", e)
     finally:
@@ -175,6 +176,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(agent_router)
 
 
 @app.get("/api/health")

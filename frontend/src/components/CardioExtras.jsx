@@ -113,6 +113,7 @@ export function KarvonenZonesCard() {
 const DIST_OPTIONS = [
   { value: "5k", label: "5K" }, { value: "10k", label: "10K" },
   { value: "half_marathon", label: "Half Marathon" }, { value: "marathon", label: "Marathon" },
+  { value: "custom", label: "Custom distance" },
 ];
 
 export function RaceGoalCard() {
@@ -121,14 +122,15 @@ export function RaceGoalCard() {
   const [name, setName] = useState("");
   const [raceDate, setRaceDate] = useState("");
   const [dist, setDist] = useState("10k");
+  const [km, setKm] = useState("");
 
   const refresh = () => { api.raceGoal().then((r) => setRace(r?.name ? r : null)).catch(() => setRace(null)); };
   useEffect(refresh, []);
 
   async function save(e) {
     e.preventDefault();
-    if (!name || !raceDate) return;
-    await api.setRaceGoal({ name, race_date: raceDate, distance_type: dist });
+    if (!name || !raceDate || (dist === "custom" && !(+km > 0))) return;
+    await api.setRaceGoal({ name, race_date: raceDate, distance_type: dist, ...(dist === "custom" ? { distance_km: +km } : {}) });
     setForm(false);
     setName(""); setRaceDate("");
     refresh();
@@ -168,6 +170,13 @@ export function RaceGoalCard() {
             {DIST_OPTIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
           </select>
         </div>
+        {dist === "custom" && (
+          <div>
+            <label htmlFor="race-km" className="mb-1 block text-xs text-faint">Kilometres</label>
+            <input id="race-km" type="number" min="1" step="0.1" value={km} onChange={(e) => setKm(e.target.value)} placeholder="25"
+              className="w-24 rounded-lg border border-line bg-ink px-2 py-2 text-sm text-txt focus:border-cardio/50 focus:outline-none" />
+          </div>
+        )}
         <button type="submit" className="rounded-lg bg-cardio px-4 py-2 text-sm font-semibold text-ink">Save</button>
         <button type="button" onClick={() => setForm(false)} aria-label="Cancel" className="text-faint hover:text-txt"><X size={16} /></button>
       </form>

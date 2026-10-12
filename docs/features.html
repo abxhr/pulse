@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Features | Pulse</title><meta name="description" content="Everything Pulse shows, with screenshots from the built-in demo.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./">Home</a><a href="features.html" aria-current=page>Features</a><a href="setup.html">Set up</a><a href="integrations.html">Integrations</a><a href="phone.html">Phone</a><a href="security.html">Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>Features</h1><p class="lede">Every screen below is the built-in demo: invented data, nothing real.</p></section>
+<h2 style="color:rgb(var(--recovery))">Today</h2><p>Recovery, day strain and sleep performance up top, a 30-day chart, and a plan for the day built from your readiness, training and sleep. Morning and evening check-ins feed the plan.</p><figure><a href="assets/today.png"><img src="assets/today.png" alt="Today" loading="lazy"></a><figcaption>Today</figcaption></figure>
+<h2 style="color:rgb(var(--strength))">Plan</h2><p>An adaptive weekly plan with targets and completion controls.</p><figure><a href="assets/plan.png"><img src="assets/plan.png" alt="Plan" loading="lazy"></a><figcaption>Plan</figcaption></figure>
+<h2 style="color:rgb(var(--cardio))">Cardio</h2><p>Today's call (quality session, easy day or rest), race-time estimates with honest ranges, training stress balance, run insights, splits and route maps. Set a race goal and get a readiness report.</p><figure><a href="assets/cardio.png"><img src="assets/cardio.png" alt="Cardio" loading="lazy"></a><figcaption>Cardio</figcaption></figure>
+<h2 style="color:rgb(var(--strength))">Strength</h2><p>Hevy workouts with volume per muscle, a body map, per-exercise progression and workout detail. Import the free CSV export or sync automatically.</p><figure><a href="assets/strength.png"><img src="assets/strength.png" alt="Strength" loading="lazy"></a><figcaption>Strength</figcaption></figure>
+<h2 style="color:rgb(var(--sleep))">Sleep</h2><p>Nightly stages, sleep debt against your own target, and how sleep fed your recovery score.</p><figure><a href="assets/sleep.png"><img src="assets/sleep.png" alt="Sleep" loading="lazy"></a><figcaption>Sleep</figcaption></figure>
+<h2 style="color:rgb(var(--nutrition))">Nutrition</h2><p>Quick meal logging, daily macro targets, a calorie trend, recipes and a weight cut tracker.</p><figure><a href="assets/nutrition.png"><img src="assets/nutrition.png" alt="Nutrition" loading="lazy"></a><figcaption>Nutrition</figcaption></figure>
+<h2 style="color:rgb(var(--sleep))">Lab</h2><p>Look for patterns across your own history.</p><figure><a href="assets/lab.png"><img src="assets/lab.png" alt="Lab" loading="lazy"></a><figcaption>Lab</figcaption></figure>
+<h2 style="color:rgb(var(--effort))">Reports</h2><p>One, four or twelve week reports with an AI narrative. Print to PDF.</p><figure><a href="assets/reports.png"><img src="assets/reports.png" alt="Reports" loading="lazy"></a><figcaption>Reports</figcaption></figure>
+<h2>Coach</h2><p>Ask the Coach about your training. It works from a compact summary of your recent data, can pull a race-readiness report, and can log injuries or a race goal when you ask. It needs your own Anthropic or OpenAI key; everything else in Pulse works without one.</p>
+<h2>Settings and backups</h2><p>See what is connected, force a sync, switch theme, enable reminders, and back up or export your data as JSON or CSV.</p><figure><a href="assets/settings.png"><img src="assets/settings.png" alt="Settings: connections, appearance, backups and export" loading="lazy"></a><figcaption>Settings: connections, appearance, backups and export</figcaption></figure>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>

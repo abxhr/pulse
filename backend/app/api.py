@@ -49,7 +49,7 @@ def map_tile(z: int, x: int, y: int):
         url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         upstream = requests.get(url, timeout=12, headers={
             "User-Agent": "PulseHealthDashboard/0.9 (+https://github.com/abxhr/pulse)",
-            "Referer": "https://abxhr-core.tail551b1d.ts.net/",
+            "Referer": "https://github.com/abxhr/pulse",
         })
         upstream.raise_for_status()
         content = upstream.content
@@ -742,7 +742,7 @@ def get_race_goal(db: Session = Depends(get_session)):
 
 @router.post("/training/race-goal")
 def post_race_goal(body: RaceGoalBody, db: Session = Depends(get_session)):
-    return cardio_extras.set_race_goal(db, body.name, body.race_date, body.distance_type, body.target_time_s)
+    return cardio_extras.set_race_goal(db, body.name, body.race_date, body.distance_type, body.target_time_s, body.distance_km)
 
 
 @router.delete("/training/race-goal")

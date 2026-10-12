@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Phone | Pulse</title><meta name="description" content="Install Pulse on your phone and reach it from anywhere over a private network.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./">Home</a><a href="features.html">Features</a><a href="setup.html">Set up</a><a href="integrations.html">Integrations</a><a href="phone.html" aria-current=page>Phone</a><a href="security.html">Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>On your phone</h1><p class="lede">Pulse is a progressive web app. Install it to your Home Screen and it opens full screen with its own icon.</p></section>
+<div class="phones" style="margin-top:24px"><figure><a href="assets/phone-today.png"><img src="assets/phone-today.png" alt="Today" loading="lazy"></a><figcaption>Today</figcaption></figure><figure><a href="assets/phone-plan.png"><img src="assets/phone-plan.png" alt="Plan" loading="lazy"></a><figcaption>Plan</figcaption></figure><figure><a href="assets/phone-cardio.png"><img src="assets/phone-cardio.png" alt="Cardio" loading="lazy"></a><figcaption>Cardio</figcaption></figure><figure><a href="assets/phone-nutrition.png"><img src="assets/phone-nutrition.png" alt="Nutrition" loading="lazy"></a><figcaption>Nutrition</figcaption></figure></div>
+<h2>At home (same Wi-Fi)</h2>
+<p>With <code>HOST=0.0.0.0</code> (the default in <code>.env.example</code>) open <code>http://&lt;your-computer's-ip&gt;:8080</code> on your phone. The password you set protects it.</p>
+<h2>From anywhere: Tailscale</h2>
+<p><a href="https://tailscale.com">Tailscale</a> puts your phone and your computer on one private network. No ports are opened and nothing is public.</p>
+<ol class="steps"><li>Install Tailscale on the computer and on your phone and sign in to the same account.</li>
+<li>On the computer run <code>tailscale serve --bg 8080</code> once. You get a private HTTPS address like <code>https://&lt;device&gt;.&lt;tailnet&gt;.ts.net</code>.</li>
+<li>Add that address to <code>CORS_ORIGINS</code> in <code>.env</code> and restart Pulse.</li>
+<li>Open it on your phone and choose <b>Add to Home Screen</b> (iOS Safari: Share, then Add to Home Screen). HTTPS is what makes the install and offline shell work.</li></ol>
+<p>The computer has to be on and running Pulse. See <a href="setup.html">Set up</a> for starting it automatically.</p>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>
