@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Activity, Base, Shoe
 from app.schemas import RaceGoalBody, WaterBody
+from app.services import cardio_extras
 from app.services.cardio_extras import list_shoes, repeat_routes
 
 
@@ -24,6 +25,20 @@ class CardioExtrasTests(unittest.TestCase):
 
     def tearDown(self):
         self.db.close()
+
+    def test_several_races_coexist_and_the_soonest_is_tracked(self):
+        today = date.today()
+        cardio_extras.set_race_goal(self.db, "Birthday run", today + timedelta(days=9), "custom", None, 25.0)
+        cardio_extras.set_race_goal(self.db, "Burj2Burj", today + timedelta(days=60), "half_marathon", None)
+        self.assertEqual([r["name"] for r in cardio_extras.list_races(self.db)], ["Birthday run", "Burj2Burj"])
+        self.assertEqual(cardio_extras.get_active_race(self.db)["name"], "Birthday run")
+        # re-saving a name updates it instead of duplicating
+        cardio_extras.set_race_goal(self.db, "burj2burj", today + timedelta(days=70), "half_marathon", None)
+        self.assertEqual(len(cardio_extras.list_races(self.db)), 2)
+        # once the birthday run is past, the next one takes over; removal is per race
+        first = cardio_extras.list_races(self.db)[0]["id"]
+        cardio_extras.clear_race_goal(self.db, first)
+        self.assertEqual([r["name"] for r in cardio_extras.list_races(self.db)], ["Burj2Burj"])
 
     def test_shoe_totals_are_summed_in_sql(self):
         self.db.add(Shoe(id=1, name="A", start_date=date.today(), target_km=700))

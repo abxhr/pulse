@@ -34,23 +34,49 @@ def _serialize_race(g: RaceGoal) -> dict:
     }
 
 
+def _active_rows(db: Session) -> list[RaceGoal]:
+    return db.execute(select(RaceGoal).where(RaceGoal.active.is_(True)).order_by(RaceGoal.race_date)).scalars().all()
+
+
+def next_race_row(db: Session) -> RaceGoal | None:
+    """The race the countdown, taper and readiness follow: the soonest upcoming one,
+    else the most recent past one."""
+    rows = _active_rows(db)
+    today = date.today()
+    return next((g for g in rows if g.race_date >= today), rows[-1] if rows else None)
+
+
 def get_active_race(db: Session) -> dict | None:
-    g = db.execute(select(RaceGoal).where(RaceGoal.active.is_(True)).order_by(RaceGoal.race_date)).scalars().first()
+    g = next_race_row(db)
     return _serialize_race(g) if g else None
+
+
+def list_races(db: Session) -> list[dict]:
+    """Every race on file, upcoming first (soonest to latest), then past ones."""
+    today = date.today()
+    rows = _active_rows(db)
+    return [_serialize_race(g) for g in [g for g in rows if g.race_date >= today] + [g for g in reversed(rows) if g.race_date < today]]
 
 
 def set_race_goal(db: Session, name: str, race_date: date, distance_type: str, target_time_s: int | None,
                   distance_km: float | None = None) -> dict:
-    db.execute(RaceGoal.__table__.update().values(active=False))
-    g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s,
-                 distance_km=distance_km if distance_type == "custom" else None, active=True)
-    db.add(g)
+    """Add a race. Races are kept side by side; saving a race with the same name updates it."""
+    km = distance_km if distance_type == "custom" else None
+    g = next((r for r in _active_rows(db) if r.name.strip().lower() == name.strip().lower()), None)
+    if g:
+        g.race_date, g.distance_type, g.target_time_s, g.distance_km = race_date, distance_type, target_time_s, km
+    else:
+        g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s,
+                     distance_km=km, active=True)
+        db.add(g)
     db.commit()
     return _serialize_race(g)
 
 
-def clear_race_goal(db: Session) -> None:
-    db.execute(RaceGoal.__table__.update().values(active=False))
+def clear_race_goal(db: Session, race_id: int | None = None) -> None:
+    """Remove one race by id, or every race when no id is given."""
+    stmt = RaceGoal.__table__.update().values(active=False)
+    db.execute(stmt.where(RaceGoal.id == race_id) if race_id is not None else stmt)
     db.commit()
 
 

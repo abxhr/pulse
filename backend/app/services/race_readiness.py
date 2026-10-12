@@ -97,9 +97,12 @@ def _bridge_plan(today: date, days_left: int, ladder: dict, dist_km: float, easy
     return rows
 
 
-def assess(db: Session, today: date | None = None) -> dict | None:
+def assess(db: Session, today: date | None = None, race_name: str | None = None) -> dict | None:
+    """Assess the next upcoming race, or the one called race_name when several are on file."""
     today = today or date.today()
     race = cardio_extras.get_active_race(db)
+    if race_name:
+        race = next((r for r in cardio_extras.list_races(db) if r["name"].strip().lower() == race_name.strip().lower()), None)
     if not race: return None
     days_left = (date.fromisoformat(race["race_date"]) - today).days
     if days_left < 0: return None

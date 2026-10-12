@@ -146,7 +146,7 @@ def strength_preservation(db: Session) -> dict | None:
             "exercises":sorted(changes,key=lambda x:x["change_pct"])[:6],"sample_size":len(changes)}
 
 def race_feasibility(db: Session) -> dict | None:
-    race=db.execute(select(RaceGoal).where(RaceGoal.active.is_(True)).order_by(RaceGoal.race_date)).scalars().first()
+    race=cardio_extras.next_race_row(db)
     if not race:return None
     start=date.today()-timedelta(days=42); runs=[a for a in db.execute(select(Activity).where(Activity.date>=start)).scalars().all() if "run" in (a.activity_type or "").lower() and (a.distance_m or 0)>=1000]
     weeks=max(1,42/7); weekly=sum((a.distance_m or 0)/1000 for a in runs)/weeks; longest=max([(a.distance_m or 0)/1000 for a in runs] or [0]); freq=len(runs)/weeks

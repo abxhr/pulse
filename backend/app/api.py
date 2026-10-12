@@ -745,9 +745,14 @@ def post_race_goal(body: RaceGoalBody, db: Session = Depends(get_session)):
     return cardio_extras.set_race_goal(db, body.name, body.race_date, body.distance_type, body.target_time_s, body.distance_km)
 
 
+@router.get("/training/races")
+def list_races(db: Session = Depends(get_session)):
+    return cardio_extras.list_races(db)
+
+
 @router.delete("/training/race-goal")
-def delete_race_goal(db: Session = Depends(get_session)):
-    cardio_extras.clear_race_goal(db)
+def delete_race_goal(race_id: int | None = None, db: Session = Depends(get_session)):
+    cardio_extras.clear_race_goal(db, race_id)
     return {"ok": True}
 
 
