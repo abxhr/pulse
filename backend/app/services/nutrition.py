@@ -141,7 +141,7 @@ def set_day_complete(db: Session, d: date, complete: bool) -> dict:
 
 
 def favorite_meals(db: Session, days: int = 30, limit: int = 8) -> list[dict]:
-    """Most-repeated meal names recently — "I eat the same breakfast every day"
+    """Most-repeated meal names recently - "I eat the same breakfast every day"
     deserves a one-tap re-log, distinct from the full structured Recipe flow."""
     start = date.today() - timedelta(days=days)
     rows = db.execute(
@@ -158,7 +158,7 @@ def favorite_meals(db: Session, days: int = 30, limit: int = 8) -> list[dict]:
 
 def days_on_target_streak(db: Session) -> dict:
     """Consecutive days hitting the calorie target (within 10%) with protein at
-    or above goal — gamifies adherence instead of just showing raw numbers."""
+    or above goal - gamifies adherence instead of just showing raw numbers."""
     goal = get_goal(db)
     if not goal.get("calories"):
         return {"streak": 0, "goal_set": False}
@@ -167,7 +167,7 @@ def days_on_target_streak(db: Session) -> dict:
     for row in reversed(trend_rows):
         d = date.fromisoformat(row["date"])
         if d >= date.today():
-            continue  # skip today — still accumulating
+            continue  # skip today - still accumulating
         totals = row["totals"]
         if not totals.get("calories"):
             break  # no log that day breaks the streak
@@ -181,7 +181,7 @@ def days_on_target_streak(db: Session) -> dict:
 
 
 def protein_timing(db: Session, d: date) -> list[dict]:
-    """Protein logged per meal across the day — distribution matters for muscle
+    """Protein logged per meal across the day - distribution matters for muscle
     retention during a cut, not just the daily total."""
     meals = meals_for_date(db, d)
     return [

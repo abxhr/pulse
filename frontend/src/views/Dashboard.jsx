@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
-import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp, Sparkles, RefreshCw, ChevronDown } from "lucide-react";
+import { Activity, Moon, HeartPulse, Flame, Footprints, TrendingUp } from "lucide-react";
 import { api } from "../lib/api";
 import { COLORS, fmtDate, fmtPace, fmtNum, activityMeta, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Chip, Loading, Empty } from "../components/primitives";
+import PerformanceTrio from "../components/PerformanceTrio";
 import ReadinessRing from "../components/ReadinessRing";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import IntradayChart from "../components/IntradayChart";
@@ -17,70 +16,18 @@ import LayoutSettings, { CustomizeButton } from "../components/LayoutSettings";
 import { useDashboardLayout } from "../lib/useDashboardLayout";
 import DataFreshness, { FreshnessBadge } from "../components/DataFreshness";
 import CommandCenter from "../components/CommandCenter";
+import Briefing from "../components/coach/Briefing";
+import RaceReadiness from "../components/RaceReadiness";
 
-function DailyInsight() {
-  const [insight, setInsight] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
-  const [open, setOpen] = useState(false);
-
-  const load = () => api.dailyInsight().then(setInsight).catch((e) => setErr(String(e)));
-  useEffect(() => { load(); }, []);
-
-  async function refresh() {
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await api.refreshDailyInsight();
-      setInsight(res);
-    } catch (e) {
-      setErr(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (err) {
-    return (
-      <Panel accent={COLORS.recovery} title="Today's briefing">
-        <p className="text-xs text-faint">
-          {err.includes("not set") ? "Add an AI key in .env and restart the server to enable daily briefings." : err}
-        </p>
-      </Panel>
-    );
-  }
-  if (!insight) return null;
-
-  return (
-    <Panel accent={COLORS.recovery} title="Today's briefing"
-      sub={open ? `auto-generated · ${new Date(insight.created_at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "tap to expand"}
-      right={
-        <div className="flex items-center gap-2">
-          {open && (
-            <button onClick={refresh} disabled={busy} title="Refresh"
-              className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-2.5 py-1 text-[11px] text-muted transition hover:border-recovery/40 disabled:opacity-50">
-              <RefreshCw size={12} className={busy ? "animate-spin" : ""} /> Refresh
-            </button>
-          )}
-          <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
-            <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : ""}`} />
-          </button>
-        </div>
-      }>
-      {open && <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight.content}</ReactMarkdown></div>}
-    </Panel>
-  );
-}
-
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
 const fmtWeek = (w) => (w ? `Week ${w.split("-W")[1]}, ${w.split("-W")[0]}` : "-");
 
 function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{labelFormatter(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{labelFormatter(label)}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-xs">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
@@ -93,9 +40,9 @@ function ChartTip({ active, payload, label, unit = "", labelFormatter = fmtDate 
 }
 
 const SECTIONS = [
-  { id: "command_center", label: "Daily plan, goals & anomaly inbox" },
-  { id: "briefing", label: "Today's briefing" },
   { id: "hero", label: "Readiness + Vitals" },
+  { id: "performance", label: "Recovery, strain & sleep" },
+  { id: "command_center", label: "Daily plan, goals & alerts" },
   { id: "insights", label: "Sleep debt, load ratio & alerts" },
   { id: "recovery_sleep", label: "Recovery & Sleep charts" },
   { id: "steps_intraday", label: "Steps & intraday" },
@@ -139,73 +86,52 @@ export default function Dashboard() {
   const bb = s.body_battery_high;
 
   const sections = {
+    performance: <PerformanceTrio />,
     command_center: <CommandCenter data={command} onRefresh={refreshCommand} />,
-    briefing: <DailyInsight />,
 
     hero: (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[auto_1fr]">
-        <Panel accent={COLORS.recovery} title={s.date === new Date().toISOString().slice(0,10) ? "Today" : "Latest available"} sub={s.date || "no data yet"}
-          right={extra?.weather ? <WeatherChip data={extra.weather} /> : null}>
-          <div className="flex items-center justify-center py-2">
-            <ReadinessRing
-              score={s.training_readiness}
-              label={s.training_readiness_label}
-              bodyBattery={bb}
-            />
-          </div>
-          <div className="mt-2 flex flex-wrap justify-center gap-2">
-            {s.training_status && <Chip color={COLORS.cardio}>{s.training_status}</Chip>}
-            {s.hrv_status && <Chip color={COLORS.recovery}>HRV {s.hrv_status}</Chip>}
-          </div>
-        </Panel>
-
-        <Panel accent={COLORS.effort} title="Vitals" sub="latest readings" right={<FreshnessBadge compact item={extra?.freshness?.sources?.garmin_health} />}>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="Resting HR" value={s.resting_hr} unit="bpm" color={COLORS.effort} />
-            <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
-            <StatTile label="Sleep score" value={s.sleep_score} color={COLORS.sleep}
-              hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)}h slept` : null} />
-            <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "-"}
-              color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
-            <StatTile label={current?.stress != null ? "Stress now" : "Avg stress"} value={current?.stress ?? s.stress} color={COLORS.strength}
-              hint={current?.stress != null ? `daily avg ${s.stress ?? "-"}` : `as of ${fmtDate(s.date)}`} />
-            <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
-              hint={extra?.adaptive_step_goal
-                ? `adaptive goal ${fmtNum(extra.adaptive_step_goal.target)}`
-                : s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="Intensity min" value={s.intensity_minutes} color={COLORS.recovery} />
-            <StatTile label={current?.body_battery != null ? "Body battery now" : "Body battery peak"} value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
-              hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "-"}` : `as of ${fmtDate(s.date)}`} />
-            <StatTile label="Readiness" value={s.training_readiness} color={COLORS.recovery}
-              hint={s.training_readiness_label} />
-          </div>
-          {s.calories_total != null && (
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <StatTile label="Burned total" value={fmtNum(s.calories_total)} unit="kcal" color={COLORS.strength} />
-              <StatTile label="Active" value={fmtNum(s.calories_active)} unit="kcal" color={COLORS.effort} />
-              <StatTile label="Resting" value={fmtNum(s.calories_resting)} unit="kcal" color={COLORS.muted} />
+      <Panel
+        title={s.date === new Date().toISOString().slice(0, 10) ? "Today" : "Latest data"}
+        sub={s.date ? `${fmtDate(s.date)}${extra?.freshness?.sources?.garmin_health ? "" : ""}` : "No data yet"}
+        right={<div className="flex items-center gap-3">{extra?.weather ? <WeatherChip data={extra.weather} /> : null}<FreshnessBadge compact item={extra?.freshness?.sources?.garmin_health} /></div>}
+      >
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
+          <div className="flex flex-col items-center gap-3">
+            <ReadinessRing score={s.training_readiness} label={s.training_readiness_label} bodyBattery={bb} />
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              {s.training_status && <Chip color={COLORS.cardio}>{s.training_status}</Chip>}
+              {s.hrv_status && <Chip color={COLORS.recovery}>HRV {s.hrv_status}</Chip>}
             </div>
-          )}
-          {s.fitness_age != null && (
-            <div className="mt-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[10.5px] uppercase tracking-wider text-muted">Fitness age</span>
-                <span className="font-mono text-xs text-faint tnum">chronological {s.chronological_age}</span>
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-semibold text-recovery tnum">{fmtNum(s.fitness_age, 1)}</span>
-                <span className="text-xs text-faint">
-                  {s.fitness_age < s.chronological_age
-                    ? `${fmtNum(s.chronological_age - s.fitness_age, 1)} years younger than your age`
-                    : "keep training to bring this down"}
-                </span>
-              </div>
+          </div>
+          <div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3">
+              <StatTile label="Resting heart rate" value={s.resting_hr} unit="bpm" color={COLORS.effort} />
+              <StatTile label="HRV" value={s.hrv_last_night} unit="ms" color={COLORS.recovery} />
+              <StatTile label="Sleep score" value={s.sleep_score} color={COLORS.sleep}
+                hint={s.sleep_seconds ? `${(s.sleep_seconds / 3600).toFixed(1)} h slept` : null} />
+              <StatTile label="VO₂max" value={s.vo2max != null ? fmtNum(s.vo2max, 1) : "-"}
+                color={COLORS.cardio} hint={s.vo2max_date && s.vo2max_date !== s.date ? `as of ${fmtDate(s.vo2max_date)}` : null} />
+              <StatTile label={current?.stress != null ? "Stress now" : "Average stress"} value={current?.stress ?? s.stress} color={COLORS.strength}
+                hint={current?.stress != null ? `daily average ${s.stress ?? "-"}` : `as of ${fmtDate(s.date)}`} />
+              <StatTile label="Steps" value={fmtNum(s.steps)} color={COLORS.muted}
+                hint={extra?.adaptive_step_goal ? `goal ${fmtNum(extra.adaptive_step_goal.target)}` : s.step_goal ? `goal ${fmtNum(s.step_goal)}` : null} />
+              <StatTile label="Intensity minutes" value={s.intensity_minutes} color={COLORS.recovery} />
+              <StatTile label={current?.body_battery != null ? "Body battery now" : "Body battery peak"} value={current?.body_battery ?? s.body_battery_high} color={COLORS.sleep}
+                hint={current?.body_battery != null ? `daily peak ${s.body_battery_high ?? "-"}` : `as of ${fmtDate(s.date)}`} />
+              {s.calories_total != null && <StatTile label="Calories burned" value={fmtNum(s.calories_total)} unit="kcal" color={COLORS.strength}
+                hint={`${fmtNum(s.calories_active)} active`} />}
             </div>
-          )}
-        </Panel>
-      </div>
+            {s.fitness_age != null && (
+              <p className="mt-6 text-sm text-muted">
+                Fitness age <b className="font-num text-xl font-semibold text-recovery tnum">{fmtNum(s.fitness_age, 1)}</b>
+                {" "}({s.fitness_age < s.chronological_age
+                  ? `${fmtNum(s.chronological_age - s.fitness_age, 1)} years younger than your ${s.chronological_age}`
+                  : `your age is ${s.chronological_age}; keep training to bring this down`})
+              </p>
+            )}
+          </div>
+        </div>
+      </Panel>
     ),
 
     insights: extra ? (
@@ -224,7 +150,7 @@ export default function Dashboard() {
 
     recovery_sleep: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel accent={COLORS.recovery} title="Recovery" sub="HRV vs resting HR · 30 days">
+        <Panel accent={COLORS.recovery} title="Recovery" sub="HRV vs resting HR, 30 days">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={d.health_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <CartesianGrid stroke="var(--color-line)" vertical={false} />
@@ -246,7 +172,7 @@ export default function Dashboard() {
           ]} {...recoveryToggle} />
         </Panel>
 
-        <Panel accent={COLORS.sleep} title="Sleep" sub="hours + score · 30 days">
+        <Panel accent={COLORS.sleep} title="Sleep" sub="hours + score, 30 days">
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={d.sleep_trend} margin={{ left: -18, right: 8, top: 6 }}>
               <defs>
@@ -294,7 +220,7 @@ export default function Dashboard() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <p className="mt-2 text-center text-[11px] text-faint">
+          <p className="mt-2 text-center text-xs text-faint">
             <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: COLORS.recovery }} />
             {extra?.adaptive_step_goal ? `${fmtNum(extra.adaptive_step_goal.target)}+ adaptive goal met` : "10k+ goal met"}
           </p>
@@ -327,7 +253,7 @@ export default function Dashboard() {
 
     training_load: (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <Panel accent={COLORS.cardio} title="Training load" sub="weekly run km + strength volume · 12 weeks">
+        <Panel accent={COLORS.cardio} title="Training load" sub="weekly run km + strength volume, 12 weeks">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={d.training_load} margin={{ left: -18, right: 8, top: 6 }}>
               <CartesianGrid stroke="var(--color-line)" vertical={false} />
@@ -356,12 +282,12 @@ export default function Dashboard() {
               {d.activities.map((a) => {
                 const m = activityMeta(a.type);
                 return (
-                  <li key={a.id} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+                  <li key={a.id} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
                     <div className="flex items-center gap-2.5">
                       <span className="h-8 w-1 rounded-full" style={{ background: COLORS[m.color] }} />
                       <div>
                         <div className="text-sm text-txt">{a.name || m.label}</div>
-                        <div className="font-mono text-[11px] text-faint">{fmtDate(a.date)}</div>
+                        <div className="font-mono text-xs text-faint">{fmtDate(a.date)}</div>
                       </div>
                     </div>
                     <div className="text-right font-mono text-xs text-muted tnum">
@@ -382,6 +308,11 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
+      {/* Intelligence first: the Coach's read on today and on the race, ahead of any layout-sortable sections. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Briefing />
+        <RaceReadiness />
+      </div>
       <div className="flex justify-end">
         <CustomizeButton onClick={() => setShowLayout(true)} />
       </div>

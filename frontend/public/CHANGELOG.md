@@ -1,6 +1,33 @@
 # Changelog
 
-## 0.9.0 — Phase 4: personal intelligence lab
+## Unreleased - a new look, and Recovery / Strain / Sleep
+
+**Added**
+
+- A Coach that can act, not just talk: it reads every part of the app, logs meals/water/weight/check-ins, records injuries, sets your race, writes sessions into your plan, and answers with charts, stat tiles, plans and buttons. Anything destructive waits for your click.
+- Race readiness: an honest "will I be OK?" for any distance (custom km supported), based on your longest run, volume and days left, with a day-by-day bridge plan you can add to your plan in one tap.
+- Injuries: log one (or tell the Coach) and the planner stops scheduling work that loads it, e.g. a wrist injury turns upper-body sessions into lower-body ones.
+- A daily briefing from the Coach at the top of Today, rewritten when an injury or race changes. Coach is also one click (or Ctrl+J) away on every screen.
+
+- Recovery (0-100) scored from tonight's HRV, resting heart rate, breathing rate and sleep against your own 28-day baselines.
+- Day Strain (0-21) from heart-rate-zone load, with a strain target based on how recovered you are.
+- Sleep need and sleep performance: baseline need plus today's strain plus recent sleep debt.
+- Run insights: aerobic efficiency, easy/hard split, long-run share, cadence, exact best efforts from lap data, aerobic decoupling.
+- Today's training call and a plan-versus-actual view for running.
+
+**Changed**
+
+- A new design: condensed numerals, flat surfaces, no all-caps labels, nothing under 12px, readable in light mode.
+- Today now leads with readiness and vitals; stale-data warnings collapse into one line.
+- Cards that fail to load show what failed and a Try again button instead of vanishing.
+
+**Fixed**
+
+- Charts and coloured text were hard to read in light mode.
+- Several inputs had no accessible name; touch targets are now at least 44px.
+- Race goal and other requests with bad input return a clear error instead of a server error.
+
+## 0.9.0 - Phase 4: personal intelligence lab
 
 **Added**
 
@@ -22,7 +49,7 @@
 
 - Removed the runtime dependency on external map tiles and substantially reduced the Cardio JavaScript chunk.
 
-## 0.8.0 — Phase 3: adaptive planning and execution
+## 0.8.0 - Phase 3: adaptive planning and execution
 
 **Added**
 
@@ -40,7 +67,7 @@
 - The Overview daily action plan now includes the actual sessions scheduled for today.
 - Mobile navigation accommodates the new Plan destination without clipping page labels.
 
-## 0.7.0 — Phase 2: goal-driven command center
+## 0.7.0 - Phase 2: goal-driven command center
 
 **Added**
 
@@ -57,7 +84,7 @@
 - Overview now leads with decisions and goal progress before lower-level telemetry charts.
 - Subjective check-in context can safely downgrade a Garmin-derived training recommendation.
 
-## 0.6.0 — Phase 1: trust, mobile, security, and data quality
+## 0.6.0 - Phase 1: trust, mobile, security, and data quality
 
 **Added**
 - Single-owner password protection for every health-data API, with 90-day secure sessions, lock/logout, localhost-only first setup, and localhost-only password recovery
@@ -82,37 +109,37 @@
 - Race estimates now use a conservative blend of VO₂max and actual recent performances, include uncertainty ranges, and expose evidence/confidence
 - CORS is restricted and responses include CSP, anti-framing, no-sniff, referrer, and permissions-policy headers
 
-## 0.5.0 — Intelligence pass: stats/ML features across the app
+## 0.5.0 - Intelligence pass: stats/ML features across the app
 
 **Added**
 - Training Stress Balance chart (Fitness/Fatigue/Form) using a Banister impulse-response model, same math as TrainingPeaks' PMC
 - Composite illness/overtraining risk score blending HRV, resting HR, sleep debt, and acute:chronic training load
 - Personalized HR zones (Karvonen method, using your actual resting HR) plus sessions bucketed into them
 - All-time GPS route heatmap across every run, with a background sync button to backfill older routes
-- Cross-metric correlation miner — automatically surfaces statistically meaningful relationships between sleep, training, nutrition, and recovery metrics (e.g. body battery vs. resting HR)
+- Cross-metric correlation miner - automatically surfaces statistically meaningful relationships between sleep, training, nutrition, and recovery metrics (e.g. body battery vs. resting HR)
 - Personalized sleep need pulled from Garmin's own adaptive sleep-need field, replacing the flat 8h default
-- Bayesian/EWMA-smoothed TDEE estimate — blends new readings with prior estimate instead of hard-replacing it
-- Adaptive step goal — trailing 14-day average +5%, instead of a fixed 10k
+- Bayesian/EWMA-smoothed TDEE estimate - blends new readings with prior estimate instead of hard-replacing it
+- Adaptive step goal - trailing 14-day average +5%, instead of a fixed 10k
 - Muscle days-since-trained heatmap (toggle alongside the existing weekly volume heatmap) on Strength
 - GitHub-style activity calendar heatmap (12 months, cardio/strength/nutrition/weight logging density) on Reports
-- Real background push notifications (body battery low, weight not logged) via the Web Push API — works even when the app isn't open, replacing the old foreground-only reminders
-- Weight-entry outlier guard — warns and requires confirmation if a new entry deviates sharply from your trend
+- Real background push notifications (body battery low, weight not logged) via the Web Push API - works even when the app isn't open, replacing the old foreground-only reminders
+- Weight-entry outlier guard - warns and requires confirmation if a new entry deviates sharply from your trend
 - Nightly database backup with 14-day rotation, viewable/triggerable from Reports
 - Route/HR data now filtered against physiologically plausible ranges to drop sensor glitches (bad cadence, absurd HR spikes)
 
 **Changed**
-- Frontend now code-splits by route — initial load dropped from ~1.2MB to ~11KB gzipped, with chart libraries loading only when a chart page opens
+- Frontend now code-splits by route - initial load dropped from ~1.2MB to ~11KB gzipped, with chart libraries loading only when a chart page opens
 
-## 0.4.0 — Cardio, strength, cut tracking, daily briefing
+## 0.4.0 - Cardio, strength, cut tracking, daily briefing
 
 **Added**
 - Weight & cut tracking: daily weigh-ins, goal weight + weekly rate, TDEE estimated from your actual logged calories vs. real weight change (falls back to Garmin's own calorie-burn estimate until there's enough history), recommended daily macros, weight trend projection with goal ETA, AI progress analysis
 - Predicted race times (5K/10K/half/marathon) from current VO₂max
-- Exercise progression tracking — estimated 1RM (Epley) per exercise over time, picked from a dropdown
+- Exercise progression tracking - estimated 1RM (Epley) per exercise over time, picked from a dropdown
 - Heart rate analytics on Cardio: resting vs. max HR trend, time-in-HR-zone breakdown across recent activities, pace trend over your last 30 runs
 - Hourly stress & body battery chart with a day picker (last 7 days)
 - Push a logged workout to Garmin Connect and your watch, with best-effort exercise-catalog matching
-- Auto-generated daily AI briefing on the Overview page — no click required, refreshable, regenerates once per day automatically at 6am
+- Auto-generated daily AI briefing on the Overview page - no click required, refreshable, regenerates once per day automatically at 6am
 - Edit button on logged meals
 - Server restart button (top right)
 - Changelog viewer (this page)
@@ -130,7 +157,7 @@
 - Sync no longer writes an empty placeholder row for days Garmin has zero data for
 - Chart Y-axes now show units, and multi-series charts have a clickable legend to isolate one line
 
-## 0.3.0 — Real data, AI multi-provider, activity/workout detail
+## 0.3.0 - Real data, AI multi-provider, activity/workout detail
 
 **Added**
 - Activity and workout detail modals with full breakdowns (HR zones, training effect, splits, GPS route map for runs)
@@ -142,17 +169,17 @@
 - Garmin token save was writing to the wrong (deprecated) library format, so auth silently never persisted
 - Dashboard status incorrectly showed "connected" for Garmin based on folder existence, not real tokens
 
-## 0.2.0 — Nutrition tracking, phone access
+## 0.2.0 - Nutrition tracking, phone access
 
 **Added**
 - Manual meal/macro logging with daily targets
 - PWA support (installable, offline app shell)
 - Private phone access via Tailscale Serve (HTTPS, tailnet-only)
 
-## 0.1.0 — Initial
+## 0.1.0 - Initial
 
 - Garmin + Hevy sync, Dashboard/Sleep/Cardio/Strength views, AI Coach, weekly/monthly reports
-# 0.10.0 — Stabilize
+# 0.10.0 - Stabilize
 
 - Hardened password setup/reset against reverse-proxy trust confusion.
 - Added login throttling and proxy-safe mutation origin checks.
@@ -161,10 +188,17 @@
 - Prevented overlapping Garmin and Hevy sync runs.
 - Added verified backups and a local-only restore path with an emergency snapshot.
 - Added backend/frontend CI and Release 0.10 regression coverage.
-# 0.11.0 — Make it dependable
+# 0.11.0 - Make it dependable
 
 - Added stable API errors with codes, field details, and request references.
 - Added request IDs to every backend response and safe generic handling for unexpected failures.
 - Added accessible in-app error notifications instead of exposing raw server payloads.
 - Added an Alembic migration baseline so future schema changes are versioned and repeatable.
 - Extended CI and regression coverage for API errors and database migration state.
+# 0.12.0 - Make it easy
+
+- Reorganized navigation around Today, Train, Health, Review and System.
+- Added bookmarkable, back-button-aware URLs for every application section.
+- Reduced mobile navigation to four primary destinations plus an accessible More sheet.
+- Added a dedicated Settings area for connections, sync, appearance, reminders, backups, exports and server controls.
+- Added skip navigation, active-page semantics, accessible connection status, modal focus management and reduced-motion support.

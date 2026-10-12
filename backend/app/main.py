@@ -16,6 +16,7 @@ from .config import settings
 from .db import init_db, SessionLocal
 from .services import auth as auth_svc
 from .api import router
+from .agent_api import router as agent_router
 from .errors import error_response, install_error_handlers
 
 logging.basicConfig(level=logging.INFO)
@@ -26,7 +27,7 @@ scheduler = None
 
 def _clear_stale_syncs() -> None:
     """A sync_log row stuck in 'running' means the process died mid-sync (e.g. a
-    restart during a long backfill) — mark it so it doesn't linger forever."""
+    restart during a long backfill) - mark it so it doesn't linger forever."""
     from datetime import datetime
     from sqlalchemy import select
     from .db import SessionLocal
@@ -65,11 +66,11 @@ def _sanitize_existing_activities() -> None:
 
 def _generate_daily_insight() -> None:
     from .db import SessionLocal
-    from .services import insights
+    from .services import agent
     db = SessionLocal()
     try:
-        insights.get_or_generate_daily(db)
-        log.info("Daily insight generated")
+        agent.briefing(db)
+        log.info("Daily briefing generated")
     except Exception as e:
         log.warning("Daily insight generation failed (will retry on next Overview load): %s", e)
     finally:
@@ -106,9 +107,12 @@ async def lifespan(app: FastAPI):
         from apscheduler.schedulers.background import BackgroundScheduler
         from .services import sync
         scheduler = BackgroundScheduler()
+        from datetime import datetime, timedelta
         scheduler.add_job(
-            lambda: sync.sync_all(days=settings.quick_sync_days),
+            sync.scheduled_sync,
             "interval", minutes=settings.sync_interval_minutes, id="pulse_sync",
+            next_run_time=datetime.now() + timedelta(seconds=20),  # catch up right after (re)start, not 30 min later
+            coalesce=True, max_instances=1, misfire_grace_time=3600,  # a sleeping PC runs one catch-up, not a pile
         )
         scheduler.add_job(_generate_daily_insight, "cron", hour=6, minute=0, id="pulse_daily_insight")
         scheduler.add_job(_run_push_checks, "interval", minutes=15, id="pulse_push_checks")
@@ -121,7 +125,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="Pulse", version="0.11.0", lifespan=lifespan)
+app = FastAPI(title="Pulse", version=settings.app_version, lifespan=lifespan)
 app.state.log = log
 install_error_handlers(app)
 
@@ -172,6 +176,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(agent_router)
 
 
 @app.get("/api/health")
@@ -186,7 +191,7 @@ class _NoCacheHTMLStaticFiles(StaticFiles):
     new filename), but index.html references those hashes by name. With no
     Cache-Control header at all, browsers apply heuristic caching to index.html and
     can silently keep serving a stale document (with old asset hashes that 404 after
-    a new build) for a long time with zero revalidation — this is what caused the
+    a new build) for a long time with zero revalidation - this is what caused the
     old bundle to keep loading in fresh tabs even after the SW fix and a restart.
     """
 
@@ -200,7 +205,7 @@ class _NoCacheHTMLStaticFiles(StaticFiles):
 
 
 # Serve the built frontend if present (frontend/dist). This gives you a SINGLE
-# process / single URL — ideal for a Raspberry Pi. During dev you can instead run
+# process / single URL - ideal for a Raspberry Pi. During dev you can instead run
 # Vite separately on :5173. Build it with:  cd frontend && npm run build
 _dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 if settings.serve_frontend and _dist.exists():

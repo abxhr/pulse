@@ -1,9 +1,9 @@
 """Body weight tracking + cut/bulk goal planning.
 
 Macro recommendations combine two things:
-1. A deterministic TDEE estimate from actual energy balance — your logged calories
+1. A deterministic TDEE estimate from actual energy balance - your logged calories
    vs. your real weight change (the only estimate that's actually calibrated to
-   *your* body, rather than a population formula) — falling back to Garmin's own
+   *your* body, rather than a population formula) - falling back to Garmin's own
    burned-calories estimate when there isn't enough weight+nutrition history yet.
 2. A simple least-squares fit on the weight trend to project when you'll hit
    the goal at the current rate.
@@ -177,9 +177,9 @@ def weight_projection(db: Session, days: int = 28) -> dict | None:
 
 
 def _energy_balance_tdee(db: Session, days: int = 21) -> float | None:
-    """TDEE from actual logged calories vs. actual weight change — the most
+    """TDEE from actual logged calories vs. actual weight change - the most
     personally-accurate estimate available, once there's enough history.
-    Only ever looks at fully-completed days (never "today") — a partial day's
+    Only ever looks at fully-completed days (never "today") - a partial day's
     calories keep changing as it goes, which made this recommendation visibly
     shift every time the page was opened."""
     end = date.today() - timedelta(days=1)
@@ -227,7 +227,7 @@ def _garmin_calories_tdee(db: Session, days: int = 14) -> float | None:
 
 
 def _tdee_confidence(db: Session, tdee_source: str | None) -> dict:
-    """How much data actually backs the current TDEE number — so the user can
+    """How much data actually backs the current TDEE number - so the user can
     judge how much to trust it, and see it visibly firm up over time instead
     of just trusting an opaque figure."""
     if tdee_source == "energy_balance":
@@ -238,20 +238,20 @@ def _tdee_confidence(db: Session, tdee_source: str | None) -> dict:
         target = 21
         label = "high" if logged_days >= target else "medium" if logged_days >= MIN_DAYS_FOR_ENERGY_BALANCE else "low"
         return {
-            "method": "your logged calories + weight change — the most personally-accurate estimate",
+            "method": "your logged calories + weight change - the most personally-accurate estimate",
             "logged_days": logged_days, "days_for_higher_confidence": max(0, target - logged_days),
             "confidence": label,
         }
     if tdee_source == "garmin_estimate":
         return {
-            "method": "Garmin's burned-calories estimate — used until enough weight+nutrition history builds up",
+            "method": "Garmin's burned-calories estimate - used until enough weight+nutrition history builds up",
             "logged_days": None, "days_for_higher_confidence": None, "confidence": "medium",
         }
     return {"method": None, "logged_days": None, "days_for_higher_confidence": None, "confidence": "none"}
 
 
 def refeed_nudge(db: Session) -> dict | None:
-    """Evidence-based cuts benefit from periodic maintenance weeks — nudges every
+    """Evidence-based cuts benefit from periodic maintenance weeks - nudges every
     ~6 weeks into a sustained cut, not a hard rule, just a reminder to consider it."""
     goal = get_goal(db)
     if not goal or not goal.get("start_date") or (goal.get("weekly_rate_kg") or 0) >= 0:
@@ -261,7 +261,7 @@ def refeed_nudge(db: Session) -> dict | None:
         return None
     return {
         "weeks_in": weeks_in,
-        "message": f"You're {weeks_in} weeks into this cut — consider a maintenance/refeed week "
+        "message": f"You're {weeks_in} weeks into this cut - consider a maintenance/refeed week "
                    "to support training performance and adherence before continuing.",
     }
 
@@ -269,7 +269,7 @@ def refeed_nudge(db: Session) -> dict | None:
 def _smoothed_tdee(db: Session, raw_tdee: float) -> float:
     """Bayesian-style blend: each new raw estimate nudges the running smoothed
     value rather than replacing it outright. Weighted 70/30 toward the new
-    reading — enough to track real metabolic/weight changes within a couple
+    reading - enough to track real metabolic/weight changes within a couple
     of weeks, not so much that one noisy day swings the number."""
     state = db.get(TdeeState, 1)
     if not state or not state.smoothed_tdee:
@@ -303,7 +303,7 @@ def macro_recommendation(db: Session) -> dict:
     if not tdee or not current_weight:
         return {
             "ready": False,
-            "reason": "Log your weight daily and your meals for a couple of weeks — "
+            "reason": "Log your weight daily and your meals for a couple of weeks - "
                       "need enough history to estimate your maintenance calories accurately.",
             "current_weight_kg": current_weight,
             "tdee_estimate": tdee,

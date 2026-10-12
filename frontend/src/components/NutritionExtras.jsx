@@ -7,7 +7,7 @@ import { api } from "../lib/api";
 import { COLORS, fmtNum } from "../lib/format";
 import { Panel } from "./primitives";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
 export function FavoriteMeals({ onRelog }) {
   const [favs, setFavs] = useState([]);
@@ -25,13 +25,13 @@ export function FavoriteMeals({ onRelog }) {
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-faint">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs text-faint">
         <Repeat size={11} /> Quick re-log
       </div>
       <div className="flex flex-wrap gap-1.5">
         {favs.map((f) => (
           <button key={f.name} onClick={() => relog(f)}
-            className="rounded-full border border-line bg-panel2/60 px-3 py-1.5 text-xs text-txt transition hover:border-nutrition/40">
+            className="rounded-full bg-panel2 px-3 py-1.5 text-xs text-txt transition hover:border-nutrition/40">
             {f.last.name} <span className="text-faint">×{f.count}</span>
           </button>
         ))}
@@ -68,7 +68,7 @@ export function ProteinTimingChart() {
           <XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} />
           <YAxis tick={axis} axisLine={false} tickLine={false} width={30} />
           <Tooltip
-            contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }}
+            contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "Instrument Sans", fontSize: 12 }}
             formatter={(v, n, p) => [`${fmtNum(v)}g`, p.payload.name]} />
           <Bar dataKey="protein_g" fill={COLORS.strength} radius={[4, 4, 0, 0]} maxBarSize={40} />
         </BarChart>
@@ -83,15 +83,15 @@ export function HydrationCard() {
   if (!h?.intake_ml) return null;
   const pct = h.goal_ml ? Math.min(100, Math.round((h.intake_ml / h.goal_ml) * 100)) : null;
   return (
-    <div className="rounded-xl border border-line bg-panel2/60 px-4 py-3.5">
+    <div className="rounded-xl bg-panel2 px-4 py-3.5">
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-[10.5px] uppercase tracking-wider text-muted">
+        <span className="flex items-center gap-1.5 text-xs text-muted">
           <Droplets size={12} className="text-cardio" /> Hydration
         </span>
-        {pct != null && <span className="font-mono text-[11px] text-faint tnum">{pct}%</span>}
+        {pct != null && <span className="font-mono text-xs text-faint tnum">{pct}%</span>}
       </div>
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="font-mono text-2xl font-semibold text-txt tnum">{fmtNum(h.intake_ml / 1000, 1)}</span>
+        <span className="font-num text-2xl font-semibold text-txt tnum">{fmtNum(h.intake_ml / 1000, 1)}</span>
         <span className="text-xs text-faint">L{h.goal_ml ? ` / ${fmtNum(h.goal_ml / 1000, 1)}L` : ""}</span>
       </div>
       {pct != null && (
@@ -117,7 +117,7 @@ export function TdeeConfidence({ data }) {
   if (!data?.method) return null;
   const colors = { high: COLORS.recovery, medium: COLORS.strength, low: COLORS.muted, none: COLORS.muted };
   return (
-    <div className="flex items-start gap-2 text-[11px] text-faint">
+    <div className="flex items-start gap-2 text-xs text-faint">
       <Info size={13} className="mt-0.5 shrink-0" style={{ color: colors[data.confidence] }} />
       <span>
         <span className="font-medium" style={{ color: colors[data.confidence] }}>{data.confidence} confidence</span> - {data.method}.

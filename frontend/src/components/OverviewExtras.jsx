@@ -10,12 +10,12 @@ export function OvertrainingRiskCard({ data }) {
   if (!data || data.score < 10) return null; // low enough it's not worth a dedicated card
   const color = RISK_COLOR[data.label] || COLORS.muted;
   return (
-    <Panel accent={color} title="Illness / overtraining risk" sub="composite score — HRV, resting HR, sleep debt, training load">
+    <Panel accent={color} title="Illness / overtraining risk" sub="composite score - HRV, resting HR, sleep debt, training load">
       <div className="flex items-center gap-4">
         <ShieldAlert size={26} style={{ color }} />
         <div>
-          <div className="font-mono text-2xl font-semibold tnum" style={{ color }}>{data.score}<span className="text-sm text-faint">/100</span></div>
-          <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color }}>{data.label}</div>
+          <div className="font-num text-2xl font-semibold tnum" style={{ color }}>{data.score}<span className="text-sm text-faint">/100</span></div>
+          <div className="text-xs font-medium" style={{ color }}>{data.label}</div>
         </div>
       </div>
       {data.factors.length > 0 && (
@@ -38,10 +38,10 @@ export function CorrelationMiner() {
   if (!data?.length) return null;
   const strength = (r) => Math.abs(r) >= 0.6 ? "strong" : Math.abs(r) >= 0.45 ? "moderate" : "weak";
   return (
-    <Panel accent={COLORS.recovery} title="Patterns in your data" sub="strongest correlations across everything tracked · 90 days">
+    <Panel accent={COLORS.recovery} title="Patterns in your data" sub="strongest correlations across everything tracked, 90 days">
       <div className="space-y-2">
         {data.map((c, i) => (
-          <div key={i} className="flex items-center justify-between rounded-lg border border-line bg-panel2/50 px-3 py-2">
+          <div key={i} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
             <span className="flex items-center gap-2 text-xs text-txt">
               <Network size={13} className="text-faint shrink-0" />
               {c.a} {c.r > 0 ? "↑ with" : "↓ with"} {c.b}
@@ -52,7 +52,7 @@ export function CorrelationMiner() {
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">Correlation, not causation — a starting point for what to dig into, not a conclusion.</p>
+      <p className="mt-2 text-xs text-faint">Correlation, not causation - a starting point for what to dig into, not a conclusion.</p>
     </Panel>
   );
 }
@@ -62,10 +62,10 @@ export function WhatChangedBanner({ data }) {
   const Icon = data.direction === "up" ? TrendingUp : TrendingDown;
   const color = data.good ? COLORS.recovery : COLORS.effort;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-line bg-panel2/60 px-4 py-3">
+    <div className="flex items-center gap-3 rounded-xl bg-panel2 px-4 py-3">
       <Icon size={16} style={{ color }} />
       <p className="text-xs text-muted">
-        <span className="font-medium text-txt">What changed —</span> {data.summary}
+        <span className="font-medium text-txt">What changed -</span> {data.summary}
       </p>
     </div>
   );
@@ -79,7 +79,7 @@ export function AnomalyAlerts({ alerts }) {
         <div key={a.metric} className="flex items-center gap-3 rounded-xl border border-effort/30 bg-effort/10 px-4 py-3">
           <AlertTriangle size={16} className="text-effort shrink-0" />
           <p className="text-xs text-txt">
-            <span className="font-medium">{a.label} looks off —</span> {fmtNum(a.value, 1)} is {a.direction} vs. your
+            <span className="font-medium">{a.label} looks off -</span> {fmtNum(a.value, 1)} is {a.direction} vs. your
             {" "}{fmtNum(a.baseline_mean, 1)} baseline ({a.z_score > 0 ? "+" : ""}{a.z_score} SD, 30d)
           </p>
         </div>
@@ -92,14 +92,14 @@ export function SleepDebtCard({ data }) {
   if (!data || !data.nights_tracked) return null;
   const behind = data.debt_hours > 0;
   return (
-    <Panel accent={COLORS.sleep} title="Sleep opportunity gap" sub={`vs ${fmtNum(data.target_hours, 1)}h ${data.personalized ? "Garmin-informed, safety-floored" : ""} target · last ${data.nights_tracked} nights`}>
+    <Panel accent={COLORS.sleep} title="Sleep opportunity gap" sub={`vs ${fmtNum(data.target_hours, 1)}h ${data.personalized ? "Garmin-informed, safety-floored" : ""} target, last ${data.nights_tracked} nights`}>
       <div className="grid grid-cols-2 gap-3">
         <StatTile label={behind ? "Behind by" : "Ahead by"} value={fmtNum(Math.abs(data.debt_hours), 1)} unit="h"
           color={behind ? COLORS.effort : COLORS.recovery} />
         <StatTile label="Avg / night" value={fmtNum(data.avg_hours, 1)} unit="h" color={COLORS.sleep} />
       </div>
       {behind && data.debt_hours > 5 && (
-        <p className="mt-2 text-[11px] text-faint">Estimated opportunity gap, not a literal physiological debt. Consistently creating more sleep opportunity matters more than trying to repay it in one night.</p>
+        <p className="mt-2 text-xs text-faint">Estimated opportunity gap, not a literal physiological debt. Consistently creating more sleep opportunity matters more than trying to repay it in one night.</p>
       )}
     </Panel>
   );
@@ -118,15 +118,15 @@ export function LoadRatioCard({ data }) {
       <div className="flex items-center gap-4">
         <Gauge size={28} style={{ color: zoneMeta.color }} />
         <div>
-          <div className="font-mono text-2xl font-semibold tnum" style={{ color: zoneMeta.color }}>{data.ratio}</div>
-          <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color: zoneMeta.color }}>{zoneMeta.label}</div>
+          <div className="font-num text-2xl font-semibold tnum" style={{ color: zoneMeta.color }}>{data.ratio}</div>
+          <div className="text-xs font-medium" style={{ color: zoneMeta.color }}>{zoneMeta.label}</div>
         </div>
       </div>
-      <p className="mt-2 text-[11px] text-faint">
-        {data.zone === "high_risk" && "Recent load has spiked well past what your body's adapted to — dial back intensity this week."}
-        {data.zone === "caution" && "Ramping up quickly — fine short-term, but watch recovery markers closely."}
-        {data.zone === "sweet_spot" && "Load is well-matched to your training base — good place to build from."}
-        {data.zone === "undertraining" && "Well below your usual load — room to push if recovery allows."}
+      <p className="mt-2 text-xs text-faint">
+        {data.zone === "high_risk" && "Recent load has spiked well past what your body's adapted to - dial back intensity this week."}
+        {data.zone === "caution" && "Ramping up quickly - fine short-term, but watch recovery markers closely."}
+        {data.zone === "sweet_spot" && "Load is well-matched to your training base - good place to build from."}
+        {data.zone === "undertraining" && "Well below your usual load - room to push if recovery allows."}
       </p>
     </Panel>
   );
@@ -145,10 +145,10 @@ export function WeatherChip({ data }) {
   if (!data) return null;
   const Icon = WEATHER_ICONS[data.code] || Cloud;
   return (
-    <div className="flex items-center gap-2 rounded-full border border-line bg-panel2/60 px-3 py-1.5">
+    <div className="flex items-center gap-2 rounded-full bg-panel2 px-3 py-1.5">
       <Icon size={15} className="text-faint" />
       <span className="font-mono text-xs text-txt tnum">{fmtNum(data.temperature_c, 0)}°C</span>
-      <span className="text-[11px] text-faint">{data.condition}</span>
+      <span className="text-xs text-faint">{data.condition}</span>
     </div>
   );
 }

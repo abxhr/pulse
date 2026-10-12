@@ -4,21 +4,21 @@ client (the same private api.hevyapp.com endpoints the Hevy *web app* uses).
 This is EXPERIMENTAL and depends on an alpha library + undocumented endpoints
 that can change. The CSV import path is the reliable fallback.
 
-One-time setup — run once, interactively, in your own terminal:
+One-time setup - run once, interactively, in your own terminal:
     pip install 'hevy-unofficial[core]'
     python -m playwright install chromium   # one-time browser binary download
     cd backend && python -m app.hevy_auth   # opens a real browser, you log in there
 
 That saves session tokens to backend/data/hevy_tokens.json (gitignored). The
 client auto-refreshes them and re-persists the refreshed pair after that, so
-recurring sync is genuinely hands-off — no token to manually rotate.
+recurring sync is genuinely hands-off - no token to manually rotate.
 
 Legacy fallback: paste HEVY_ACCESS_TOKEN / HEVY_REFRESH_TOKEN into .env directly
 (grabbed from hevy.com's DevTools) if you'd rather not run the browser flow.
 """
 from __future__ import annotations
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from dateutil import parser as dtparser
 
 from ..config import settings
@@ -39,15 +39,17 @@ def _client():
             "hevy-unofficial not installed. Run: pip install 'hevy-unofficial[core]'"
         ) from e
 
-    if settings.hevy_email:
+    from ..services import hevy_mode
+    label = hevy_mode.login_label()
+    if hevy_mode.saved_labels():
         store = CredentialStore(path=settings.hevy_token_store)
-        cached = store.get(settings.hevy_email)
+        cached = store.get(label)
         if cached:
             return HevyClient(
                 access_token=cached.tokens.access_token,
                 refresh_token=cached.tokens.refresh_token,
                 user_id=cached.tokens.user_id,
-                credential_email=settings.hevy_email,
+                credential_email=label,
                 credential_store=store,  # refreshed tokens get re-persisted here automatically
             )
 
@@ -64,7 +66,7 @@ def _client():
 
 
 def _username(account: dict) -> str | None:
-    """Defensive extraction — the private API's response shape isn't documented,
+    """Defensive extraction - the private API's response shape isn't documented,
     so try every key that plausibly holds the username."""
     for key in ("username", "user_name", "handle", "userName"):
         if account.get(key):
@@ -77,12 +79,15 @@ def _username(account: dict) -> str | None:
 
 
 def _dt(v):
+    """Parse to a NAIVE LOCAL datetime - the same convention as the CSV importer, so a
+    session fetched by API lines up with the one already imported from a CSV export."""
     if not v:
         return None
     try:
-        return dtparser.parse(v) if isinstance(v, str) else datetime.fromtimestamp(v)
+        dt = dtparser.parse(v) if isinstance(v, str) else datetime.fromtimestamp(v)
     except Exception:
         return None
+    return dt.astimezone().replace(tzinfo=None) if dt.tzinfo else dt
 
 
 def _normalize(w: dict) -> dict:
@@ -118,31 +123,42 @@ def _normalize(w: dict) -> dict:
     return {
         "id": f"hevy-{wid}", "date": start.date() if start else None,
         "start_time": start, "end_time": end,
-        "title": w.get("title"), "description": w.get("description"),
+        "title": w.get("title") or w.get("name"), "description": w.get("description"),
         "duration_s": duration, "volume_kg": round(volume, 1),
         "set_count": set_count, "exercise_count": len(exercises),
         "exercises": exercises, "source": "hevy-api", "raw": w,
     }
 
 
-def fetch_all_workouts(page_size: int = 50, max_pages: int = 200) -> list[dict]:
-    """Pull the full workout history via the unofficial client's real API
-    (client.users / client.workouts are pre-built resource instances)."""
+_OLDER_RUN = 25  # stop after this many consecutive workouts older than `since` (the feed is newest-first)
+
+
+def fetch_all_workouts(page_size: int = 5, max_pages: int = 1000, since: "date | None" = None) -> list[dict]:
+    """Pull workouts via the unofficial client's real API (client.users / client.workouts
+    are pre-built resource instances). With `since`, stop once the feed is clearly older
+    than that date, so a routine sync fetches a page or two instead of the whole history."""
+    # Hevy's private API rejects limit > 5 with an empty HTTP 400, so keep page_size at 5
     with _client() as client:
         account = client.users.get_account()
         username = _username(account)
         if not username:
             raise HevyUnavailable(
                 f"Couldn't find a username in the account response (got keys: {list(account.keys())}). "
-                "The private API's response shape may have changed — falling back to CSV import is safest."
+                "The private API's response shape may have changed - falling back to CSV import is safest."
             )
 
         seen: set = set()
         collected: list[dict] = []
+        older = 0
         for w in client.workouts.iter_paged(username, page_size=page_size, max_pages=max_pages):
             wid = str(w.get("id") or w.get("workout_id") or "")
             if wid and wid in seen:
                 continue
             seen.add(wid)
             collected.append(w)
+            if since:
+                start = _dt(w.get("start_time") or w.get("startTime") or w.get("start"))
+                older = older + 1 if start and start.date() < since else 0
+                if older >= _OLDER_RUN:
+                    break
         return [_normalize(w) for w in collected]

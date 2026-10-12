@@ -64,16 +64,16 @@ function AddRecipe({ onSaved, aiStatus }) {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-nutrition/40 hover:text-nutrition">
         <Plus size={16} /> Save a recipe
       </button>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-line bg-panel2/60 p-4">
+    <div className="space-y-3 rounded-xl bg-panel2 p-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted">New recipe</span>
+        <span className="text-xs font-semibold text-muted">New recipe</span>
         <button onClick={reset} className="text-faint hover:text-txt"><X size={16} /></button>
       </div>
 
@@ -111,24 +111,24 @@ function AddRecipe({ onSaved, aiStatus }) {
 
           {mode === "url" && (
             <div>
-              <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube, TikTok, or Instagram Reel URL"
+              <input aria-label="YouTube, TikTok, or Instagram Reel URL" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="YouTube, TikTok, or Instagram Reel URL"
                 className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
-              <p className="mt-1.5 text-[11px] text-faint">Instagram is best-effort — if it can't read the caption, paste it in via the Text tab instead. YouTube and TikTok are reliable.</p>
+              <p className="mt-1.5 text-xs text-faint">Instagram is best-effort - if it can't read the caption, paste it in via the Text tab instead. YouTube and TikTok are reliable.</p>
             </div>
           )}
 
           {mode === "text" && (
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={5}
+            <textarea aria-label="Paste the recipe, a caption, or ingredient list here" value={text} onChange={(e) => setText(e.target.value)} rows={5}
               placeholder="Paste the recipe, a caption, or ingredient list here"
               className="w-full resize-none rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt placeholder:text-faint focus:border-nutrition/50 focus:outline-none" />
           )}
 
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-faint">AI model</span>
+            <span className="text-xs text-faint">AI model</span>
             <div className="flex gap-1 rounded-full bg-ink p-0.5">
               {providerOptions.map((o) => (
                 <button key={o.label} onClick={() => setProvider(o.id)} disabled={o.id && o.ok === false}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                  className={`rounded-full px-2.5 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-30 ${
                     provider === o.id ? "bg-nutrition text-ink" : "text-muted"
                   }`}>
                   {o.label}
@@ -146,17 +146,17 @@ function AddRecipe({ onSaved, aiStatus }) {
         </>
       ) : (
         <>
-          <div className="rounded-lg border border-nutrition/30 bg-nutrition/10 px-3 py-2 text-[11px] text-nutrition">
-            {extracted.confidence || "medium"} confidence{extracted.notes ? ` — ${extracted.notes}` : ""}. Review before saving.
+          <div className="rounded-lg border border-nutrition/30 bg-nutrition/10 px-3 py-2 text-xs text-nutrition">
+            {extracted.confidence || "medium"} confidence{extracted.notes ? ` - ${extracted.notes}` : ""}. Review before saving.
           </div>
-          <input value={extracted.name || ""} onChange={(e) => updateField("name", e.target.value)}
+          <input aria-label="Recipe name" value={extracted.name || ""} onChange={(e) => updateField("name", e.target.value)}
             className="w-full rounded-lg border border-line bg-ink px-3 py-2.5 text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
           <div className="grid grid-cols-5 gap-2">
             {[["servings", ""], ["calories", "kcal"], ["protein_g", "protein g"], ["carbs_g", "carbs g"], ["fat_g", "fat g"]].map(([k, unit]) => (
               <div key={k}>
-                <input inputMode="decimal" value={extracted[k] ?? ""} onChange={(e) => updateField(k, e.target.value ? Number(e.target.value) : null)}
+                <input aria-label="Amount" inputMode="decimal" value={extracted[k] ?? ""} onChange={(e) => updateField(k, e.target.value ? Number(e.target.value) : null)}
                   className="w-full rounded-lg border border-line bg-ink px-2 py-2 text-center text-sm text-txt focus:border-nutrition/50 focus:outline-none" />
-                <div className="mt-0.5 text-center text-[9px] text-faint">{unit || "servings"}</div>
+                <div className="mt-0.5 text-center text-xs text-faint">{unit || "servings"}</div>
               </div>
             ))}
           </div>
@@ -197,7 +197,7 @@ function RecipeCard({ r, onChanged }) {
   }
 
   return (
-    <div className="rounded-lg border border-line bg-panel2/40 p-3">
+    <div className="rounded-lg bg-panel2 p-3">
       <div className="flex items-start justify-between gap-2">
         <button onClick={() => setExpanded((e) => !e)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <ChevronDown size={14} className={`shrink-0 text-faint transition-transform ${expanded ? "rotate-180" : ""}`} />
@@ -206,7 +206,7 @@ function RecipeCard({ r, onChanged }) {
               <span className="truncate text-sm font-medium text-txt">{r.name}</span>
               {r.source_type && <Chip color={COLORS.nutrition}>{SOURCE_LABEL[r.source_type] || r.source_type}</Chip>}
             </div>
-            <div className="mt-0.5 font-mono text-[11px] text-faint tnum">
+            <div className="mt-0.5 font-mono text-xs text-faint tnum">
               {fmtNum(r.calories)} kcal · P{fmtNum(r.protein_g)} · C{fmtNum(r.carbs_g)} · F{fmtNum(r.fat_g)} · per serving ({r.servings} servings)
             </div>
           </div>
@@ -223,7 +223,7 @@ function RecipeCard({ r, onChanged }) {
           <div className="flex flex-wrap gap-1.5 pt-1">
             {MEAL_TYPES.map((t) => (
               <button key={t} onClick={() => logAsMeal(t)} disabled={logging}
-                className="flex items-center gap-1 rounded-full bg-panel px-2.5 py-1 text-[11px] capitalize text-muted transition hover:bg-nutrition hover:text-ink disabled:opacity-50">
+                className="flex items-center gap-1 rounded-full bg-panel px-2.5 py-1 text-xs capitalize text-muted transition hover:bg-nutrition hover:text-ink disabled:opacity-50">
                 <UtensilsCrossed size={11} /> Log as {t}
               </button>
             ))}

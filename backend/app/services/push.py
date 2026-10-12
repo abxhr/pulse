@@ -1,4 +1,4 @@
-"""Real background push notifications via the Web Push protocol (VAPID) — works
+"""Real background push notifications via the Web Push protocol (VAPID) - works
 even when the app tab is closed, unlike the foreground-only Notification API."""
 from __future__ import annotations
 from datetime import date
@@ -32,7 +32,7 @@ def _private_key_path() -> str | None:
     from pathlib import Path
     path = Path(settings.vapid_private_key_path)
     # pywebpush accepts a path to the PEM file directly (it reads it via
-    # Vapid.from_file) — passing the file's *contents* instead makes it try to
+    # Vapid.from_file) - passing the file's *contents* instead makes it try to
     # parse the PEM text as a raw base64url-encoded DER key, which fails.
     return str(path) if path.exists() else None
 
@@ -40,7 +40,7 @@ def _private_key_path() -> str | None:
 def send_to_all(db: Session, title: str, body: str, tag: str | None = None) -> int:
     """Sends one notification to every subscribed browser. Dead subscriptions
     (expired, user revoked permission, uninstalled) are pruned automatically
-    on a 404/410 response — otherwise they'd accumulate forever."""
+    on a 404/410 response - otherwise they'd accumulate forever."""
     priv = _private_key_path()
     if not priv or not settings.vapid_public_key:
         log.warning("push: VAPID keys not configured, skipping")
@@ -81,13 +81,13 @@ def _mark_sent(db: Session, kind: str) -> None:
 
 
 def run_checks(db: Session) -> None:
-    """Called on a schedule (see main.py) — evaluates the same conditions the
+    """Called on a schedule (see main.py) - evaluates the same conditions the
     old foreground-only reminders used, but works even if no tab is open."""
     from .. import models
     from sqlalchemy import select as _select
 
     if not db.execute(_select(PushSubscription)).first():
-        return  # nobody's subscribed — skip the Garmin calls entirely
+        return  # nobody's subscribed - skip the Garmin calls entirely
 
     # Body battery low
     if not _already_sent_today(db, "battery"):
@@ -97,7 +97,7 @@ def run_checks(db: Session) -> None:
             current = gc.fetch_current_reading(client)
             bb = current.get("body_battery")
             if bb is not None and bb < 20:
-                if send_to_all(db, "Body battery low", f"Down to {bb} — consider easing off training today.", tag="battery"):
+                if send_to_all(db, "Body battery low", f"Down to {bb} - consider easing off training today.", tag="battery"):
                     _mark_sent(db, "battery")
         except Exception as e:
             log.debug("push battery check skipped: %s", e)

@@ -37,7 +37,7 @@ function clusters(routes) {
 }
 
 function pace(seconds) {
-  if (!seconds) return "—";
+  if (!seconds) return "-";
   return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}/km`;
 }
 
@@ -67,8 +67,8 @@ function popup(bundle) {
   const runs = [...bundle.runs].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const distance = avg(runs, "distance_km"), averagePace = avg(runs, "pace_s_per_km"), heartRate = avg(runs, "avg_hr");
   const heading = runs.length > 1 ? `${runs.length} similar runs` : safe(runs[0]?.name || "Run");
-  const rows = runs.slice(0, 5).map((r) => `<div class="pulse-route-run"><span>${safe(r.date || "—")}</span><b>${Number(r.distance_km || 0).toFixed(1)} km</b><span>${pace(r.pace_s_per_km)}</span></div>`).join("");
-  return `<div class="pulse-route-tip pulse-route-group"><b>${heading}</b><span>${runs.length > 1 ? "Combined route summary" : safe(runs[0]?.date || "Date unavailable")}</span><div class="pulse-route-averages"><strong>${distance?.toFixed(1) ?? "—"} km</strong><strong>${pace(averagePace)}</strong><strong>${heartRate ? Math.round(heartRate) + " bpm" : "—"}</strong></div>${runs.length > 1 ? `<div class="pulse-route-runs">${rows}${runs.length > 5 ? `<small>+ ${runs.length - 5} more runs</small>` : ""}</div>` : ""}</div>`;
+  const rows = runs.slice(0, 5).map((r) => `<div class="pulse-route-run"><span>${safe(r.date || "-")}</span><b>${Number(r.distance_km || 0).toFixed(1)} km</b><span>${pace(r.pace_s_per_km)}</span></div>`).join("");
+  return `<div class="pulse-route-tip pulse-route-group"><b>${heading}</b><span>${runs.length > 1 ? "Combined route summary" : safe(runs[0]?.date || "Date unavailable")}</span><div class="pulse-route-averages"><strong>${distance?.toFixed(1) ?? "-"} km</strong><strong>${pace(averagePace)}</strong><strong>${heartRate ? Math.round(heartRate) + " bpm" : "-"}</strong></div>${runs.length > 1 ? `<div class="pulse-route-runs">${rows}${runs.length > 5 ? `<small>+ ${runs.length - 5} more runs</small>` : ""}</div>` : ""}</div>`;
 }
 
 export default function RouteAtlas({ routes, height = "20rem", showAreas = true }) {
@@ -111,10 +111,10 @@ export default function RouteAtlas({ routes, height = "20rem", showAreas = true 
 
   if (!group) return <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-line text-xs text-faint">No valid GPS points</div>;
   return <div className="space-y-2">
-    {showAreas && groups.length > 1 && <div className="flex gap-1.5 overflow-x-auto pb-1">{groups.map((area, i) => <button key={i} onClick={() => setSelected(i)} className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] ${i === selected ? "border-cardio/60 bg-cardio/15 text-cardio" : "border-line text-muted"}`}><MapPin size={10} className="mr-1 inline" />Area {i + 1} · {area.routes.length}</button>)}</div>}
+    {showAreas && groups.length > 1 && <div className="flex gap-1.5 overflow-x-auto pb-1">{groups.map((area, i) => <button key={i} onClick={() => setSelected(i)} className={`shrink-0 rounded-full border px-2.5 py-1 text-xs ${i === selected ? "border-cardio/60 bg-cardio/15 text-cardio" : "border-line text-muted"}`}><MapPin size={10} className="mr-1 inline" />Area {i + 1} · {area.routes.length}</button>)}</div>}
     <div className="relative overflow-hidden rounded-xl border border-cardio/25 bg-[#071019]" style={{ height }}>
       <div ref={mapNode} className="absolute inset-0 z-0" />
-      <div className="pointer-events-none absolute bottom-2 left-3 z-[500] rounded-full border border-white/10 bg-black/60 px-2 py-1 font-mono text-[9px] text-white/70">HOVER OR TAP A ROUTE · AREA {selected + 1}</div>
+      <div className="pointer-events-none absolute bottom-2 left-3 z-[500] rounded-full border border-white/10 bg-black/60 px-2 py-1 font-mono text-xs text-white/70">HOVER OR TAP A ROUTE · AREA {selected + 1}</div>
     </div>
   </div>;
 }

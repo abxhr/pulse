@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..models import (Activity, AnomalyState, BodyWeight, CutGoal, DailyCheckIn,
                       DailyHealth, GoalPreference, Meal, NutritionDayStatus,
                       RaceGoal, Sleep, WaterLog, Workout)
-from . import analytics, weight as weight_svc
+from . import analytics, cardio_extras, weight as weight_svc
 
 DEFAULT_GOALS = [
     ("health", "Long-term health", 1), ("cut", "Lose fat sustainably", 2),
@@ -145,13 +145,12 @@ def strength_preservation(db: Session) -> dict | None:
     return {"score":max(0,min(100,round(100+avg*4))),"average_change_pct":avg,"status":"preserved" if avg>=-3 else "at risk",
             "exercises":sorted(changes,key=lambda x:x["change_pct"])[:6],"sample_size":len(changes)}
 
-RACE_DIST={"5k":5,"10k":10,"half_marathon":21.0975,"marathon":42.195}
 def race_feasibility(db: Session) -> dict | None:
     race=db.execute(select(RaceGoal).where(RaceGoal.active.is_(True)).order_by(RaceGoal.race_date)).scalars().first()
     if not race:return None
     start=date.today()-timedelta(days=42); runs=[a for a in db.execute(select(Activity).where(Activity.date>=start)).scalars().all() if "run" in (a.activity_type or "").lower() and (a.distance_m or 0)>=1000]
     weeks=max(1,42/7); weekly=sum((a.distance_m or 0)/1000 for a in runs)/weeks; longest=max([(a.distance_m or 0)/1000 for a in runs] or [0]); freq=len(runs)/weeks
-    dist=RACE_DIST.get(race.distance_type,21.0975); days_left=(race.race_date-date.today()).days
+    dist=cardio_extras.race_km(race.distance_type,race.distance_km); days_left=(race.race_date-date.today()).days
     volume_score=min(40,weekly/max(15,dist)*40); long_score=min(30,longest/(dist*.7)*30); freq_score=min(20,freq/3*20); time_score=min(10,max(0,days_left)/84*10)
     score=round(volume_score+long_score+freq_score+time_score)
     gaps=[]

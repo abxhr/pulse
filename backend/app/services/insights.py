@@ -150,7 +150,7 @@ weights, e.g. "150g rice, 200g chicken breast").
 
 Rules:
 - If the user gives explicit quantities (grams, cups, "1 medium", etc.), use those as the
-  primary basis for your estimate — they are more reliable than a visual guess.
+  primary basis for your estimate - they are more reliable than a visual guess.
 - If only a photo is given, estimate portion sizes visually as carefully as you can using
   plate/utensil scale as a size reference.
 - Sum macros across every distinct food item you can identify.
@@ -373,12 +373,12 @@ DAILY_SCOPE = "daily_auto"
 DAILY_QUESTION = (
     "Give me my daily briefing: the 2-3 things that matter most right now across recovery, "
     "sleep, training, and (if I'm logging it) nutrition/weight vs. my cut goal. Be direct and "
-    "specific with numbers. Keep it tight — this is a daily-glance summary, not a full report."
+    "specific with numbers. Keep it tight - this is a daily-glance summary, not a full report."
 )
 
 
 def get_or_generate_daily(db: Session, force: bool = False) -> dict:
-    """One AI insight per calendar day, cached — regenerated only when forced or
+    """One AI insight per calendar day, cached - regenerated only when forced or
     when today's doesn't exist yet. Keeps the Overview page showing something
     without hammering the API on every page load."""
     if not force:
@@ -402,7 +402,7 @@ WEEKLY_QUESTION = (
     "Give me a proactive weekly digest, not a reactive answer: looking at the past 7 days vs. the "
     "7 before that, what changed in my training load, recovery, sleep, and nutrition adherence? "
     "What's the ONE thing you'd change about my approach next week, and why? Be specific and "
-    "quantitative — this is a standing weekly check-in, not an on-demand chat reply."
+    "quantitative - this is a standing weekly check-in, not an on-demand chat reply."
 )
 
 
@@ -412,7 +412,7 @@ def _iso_week_start(d: datetime) -> datetime:
 
 
 def get_or_generate_weekly(db: Session, force: bool = False) -> dict:
-    """One proactive digest per ISO week, cached like the daily briefing —
+    """One proactive digest per ISO week, cached like the daily briefing -
     ready when you check in, not something you have to remember to ask for."""
     if not force:
         week_start = _iso_week_start(datetime.utcnow())

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pulse: your body, instrumented</title><meta name="description" content="A private dashboard that turns your Garmin and Hevy data into one daily call. Runs on your own computer.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./" aria-current=page>Home</a><a href="features.html">Features</a><a href="setup.html">Set up</a><a href="integrations.html">Integrations</a><a href="phone.html">Phone</a><a href="security.html">Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>Pulse</h1>
+<p class="lede">Your Garmin sleep, recovery and runs, and your Hevy lifts, in one private dashboard. It reads your own numbers and tells you what today should be. It runs on your own computer; nothing is uploaded to anyone.</p>
+<div class="btns"><a class="btn primary" href="setup.html">Set it up</a><a class="btn" href="features.html">What it does</a><a class="btn" href="https://github.com/abxhr/pulse">View on GitHub</a></div></section>
+<h2>What it does</h2>
+<div class="grid">
+<div class="card" style="--c:var(--recovery)"><h3>One call for today</h3><p>Recovery scored from HRV, resting heart rate, breathing and sleep against your own 28-day baselines, plus a plan for the day.</p></div>
+<div class="card" style="--c:var(--cardio)"><h3>Running, in depth</h3><p>Race estimates, pace and heart-rate trends, load balance, route maps and a warning when weekly volume jumps too fast.</p></div>
+<div class="card" style="--c:var(--strength)"><h3>Lifting, from Hevy</h3><p>Volume by muscle, progression, workout detail and a body map. Works with a free Hevy account, no Pro needed.</p></div>
+<div class="card" style="--c:var(--sleep)"><h3>Sleep and recovery</h3><p>Stages, sleep debt, sleep performance versus what you needed, and how it feeds tomorrow's readiness.</p></div>
+<div class="card" style="--c:var(--nutrition)"><h3>Nutrition and weight</h3><p>Log meals fast from your phone, track macros against targets, and follow a weight trend or cut.</p></div>
+<div class="card" style="--c:var(--effort)"><h3>An AI coach that reads your data</h3><p>Ask in plain words. It sees a compact summary of your last weeks, checks race readiness and respects injuries. Claude or GPT, with your own key.</p></div>
+</div>
+<h2>A look around</h2>
+<div class="shots"><figure><a href="assets/today.png"><img src="assets/today.png" alt="Today: recovery, strain, sleep and the plan for the day" loading="lazy"></a><figcaption>Today: recovery, strain, sleep and the plan for the day</figcaption></figure><figure><a href="assets/cardio.png"><img src="assets/cardio.png" alt="Cardio: today's call, race estimates and training load" loading="lazy"></a><figcaption>Cardio: today's call, race estimates and training load</figcaption></figure><figure><a href="assets/strength.png"><img src="assets/strength.png" alt="Strength: volume, muscles and progression" loading="lazy"></a><figcaption>Strength: volume, muscles and progression</figcaption></figure><figure><a href="assets/sleep.png"><img src="assets/sleep.png" alt="Sleep: stages, debt and performance" loading="lazy"></a><figcaption>Sleep: stages, debt and performance</figcaption></figure></div>
+<h2>On your phone</h2>
+<div class="phones"><figure><a href="assets/phone-today.png"><img src="assets/phone-today.png" alt="Today" loading="lazy"></a><figcaption>Today</figcaption></figure><figure><a href="assets/phone-plan.png"><img src="assets/phone-plan.png" alt="Plan" loading="lazy"></a><figcaption>Plan</figcaption></figure><figure><a href="assets/phone-cardio.png"><img src="assets/phone-cardio.png" alt="Cardio" loading="lazy"></a><figcaption>Cardio</figcaption></figure><figure><a href="assets/phone-nutrition.png"><img src="assets/phone-nutrition.png" alt="Nutrition" loading="lazy"></a><figcaption>Nutrition</figcaption></figure></div>
+<p style="margin-top:14px">Install it to your Home Screen and open it from anywhere over a private network. <a href="phone.html">Phone guide</a></p>
+<h2>Try it without connecting anything</h2>
+<p>Load the demo data: 90 days of invented sleep, runs and lifts, kept in its own local file. You need no Garmin account, no Hevy account and no API key. <a href="setup.html#demo">Show me how</a></p>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>

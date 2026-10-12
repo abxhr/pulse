@@ -1,7 +1,7 @@
 import { Component } from "react";
 import { AlertTriangle } from "lucide-react";
 
-// Class component is required here — componentDidCatch has no hook equivalent.
+// Class component is required here - componentDidCatch has no hook equivalent.
 // Without this, any render error in a view unmounts the entire app to a blank
 // screen instead of just that one page.
 export default class ErrorBoundary extends Component {
@@ -35,7 +35,7 @@ export default class ErrorBoundary extends Component {
             {String(this.state.error?.message || this.state.error)}
           </p>
           <button onClick={() => window.location.reload()}
-            className="mt-1 rounded-lg border border-line bg-panel2 px-4 py-2 text-xs font-medium text-txt transition hover:border-recovery/40">
+            className="mt-1 rounded-lg bg-panel2 px-4 py-2 text-xs font-medium text-txt transition hover:border-recovery/40">
             Reload
           </button>
         </div>

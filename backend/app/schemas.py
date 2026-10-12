@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date as date_t
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 class PasswordBody(BaseModel):
@@ -56,3 +56,35 @@ class RecipeExtractUrl(BaseModel):
         if not any(host == item or host.endswith("." + item) for item in allowed):
             raise ValueError("URL must be from YouTube, Instagram, or TikTok")
         return value
+
+
+class RaceGoalBody(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    race_date: date_t
+    distance_type: Literal["5k", "10k", "half_marathon", "marathon", "custom"]
+    distance_km: float | None = Field(default=None, ge=1, le=250)
+    target_time_s: int | None = Field(default=None, ge=600, le=60 * 60 * 24)
+
+    @model_validator(mode="after")
+    def custom_needs_distance(self):
+        if self.distance_type == "custom" and not self.distance_km:
+            raise ValueError("distance_km is required for a custom distance")
+        return self
+
+
+class ShoeAssignBody(BaseModel):
+    shoe_id: int | None = Field(default=None, ge=1)
+
+
+class DayCompleteBody(BaseModel):
+    date: date_t | None = None
+    complete: bool = False
+
+
+class AnomalyStatusBody(BaseModel):
+    status: Literal["open", "acknowledged", "resolved"] = "acknowledged"
+
+
+class WaterBody(BaseModel):
+    date: date_t | None = None
+    amount_ml: int = Field(ge=1, le=5000)

@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import threading
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -49,7 +50,7 @@ def _log_finish(db: Session, entry: SyncLog, status: str, records: int, message:
 
 _STOP_AFTER_EMPTY_DAYS = 60  # give up backfilling once this many consecutive days come back empty
 _CHUNK_SIZE = 15             # days fetched concurrently per batch
-_MAX_WORKERS = 6             # concurrent Garmin requests — enough to be fast, gentle on rate limits
+_MAX_WORKERS = 6             # concurrent Garmin requests - enough to be fast, gentle on rate limits
 
 
 def _fetch_day(client, day: date, today: date) -> tuple[date, dict, dict | None]:
@@ -88,7 +89,7 @@ def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
 
         # Daily health + sleep, fetched concurrently in chunks (newest first). Once a
         # whole chunk comes back completely empty we've gone past the start of the
-        # device's actual history — stop instead of grinding through empty years.
+        # device's actual history - stop instead of grinding through empty years.
         all_days = [today - timedelta(days=i) for i in range(days)]
         consecutive_empty = 0
         stopped = False
@@ -111,7 +112,7 @@ def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
                     is_empty = health.get("steps") is None and health.get("resting_hr") is None and not sleep
                     consecutive_empty = consecutive_empty + 1 if is_empty else 0
 
-                    # Don't write a placeholder row for a day Garmin has nothing for —
+                    # Don't write a placeholder row for a day Garmin has nothing for -
                     # otherwise every trend chart fills up with empty date gaps.
                     if not is_empty:
                         _upsert(db, DailyHealth, "date", health)
@@ -149,14 +150,46 @@ def _sync_garmin(days: int | None = None, db: Session | None = None) -> dict:
             db.close()
 
 
-def _import_workouts(db: Session, workouts: list[dict]) -> int:
+def _norm_title(t) -> str:
+    return " ".join((t or "").lower().split())
+
+
+def _equivalent_workout(db: Session, data: dict):
+    """The already-stored row for the same real-world session, if any. Hevy CSV rows and
+    API rows use different ids, so match on the session itself: same local day, and either
+    a start within 2 minutes (CSV only has minute precision) or the same title and a duration
+    within 5 minutes."""
+    day, start = data.get("date"), data.get("start_time")
+    if not day:
+        return None
+    for w in db.execute(select(Workout).where(Workout.date == day)).scalars():
+        if start and w.start_time and abs((w.start_time - start).total_seconds()) <= 120:
+            return w
+        if (_norm_title(w.title) == _norm_title(data.get("title")) and w.duration_s and data.get("duration_s")
+                and abs(w.duration_s - data["duration_s"]) <= 300):
+            return w
+    return None
+
+
+def _import_workouts(db: Session, workouts: list[dict], match_existing: bool = False) -> int:
+    """Upsert workouts. With match_existing (API sources), a session that already exists under
+    another id - e.g. from a CSV export - is updated in place instead of being added twice."""
     n = 0
     for data in workouts:
-        if data.get("id"):
-            _upsert(db, Workout, "id", data)
-            n += 1
-            if n % 25 == 0:
-                db.commit()
+        if not data.get("id"):
+            continue
+        if db.get(Workout, data["id"]) is None and match_existing:
+            twin = _equivalent_workout(db, data)
+            if twin is not None:
+                for k, v in data.items():
+                    if k != "id":
+                        setattr(twin, k, v)
+                n += 1
+                continue
+        _upsert(db, Workout, "id", data)
+        n += 1
+        if n % 25 == 0:
+            db.commit()
     db.commit()
     return n
 
@@ -213,10 +246,12 @@ def sync_hevy(db: Session | None = None) -> dict:
 
 
 def _sync_hevy(db: Session | None = None) -> dict:
-    """Dispatch on HEVY_MODE: csv (folder import) | unofficial (auto API) | pro (paid API)."""
+    """Dispatch on the effective Hevy mode: csv (folder import) | unofficial (saved login) | pro (API key)."""
+    from . import hevy_mode
     own = db is None
     db = db or SessionLocal()
-    mode = settings.hevy_mode.lower()
+    mode = hevy_mode.effective_mode()
+    entry = None
     try:
         if mode == "csv":
             return import_csv_folder(db=db)
@@ -224,23 +259,50 @@ def _sync_hevy(db: Session | None = None) -> dict:
         entry = _log_start(db, f"hevy-{mode}")
         if mode == "unofficial":
             from ..integrations import hevy_free_client as hf
-            workouts = hf.fetch_all_workouts()
+            latest = db.scalar(select(func.max(Workout.date)))
+            # incremental: only look back 14 days past what we already hold; full history on first run
+            workouts = hf.fetch_all_workouts(since=(latest - timedelta(days=14)) if latest else None)
         elif mode == "pro":
             workouts = [hc.normalize_workout(w) for w in hc.iter_workouts()]
         else:
-            _log_finish(db, entry, "error", 0, f"unknown HEVY_MODE '{mode}'")
-            return {"status": "error", "message": f"unknown HEVY_MODE '{mode}'"}
+            msg = f"unknown HEVY_MODE '{mode}'"
+            _log_finish(db, entry, "error", 0, msg)
+            return {"status": "error", "message": msg}
 
-        n = _import_workouts(db, workouts)
+        n = _import_workouts(db, workouts, match_existing=True)
         _log_finish(db, entry, "ok", n, f"{n} workouts via {mode}")
         return {"status": "ok", "workouts": n, "mode": mode}
     except Exception as e:
         db.rollback()
         log.exception("hevy sync failed")
+        if entry is not None:  # never leave a failed run looking like it is still "running"
+            _log_finish(db, entry, "error", 0, str(e))
         return {"status": "error", "message": str(e), "mode": mode}
     finally:
         if own:
             db.close()
+
+
+def catchup_days(db: Session | None = None) -> int:
+    """How far back a routine Garmin sync must reach: the quick window, widened to cover
+    any gap since the last successful run (e.g. the PC was off for a few days)."""
+    own = db is None
+    db = db or SessionLocal()
+    try:
+        last = db.scalar(select(func.max(SyncLog.finished_at)).where(SyncLog.source == "garmin", SyncLog.status == "ok"))
+    finally:
+        if own:
+            db.close()
+    base = settings.quick_sync_days
+    if last is None:
+        return settings.default_backfill_days
+    gap = (datetime.utcnow() - last).days + 2
+    return max(base, min(gap, settings.default_backfill_days))
+
+
+def scheduled_sync() -> dict:
+    """What the background scheduler runs."""
+    return sync_all(days=catchup_days())
 
 
 def sync_all(days: int | None = None) -> dict:

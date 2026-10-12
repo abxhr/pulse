@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-// Click a legend entry to hide/show that series — lets you isolate one line on a
+// Click a legend entry to hide/show that series - lets you isolate one line on a
 // busy dual-axis chart instead of staring at both tangled together.
 export function useSeriesToggle() {
   const [hidden, setHidden] = useState(() => new Set());
@@ -19,7 +19,7 @@ export function ChartLegend({ series, hidden, toggle }) {
         const off = hidden.has(s.key);
         return (
           <button key={s.key} type="button" onClick={() => toggle(s.key)}
-            className={`flex items-center gap-1.5 text-[11px] transition ${off ? "text-faint/60" : "text-muted"}`}>
+            className={`flex items-center gap-1.5 text-xs transition ${off ? "text-faint/60" : "text-muted"}`}>
             <span className={`h-2.5 w-2.5 rounded-full transition-opacity ${off ? "opacity-30" : ""}`} style={{ background: s.color }} />
             <span className={off ? "line-through" : ""}>{s.name}</span>
           </button>

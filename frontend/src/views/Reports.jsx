@@ -31,11 +31,11 @@ function ScheduledReportPanel() {
 
   if (err || !report) return null;
   return (
-    <Panel accent={COLORS.strength} title="This week's report" sub="auto-generated · ready every Monday"
+    <Panel accent={COLORS.strength} title="This week's report" sub="auto-generated, ready every Monday"
       right={
         <div className="flex items-center gap-2">
           <button onClick={(e) => { e.stopPropagation(); refresh(); }}
-            className="flex items-center gap-1 text-[11px] text-faint hover:text-txt">
+            className="flex items-center gap-1 text-xs text-faint hover:text-txt">
             <RefreshCw size={11} className={busy ? "animate-spin" : ""} /> refresh
           </button>
           <button onClick={() => setOpen((o) => !o)} className="text-faint hover:text-txt">
@@ -70,14 +70,14 @@ function ComparisonPanel({ weeks }) {
           const good = d === 0 ? null : (d > 0) === m.higherIsGood;
           const Icon = d > 0 ? TrendingUp : TrendingDown;
           return (
-            <div key={m.key} className="rounded-xl border border-line bg-panel2/60 px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-wide text-faint">{m.label}</div>
+            <div key={m.key} className="rounded-xl bg-panel2 px-3 py-2.5">
+              <div className="text-xs text-faint">{m.label}</div>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="font-mono text-lg font-semibold text-txt tnum">{cmp.current[m.key] ?? "—"}</span>
-                <span className="text-[11px] text-faint">{m.unit}</span>
+                <span className="font-mono text-lg font-semibold text-txt tnum">{cmp.current[m.key] ?? "-"}</span>
+                <span className="text-xs text-faint">{m.unit}</span>
               </div>
               {d !== 0 && (
-                <div className="mt-0.5 flex items-center gap-1 text-[11px]" style={{ color: good ? COLORS.recovery : COLORS.effort }}>
+                <div className="mt-0.5 flex items-center gap-1 text-xs" style={{ color: good ? COLORS.recovery : COLORS.effort }}>
                   <Icon size={11} /> {d > 0 ? "+" : ""}{d}{m.unit}
                 </div>
               )}
@@ -92,10 +92,10 @@ function ComparisonPanel({ weeks }) {
 function DataExportPanel() {
   const csvTables = ["meals", "weights", "activities", "workouts"];
   return (
-    <Panel accent={COLORS.muted} title="Export your data" sub="independent of the SQLite file — for backup or external analysis">
+    <Panel accent={COLORS.muted} title="Export your data" sub="independent of the SQLite file - for backup or external analysis">
       <div className="flex flex-wrap gap-2">
         <a href="/api/export/json" download
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel2 px-3 py-1.5 text-xs text-txt transition hover:border-recovery/40">
+          className="flex items-center gap-1.5 rounded-lg bg-panel2 px-3 py-1.5 text-xs text-txt transition hover:border-recovery/40">
           <Download size={13} /> Full export (JSON)
         </a>
         {csvTables.map((t) => (
@@ -125,7 +125,7 @@ function BackupsPanel() {
   }
 
   return (
-    <Panel accent={COLORS.muted} title="Database backups" sub="nightly snapshot at 3:30am · last 14 kept"
+    <Panel accent={COLORS.muted} title="Database backups" sub="nightly snapshot at 3:30am, last 14 kept"
       right={
         <button onClick={runNow} disabled={busy}
           className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-muted transition hover:text-txt disabled:opacity-50">
@@ -137,7 +137,7 @@ function BackupsPanel() {
       {backups && backups.length > 0 && (
         <div className="space-y-1">
           {backups.map((b) => (
-            <div key={b.name} className="flex items-center justify-between rounded-lg border border-line bg-panel2/40 px-3 py-1.5 text-xs">
+            <div key={b.name} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-1.5 text-xs">
               <span className="font-mono text-txt">{b.name}</span>
               <span className="flex items-center gap-3 text-faint">
                 <span>{b.size_mb} MB</span>
@@ -165,11 +165,11 @@ function ShareImageButton({ summary, weeks }) {
     ctx.fillText(`${weeks}-week report · ${summary.generated}`, 40, 80);
 
     const stats = [
-      ["Avg sleep", `${summary.avg_sleep_hours ?? "—"}h`],
-      ["Avg readiness", `${summary.avg_readiness ?? "—"}`],
-      ["Resting HR", `${summary.avg_resting_hr ?? "—"} bpm`],
-      ["HRV", `${summary.avg_hrv ?? "—"} ms`],
-      ["Run distance", `${summary.total_run_km ?? "—"} km`],
+      ["Avg sleep", `${summary.avg_sleep_hours ?? "-"}h`],
+      ["Avg readiness", `${summary.avg_readiness ?? "-"}`],
+      ["Resting HR", `${summary.avg_resting_hr ?? "-"} bpm`],
+      ["HRV", `${summary.avg_hrv ?? "-"} ms`],
+      ["Run distance", `${summary.total_run_km ?? "-"} km`],
       ["Strength volume", `${fmtNum(summary.strength_volume_kg)} kg`],
     ];
     stats.forEach(([label, value], i) => {
@@ -224,7 +224,7 @@ export default function Reports() {
 
       <Panel accent={COLORS.strength} title="Generate report" sub="performance summary + AI narrative">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-lg border border-line bg-panel2/60 p-1">
+          <div className="flex rounded-lg bg-panel2 p-1">
             {RANGES.map((r) => (
               <button key={r.weeks} onClick={() => setWeeks(r.weeks)}
                 className={`rounded-md px-3 py-1.5 text-xs transition ${weeks === r.weeks ? "bg-strength text-ink" : "text-muted hover:text-txt"}`}>
@@ -268,7 +268,7 @@ export default function Reports() {
               </div>
             }
           >
-            <div className="md rounded-xl border border-line bg-panel2/40 p-5" id="report-body">
+            <div className="md rounded-xl bg-panel2 p-5" id="report-body">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{report.markdown}</ReactMarkdown>
             </div>
           </Panel>
@@ -276,7 +276,7 @@ export default function Reports() {
       )}
 
       {!s && !busy && (
-        <div className="rounded-xl border border-dashed border-line bg-panel2/30 px-6 py-10 text-center">
+        <div className="rounded-xl bg-panel2/30 px-6 py-10 text-center">
           <FileText className="mx-auto mb-2 text-faint" />
           <p className="font-display text-sm text-txt">No report yet</p>
           <p className="mt-1 text-xs text-muted">Pick a range and hit Generate. Use Print to save as PDF.</p>

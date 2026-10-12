@@ -24,7 +24,7 @@ export default function WorkoutDetail({ id, onClose }) {
       const total = res.exercise_matches?.length || 0;
       setPushMsg(res.pushed_to_device
         ? `Sent to your watch (${matched}/${total} exercises matched exactly).`
-        : `Uploaded to Garmin Connect, but couldn't push to a device — open Garmin Connect to send it manually.`);
+        : `Uploaded to Garmin Connect, but couldn't push to a device - open Garmin Connect to send it manually.`);
       setPushState("ok");
     } catch (e) {
       setPushMsg(String(e));
@@ -47,12 +47,12 @@ export default function WorkoutDetail({ id, onClose }) {
 
           <div>
             <button onClick={pushToGarmin} disabled={pushState === "busy"}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-line bg-panel2/60 py-2.5 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-panel2 py-2.5 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio disabled:opacity-50">
               <Watch size={15} />
-              {pushState === "busy" ? "Sending to Garmin…" : "Do this workout — push to Garmin"}
+              {pushState === "busy" ? "Sending to Garmin…" : "Do this workout - push to Garmin"}
             </button>
             {pushMsg && (
-              <p className={`mt-1.5 text-[11px] ${pushState === "error" ? "text-effort" : "text-recovery"}`}>{pushMsg}</p>
+              <p className={`mt-1.5 text-xs ${pushState === "error" ? "text-effort" : "text-recovery"}`}>{pushMsg}</p>
             )}
           </div>
 
@@ -62,17 +62,17 @@ export default function WorkoutDetail({ id, onClose }) {
             {(w.exercises || []).map((ex, i) => {
               const vol = (ex.sets || []).reduce((s, x) => s + (x.weight_kg || 0) * (x.reps || 0), 0);
               return (
-                <div key={i} className="rounded-xl border border-line bg-panel2/50 p-3">
+                <div key={i} className="rounded-xl bg-panel2 p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-txt">{ex.title}</span>
                       {ex.muscle_group && <Chip color={COLORS.effort}>{ex.muscle_group}</Chip>}
                     </div>
-                    <span className="font-mono text-[11px] text-faint tnum">{fmtNum(vol)}kg</span>
+                    <span className="font-mono text-xs text-faint tnum">{fmtNum(vol)}kg</span>
                   </div>
                   <table className="mt-2 w-full text-left text-xs">
                     <thead>
-                      <tr className="text-[10px] uppercase tracking-wider text-faint">
+                      <tr className="text-xs text-faint">
                         <th className="py-1 pr-3 font-medium">Set</th>
                         <th className="py-1 pr-3 font-medium">Weight</th>
                         <th className="py-1 pr-3 font-medium">Reps</th>
@@ -83,9 +83,9 @@ export default function WorkoutDetail({ id, onClose }) {
                       {(ex.sets || []).map((s, j) => (
                         <tr key={j} className="border-t border-line/50">
                           <td className="py-1 pr-3 text-faint">{j + 1}</td>
-                          <td className="py-1 pr-3 text-txt">{s.weight_kg ? `${s.weight_kg}kg` : "—"}</td>
-                          <td className="py-1 pr-3 text-txt">{s.reps ?? "—"}</td>
-                          <td className="py-1 text-right text-muted">{s.rpe ?? "—"}</td>
+                          <td className="py-1 pr-3 text-txt">{s.weight_kg ? `${s.weight_kg}kg` : "-"}</td>
+                          <td className="py-1 pr-3 text-txt">{s.reps ?? "-"}</td>
+                          <td className="py-1 text-right text-muted">{s.rpe ?? "-"}</td>
                         </tr>
                       ))}
                     </tbody>

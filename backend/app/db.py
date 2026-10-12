@@ -28,6 +28,8 @@ _PENDING_COLUMNS = {
     "activity": {"shoe_id": "INTEGER", "route_points": "JSON", "splits": "JSON"},
     "meal": {"satiety": "VARCHAR(16)"},
     "nutrition_goal": {"fiber_g": "REAL"},
+    "race_goal": {"distance_km": "REAL"},
+    "insight": {"blocks": "JSON"},
 }
 
 

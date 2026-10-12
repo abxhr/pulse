@@ -7,11 +7,12 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import { api } from "../lib/api";
+import { SleepNeed } from "../components/PerformanceTrio";
 import { COLORS, fmtDate, fmtNum, axisLabelStyle } from "../lib/format";
 import { Panel, StatTile, Loading, Empty } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 const STAGES = [
   { key: "deep_h", name: "Deep", color: "#4c51bf" },
   { key: "rem_h", name: "REM", color: "#7C83FF" },
@@ -22,8 +23,8 @@ const STAGES = [
 function Tip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(label)}</div>
       {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2 text-xs">
           <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
@@ -62,8 +63,8 @@ function ConsistencyTip({ active, payload }) {
   const p = payload[0]?.payload;
   if (!p) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(p.date)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(p.date)}</div>
       <div className="text-xs text-sleep">Bed {hourLabel(p.bedtime_hour)}</div>
       <div className="text-xs text-recovery">Wake {hourLabel(p.wake_hour)}</div>
     </div>
@@ -100,7 +101,7 @@ function SleepCoach() {
     <Panel accent={COLORS.sleep} title="Sleep coach" sub="AI analysis of your sleep patterns">
       {!content && !busy && (
         <button onClick={ask}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-panel2/40 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-sleep/40 hover:text-sleep">
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-3.5 text-sm font-medium text-muted transition hover:border-sleep/40 hover:text-sleep">
           <Sparkles size={16} /> Analyze my sleep
         </button>
       )}
@@ -114,7 +115,7 @@ function SleepCoach() {
       {content && (
         <>
           <div className="md text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
-          <button onClick={ask} className="mt-3 text-[11px] text-faint hover:text-txt">Re-analyze</button>
+          <button onClick={ask} className="mt-3 text-xs text-faint hover:text-txt">Re-analyze</button>
         </>
       )}
     </Panel>
@@ -153,7 +154,7 @@ function BedtimeRecCard({ data }) {
 function WhyBadNightCard({ data }) {
   if (!data) return null;
   return (
-    <Panel accent={COLORS.effort} title="Why was last night off?" sub={`${fmtDate(data.date)} · score ${data.score} vs baseline ${data.baseline_mean}`}>
+    <Panel accent={COLORS.effort} title="Why was last night off?" sub={`${fmtDate(data.date)}, score ${data.score} vs baseline ${data.baseline_mean}`}>
       <ul className="space-y-1.5">
         {data.reasons.map((r, i) => (
           <li key={i} className="flex items-start gap-2 text-xs text-muted">
@@ -175,7 +176,7 @@ function CorrelationCard({ data }) {
   if (!rows.length) return null;
   const strength = (v) => Math.abs(v) >= 0.5 ? "strong" : Math.abs(v) >= 0.3 ? "moderate" : "weak";
   return (
-    <Panel accent={COLORS.recovery} title="Sleep score → next-day performance" sub={`correlation · ${data.n_nights} nights`}>
+    <Panel accent={COLORS.recovery} title="Sleep score → next-day performance" sub={`correlation, ${data.n_nights} nights`}>
       <div className="space-y-2">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center justify-between">
@@ -241,7 +242,7 @@ export default function Sleep() {
       )}
 
       {consistency && (consistency.bedtime_variability_h != null || consistency.wake_variability_h != null) && (
-        <Panel accent={COLORS.sleep} title="Sleep consistency" sub="bedtime & wake time · last 30 nights">
+        <Panel accent={COLORS.sleep} title="Sleep consistency" sub="bedtime & wake time, last 30 nights">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile label="Avg bedtime" value={hourLabel(consistency.avg_bedtime_hour)} color={COLORS.sleep} />
             <StatTile label="Avg wake" value={hourLabel(consistency.avg_wake_hour)} color={COLORS.recovery} />
@@ -264,13 +265,15 @@ export default function Sleep() {
               <Scatter data={consistency.nights_data} dataKey="bedtime_hour" fill={COLORS.sleep} />
             </ScatterChart>
           </ResponsiveContainer>
-          <div className="mt-1 flex items-center gap-4 text-[11px] text-muted">
+          <div className="mt-1 flex items-center gap-4 text-xs text-muted">
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-sleep" />bedtime</span>
           </div>
         </Panel>
       )}
 
-      <Panel accent={COLORS.sleep} title="Sleep stages" sub={`stacked hours · last 14 nights · avg ${fmtNum(avg("total_h"), 1)}h/night`}>
+      <SleepNeed />
+
+      <Panel accent={COLORS.sleep} title="Sleep stages" sub={`stacked hours, last 14 nights, avg ${fmtNum(avg("total_h"), 1)}h/night`}>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={recent} margin={{ left: -8, right: 8, top: 6 }}>
             <CartesianGrid stroke="var(--color-line)" vertical={false} />

@@ -1,7 +1,15 @@
 /** @type {import('tailwindcss').Config} */
+// Domain colours are theme-aware channel triplets (see index.css) so text in
+// light mode is legible while `bg-cardio/10`-style alpha modifiers still work.
+const c = (name) => `rgb(var(--c-${name}) / <alpha-value>)`;
+
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
+    // Role-based radii: inputs/chips square-ish, surfaces a touch softer, pills only for status dots.
+    borderRadius: {
+      none: "0", sm: "3px", DEFAULT: "4px", md: "4px", lg: "6px", xl: "10px", "2xl": "12px", "3xl": "16px", full: "9999px",
+    },
     extend: {
       colors: {
         ink: "var(--color-ink)",
@@ -11,29 +19,24 @@ export default {
         txt: "var(--color-txt)",
         muted: "var(--color-muted)",
         faint: "var(--color-faint)",
-        recovery: "#3DD68C", // recovery / good
-        effort: "#FF5C7A",   // effort / heart / strain
-        sleep: "#7C83FF",    // sleep
-        cardio: "#38BDF8",   // running / cardio
-        strength: "#F5A623", // strength / hevy
-        nutrition: "#2DD4BF", // nutrition / macros
+        recovery: c("recovery"), // recovery / good
+        effort: c("effort"),     // effort / heart / strain
+        sleep: c("sleep"),
+        cardio: c("cardio"),     // running / cardio
+        strength: c("strength"), // strength / hevy
+        nutrition: c("nutrition"),
       },
       fontFamily: {
-        display: ["'Space Grotesk'", "system-ui", "sans-serif"],
-        body: ["'Inter'", "system-ui", "sans-serif"],
-        mono: ["'JetBrains Mono'", "ui-monospace", "monospace"],
+        // Barlow Condensed = numerals and titles (timing-board signage); Instrument Sans = everything else.
+        display: ["'Barlow Condensed'", "'Arial Narrow'", "system-ui", "sans-serif"],
+        num: ["'Barlow Condensed'", "'Arial Narrow'", "system-ui", "sans-serif"],
+        body: ["'Instrument Sans'", "system-ui", "sans-serif"],
+        mono: ["'Instrument Sans'", "system-ui", "sans-serif"], // legacy class: small data text, tabular via CSS
       },
       boxShadow: {
-        panel: "0 1px 0 0 rgba(255,255,255,0.03) inset, 0 8px 32px -12px rgba(0,0,0,0.6)",
+        panel: "none",
         glow: "0 0 40px -8px var(--tw-shadow-color)",
       },
-      keyframes: {
-        rise: {
-          "0%": { opacity: 0, transform: "translateY(8px)" },
-          "100%": { opacity: 1, transform: "translateY(0)" },
-        },
-      },
-      animation: { rise: "rise 0.5s cubic-bezier(0.22,1,0.36,1) both" },
     },
   },
   plugins: [],

@@ -7,7 +7,7 @@ import { COLORS, axisLabelStyle } from "../lib/format";
 import { Panel, Loading } from "./primitives";
 import { ChartLegend, useSeriesToggle } from "./ChartLegend";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 
 function hourTick(h) {
   const period = h >= 12 ? "PM" : "AM";
@@ -19,8 +19,8 @@ function hourTick(h) {
 function Tip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{hourTick(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{hourTick(label)}</div>
       {payload.map((p) => (
         p.value != null && (
           <div key={p.dataKey} className="flex items-center gap-2 text-xs">
@@ -51,11 +51,11 @@ export default function IntradayChart() {
   }, [day]);
 
   return (
-    <Panel accent={COLORS.strength} title="Stress & body battery" sub="hourly · stored locally after sync">
+    <Panel accent={COLORS.strength} title="Stress & body battery" sub="hourly, stored locally after sync">
       <div className="mb-2 flex flex-wrap gap-1.5">
         {DAY_OPTIONS.map((d, i) => (
           <button key={d} onClick={() => setDay(d)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+            className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
               day === d ? "bg-strength text-ink" : "bg-panel2 text-muted"
             }`}>
             {i === 0 ? "Today" : new Date(d).toLocaleDateString(undefined, { weekday: "short" })}
@@ -67,7 +67,7 @@ export default function IntradayChart() {
       {data === false && <p className="py-6 text-center text-xs text-faint">No intraday data for this day.</p>}
       {data && (
         <>
-          {data.cached && <p className="mb-2 text-[10px] text-faint">Cached Garmin reading · updated {data.updated_at ? new Date(data.updated_at).toLocaleString() : "during sync"}</p>}
+          {data.cached && <p className="mb-2 text-xs text-faint">Cached Garmin reading · updated {data.updated_at ? new Date(data.updated_at).toLocaleString() : "during sync"}</p>}
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={data.hourly} margin={{ left: -8, right: 8, top: 6 }}>
               <defs>
@@ -93,7 +93,7 @@ export default function IntradayChart() {
             { key: "avg_stress", name: "Stress", color: COLORS.strength },
             { key: "avg_battery", name: "Body battery", color: COLORS.sleep },
           ]} {...toggle} />
-          <div className="mt-1 flex justify-center gap-4 font-mono text-[11px] text-faint">
+          <div className="mt-1 flex justify-center gap-4 font-mono text-xs text-faint">
             <span>avg stress {data.avg_stress ?? "-"}</span>
             <span>max stress {data.max_stress ?? "-"}</span>
           </div>

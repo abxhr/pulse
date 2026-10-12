@@ -1,56 +1,44 @@
 import { motion } from "framer-motion";
+import { COLORS } from "../lib/format";
 
 /**
  * The signature element: a luminous radial gauge for today's training readiness,
  * with concentric arcs for body battery and a center readout. Instrument-panel feel.
  */
 export default function ReadinessRing({ score = 0, label, bodyBattery, size = 220 }) {
-  const stroke = 14;
+  const stroke = 10;
   const r = (size - stroke) / 2 - 8;
   const cx = size / 2;
   const cy = size / 2;
   const circ = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, score || 0)) / 100;
+  const pct = Math.max(0, Math.min(97, score || 0)) / 100; // cap so round ends never overlap
 
   // color by readiness band
-  const color = score >= 75 ? "#3DD68C" : score >= 50 ? "#38BDF8" : score >= 30 ? "#F5A623" : "#FF5C7A";
+  const color = score >= 75 ? COLORS.recovery : score >= 50 ? COLORS.cardio : score >= 30 ? COLORS.strength : COLORS.effort;
 
   // inner arc: body battery
-  const rInner = r - stroke - 6;
+  const rInner = r - stroke - 8;
   const circInner = 2 * Math.PI * rInner;
   const bb = Math.max(0, Math.min(100, bodyBattery || 0)) / 100;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="block">
-        <defs>
-          <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-            <stop offset="100%" stopColor={color} />
-          </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="4" result="b" />
-            <feMerge>
-              <feMergeNode in="b" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
         {/* tick ring */}
         {Array.from({ length: 60 }).map((_, i) => {
           const a = (i / 60) * 2 * Math.PI - Math.PI / 2;
-          const rt = r + stroke / 2 + 6;
+          const rt = r + stroke / 2 + 5;
           const lit = i / 60 <= pct;
           return (
             <line
               key={i}
               x1={cx + Math.cos(a) * rt}
               y1={cy + Math.sin(a) * rt}
-              x2={cx + Math.cos(a) * (rt + (i % 5 === 0 ? 6 : 3))}
-              y2={cy + Math.sin(a) * (rt + (i % 5 === 0 ? 6 : 3))}
+              x2={cx + Math.cos(a) * (rt + (i % 5 === 0 ? 5 : 2))}
+              y2={cy + Math.sin(a) * (rt + (i % 5 === 0 ? 5 : 2))}
               stroke={lit ? color : "var(--color-line)"}
-              strokeWidth={i % 5 === 0 ? 1.6 : 1}
-              opacity={lit ? 0.9 : 0.5}
+              strokeWidth={1}
+              opacity={lit ? 0.8 : 0.35}
             />
           );
         })}
@@ -62,25 +50,24 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
           cy={cy}
           r={r}
           fill="none"
-          stroke="url(#rg)"
+          stroke={color}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circ}
-          filter="url(#glow)"
           initial={{ strokeDashoffset: circ }}
           animate={{ strokeDashoffset: circ * (1 - pct) }}
           transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
           transform={`rotate(-90 ${cx} ${cy})`}
         />
         {/* body battery inner arc */}
-        <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="var(--color-line)" strokeWidth={5} />
+        <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="var(--color-line)" strokeWidth={4} />
         <motion.circle
           cx={cx}
           cy={cy}
           r={rInner}
           fill="none"
-          stroke="#7C83FF"
-          strokeWidth={5}
+          stroke={COLORS.sleep}
+          strokeWidth={4}
           strokeLinecap="round"
           strokeDasharray={circInner}
           initial={{ strokeDashoffset: circInner }}
@@ -90,9 +77,9 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-muted">Readiness</span>
+        <span className="text-xs uppercase tracking-widest text-muted">Readiness</span>
         <motion.span
-          className="font-mono text-5xl font-bold tnum"
+          className="font-num text-6xl font-semibold leading-none tnum my-1"
           style={{ color }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -103,12 +90,13 @@ export default function ReadinessRing({ score = 0, label, bodyBattery, size = 22
         <span className="text-xs font-medium" style={{ color }}>
           {label || ""}
         </span>
-        {bodyBattery != null && (
-          <span className="mt-1 font-mono text-[11px] text-sleep/90">
-            body battery {bodyBattery}
-          </span>
-        )}
       </div>
+      {bodyBattery != null && (
+        <div className="absolute inset-x-0 -bottom-7 flex items-center justify-center gap-1.5 text-xs text-sleep">
+          <span className="h-1.5 w-1.5 rounded-full bg-sleep" />
+          Body battery {bodyBattery}
+        </div>
+      )}
     </div>
   );
 }

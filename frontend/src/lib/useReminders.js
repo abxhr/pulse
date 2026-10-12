@@ -10,7 +10,7 @@ function urlBase64ToUint8Array(base64) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-// Real background push (service-worker + VAPID) — the backend's scheduler
+// Real background push (service-worker + VAPID) - the backend's scheduler
 // evaluates conditions every 15 min and pushes to the browser directly, so
 // this fires even with the app fully closed. Replaces the old foreground-only
 // Notification() polling, which only ever worked while the tab stayed open.

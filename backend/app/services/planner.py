@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Activity, DailyHealth, PlannedSession, PlannerSettings, RaceGoal, Workout
-from . import analytics, weight as weight_svc
+from . import analytics, injury, weight as weight_svc
 
 RUN_TYPES = {"running", "run", "trail_running", "treadmill_running", "indoor_running"}
 
@@ -98,9 +98,11 @@ def _template(db: Session, start: date) -> list[dict]:
         sessions.append({"date":start+timedelta(days=d),"kind":"run","title":title,"details":detail,
                          "target":{"distance_km":round(km,1),"effort":"easy" if "Easy" in title or "Long" in title else "quality"},"planned_load":round(km*10)})
     strength_titles=["Upper strength","Lower strength","Full-body retention","Accessory strength","Technique strength","Strength session"]
+    safe=injury.constraints(db)["avoid_upper_loading"]
+    if safe: strength_titles=["Lower-body strength","Single-leg + core","Lower-body strength","Core + mobility"]
     for i,d in enumerate(strength_days):
         sessions.append({"date":start+timedelta(days=d),"kind":"strength","title":strength_titles[min(i,len(strength_titles)-1)],
-                         "details":("Deload: halve hard sets and keep 4 reps in reserve." if deload["recommended"] else "Keep key compounds; finish most sets with 2–3 reps in reserve."),
+                         "details":("Injury-safe: legs and core only, no grip or loaded wrist/arm work. " if safe else "")+("Deload: halve hard sets and keep 4 reps in reserve." if deload["recommended"] else "Keep key compounds; finish most sets with 2–3 reps in reserve."),
                          "target":{"duration_min":round(50*mult),"rir":4 if deload["recommended"] else 2},"planned_load":round(35*mult)})
     rest=start+timedelta(days=cfg["preferred_rest_weekday"])
     sessions.append({"date":rest,"kind":"recovery","title":"Recovery focus","details":"Easy walking, mobility, food prep, and an earlier sleep opportunity.","target":{"steps":"adaptive","mobility_min":10},"planned_load":5})
@@ -163,7 +165,7 @@ def regenerate(db:Session,start:date|None=None)->dict:
     start=_week_start(start);end=start+timedelta(days=6)
     rows=db.execute(select(PlannedSession).where(PlannedSession.date>=start,PlannedSession.date<=end)).scalars().all()
     for r in rows:
-        if r.status=="planned" and r.date>=date.today():db.delete(r)
+        if r.status=="planned" and r.date>=date.today() and r.source!="coach":db.delete(r)
     db.commit()
     # If past rows remain, fill only entirely absent future dates from fresh template.
     existing={(r.date,r.kind) for r in db.execute(select(PlannedSession).where(PlannedSession.date>=start,PlannedSession.date<=end)).scalars().all()}

@@ -3,20 +3,33 @@ repeat-route detection for the Cardio page."""
 from __future__ import annotations
 from datetime import date, timedelta
 from collections import defaultdict
+from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import RaceGoal, Shoe, Activity
 from .analytics import training_load
 
 _RACE_LABELS = {"5k": "5K", "10k": "10K", "half_marathon": "Half Marathon", "marathon": "Marathon"}
+RACE_KM = {"5k": 5.0, "10k": 10.0, "half_marathon": 21.0975, "marathon": 42.195}
+
+
+def race_km(distance_type: str, distance_km: float | None = None) -> float:
+    return distance_km or RACE_KM.get(distance_type, 21.0975)
+
+
+def distance_type_for(km: float) -> str:
+    """Snap to a standard distance when within 0.3 km, otherwise it is a custom race."""
+    return next((t for t, d in RACE_KM.items() if abs(d - km) <= 0.3), "custom")
 
 
 def _serialize_race(g: RaceGoal) -> dict:
+    km = race_km(g.distance_type, g.distance_km)
     return {
         "id": g.id, "name": g.name, "race_date": g.race_date.isoformat(),
-        "distance_type": g.distance_type, "distance_label": _RACE_LABELS.get(g.distance_type, g.distance_type),
+        "distance_type": g.distance_type, "distance_km": round(km, 2),
+        "distance_label": _RACE_LABELS.get(g.distance_type) or f"{km:g} km",
         "target_time_s": g.target_time_s,
     }
 
@@ -26,9 +39,11 @@ def get_active_race(db: Session) -> dict | None:
     return _serialize_race(g) if g else None
 
 
-def set_race_goal(db: Session, name: str, race_date: date, distance_type: str, target_time_s: int | None) -> dict:
+def set_race_goal(db: Session, name: str, race_date: date, distance_type: str, target_time_s: int | None,
+                  distance_km: float | None = None) -> dict:
     db.execute(RaceGoal.__table__.update().values(active=False))
-    g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s, active=True)
+    g = RaceGoal(name=name, race_date=race_date, distance_type=distance_type, target_time_s=target_time_s,
+                 distance_km=distance_km if distance_type == "custom" else None, active=True)
     db.add(g)
     db.commit()
     return _serialize_race(g)
@@ -74,7 +89,7 @@ def taper_plan(db: Session) -> dict | None:
 
 
 def overload_warnings(db: Session, weeks: int = 8) -> list[dict]:
-    """Flags weeks where run volume jumped >10% over the prior week — the
+    """Flags weeks where run volume jumped >10% over the prior week - the
     classic acute-overuse-injury threshold from running literature."""
     load = training_load(db, weeks=weeks)
     out = []
@@ -95,27 +110,28 @@ def overload_warnings(db: Session, weeks: int = 8) -> list[dict]:
 
 
 def _route_key(lat: float, lon: float) -> tuple[float, float]:
-    # ~111m grid at the equator — coarse enough to cluster the "same loop"
+    # ~111m grid at the equator - coarse enough to cluster the "same loop"
     # despite GPS jitter, fine enough not to merge genuinely different routes.
     return (round(lat, 3), round(lon, 3))
 
 
 def repeat_routes(db: Session, min_runs: int = 3) -> list[dict]:
-    acts = db.execute(
-        select(Activity).where(Activity.distance_m > 500, Activity.avg_pace_s_per_km.isnot(None))
-    ).scalars().all()
+    rows = db.execute(
+        select(Activity.date, Activity.distance_m, Activity.avg_pace_s_per_km,
+               Activity.raw["startLatitude"].as_float(), Activity.raw["startLongitude"].as_float())
+        .where(Activity.distance_m > 500, Activity.avg_pace_s_per_km.isnot(None))
+    ).all()
     groups: dict = defaultdict(list)
-    for a in acts:
-        lat, lon = (a.raw or {}).get("startLatitude"), (a.raw or {}).get("startLongitude")
+    for day, dist, pace, lat, lon in rows:
         if lat is None or lon is None:
             continue
-        groups[_route_key(lat, lon)].append(a)
+        groups[_route_key(lat, lon)].append(SimpleNamespace(date=day, distance_m=dist, avg_pace_s_per_km=pace))
 
     out = []
     for key, runs in groups.items():
         if len(runs) < min_runs:
             continue
-        # keep runs within 15% of the group's median distance — same starting
+        # keep runs within 15% of the group's median distance - same starting
         # point doesn't guarantee the same loop length
         dists = sorted(a.distance_m for a in runs)
         median = dists[len(dists) // 2]
@@ -147,11 +163,11 @@ def _serialize_shoe(s: Shoe, total_km: float) -> dict:
 
 def list_shoes(db: Session) -> list[dict]:
     shoes = db.execute(select(Shoe).order_by(Shoe.retired, Shoe.start_date.desc())).scalars().all()
-    acts = db.execute(select(Activity).where(Activity.shoe_id.isnot(None))).scalars().all()
-    km_by_shoe: dict = defaultdict(float)
-    for a in acts:
-        km_by_shoe[a.shoe_id] += (a.distance_m or 0) / 1000
-    return [_serialize_shoe(s, km_by_shoe.get(s.id, 0.0)) for s in shoes]
+    totals = dict(db.execute(
+        select(Activity.shoe_id, func.coalesce(func.sum(Activity.distance_m), 0.0))
+        .where(Activity.shoe_id.isnot(None)).group_by(Activity.shoe_id)
+    ).all())
+    return [_serialize_shoe(s, totals.get(s.id, 0.0) / 1000) for s in shoes]
 
 
 def add_shoe(db: Session, name: str, start_date: date, target_km: float) -> dict:

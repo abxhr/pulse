@@ -15,6 +15,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+    app_version: str = "0.12.0"
 
     # --- Database ---
     database_url: str = f"sqlite:///{DATA_DIR / 'pulse.db'}"
@@ -26,15 +27,15 @@ class Settings(BaseSettings):
     garmin_password: str | None = None   # only used by the one-time auth bootstrap
 
     # --- Hevy ---
-    # mode: "csv" (free export, reliable) | "unofficial" (free auto-sync) | "pro" (paid API key)
-    hevy_mode: str = "csv"
+    # mode: "auto" (default: Pro key > saved login > CSV) | "csv" | "unofficial" (free auto-sync) | "pro"
+    hevy_mode: str = "auto"
     hevy_import_dir: str = str(DATA_DIR / "imports")
     hevy_api_key: str | None = None          # pro mode
     hevy_base_url: str = "https://api.hevyapp.com"
-    hevy_token_store: str = str(DATA_DIR / "hevy_tokens.json")  # unofficial mode — set up via `python -m app.hevy_auth`
+    hevy_token_store: str = str(DATA_DIR / "hevy_tokens.json")  # unofficial mode - set up via `python -m app.hevy_auth`
     hevy_access_token: str | None = None     # unofficial mode legacy fallback (paste tokens directly)
     hevy_refresh_token: str | None = None    # unofficial mode legacy fallback
-    hevy_email: str | None = None            # unofficial mode — key into hevy_token_store
+    hevy_email: str | None = None            # unofficial mode - key into hevy_token_store
 
     # --- AI provider: "anthropic" or "openai" ---
     ai_provider: str = "anthropic"
@@ -53,7 +54,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"          # bind to all interfaces so your phone can reach it on the LAN
     port: int = 8000
     serve_frontend: bool = True    # serve the built frontend from FastAPI (single process, one URL)
-    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080,https://abxhr-core.tail551b1d.ts.net"
+    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080"
     trusted_proxy_ips: str = "127.0.0.1,::1"
     max_upload_mb: int = 16
     login_attempts: int = 5

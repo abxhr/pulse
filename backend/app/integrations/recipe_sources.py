@@ -1,10 +1,10 @@
 """Best-effort content fetchers for recipe extraction from a URL.
 
-YouTube: reliable — public oEmbed for title, a page-scrape for the description
+YouTube: reliable - public oEmbed for title, a page-scrape for the description
 (where most recipe ingredient lists actually live), and auto-captions via
 youtube-transcript-api when available.
 
-Instagram: inherently unreliable — Instagram blocks most unauthenticated scraping
+Instagram: inherently unreliable - Instagram blocks most unauthenticated scraping
 and there's no public API for this. We try the public post page's og:description
 meta tag (works for some posts, not others) and fail gracefully with a clear
 message when it doesn't, since there's no legitimate way to guarantee this works.
@@ -58,20 +58,20 @@ def fetch_youtube_content(url: str) -> dict:
         log.debug("transcript fetch failed: %s", e)
 
     if not title and not description and not transcript:
-        raise ValueError("Couldn't read anything from this video — it may be private or age-restricted.")
+        raise ValueError("Couldn't read anything from this video - it may be private or age-restricted.")
 
     return {"title": title, "description": description, "transcript": transcript}
 
 
 def fetch_tiktok_content(url: str) -> dict:
-    """TikTok's public oEmbed endpoint reliably returns the caption as `title` —
+    """TikTok's public oEmbed endpoint reliably returns the caption as `title` -
     no login wall, unlike Instagram. The most trustworthy of the three URL sources."""
     try:
         r = requests.get("https://www.tiktok.com/oembed", params={"url": url}, timeout=10)
     except Exception as e:
         raise ValueError(f"Couldn't reach TikTok: {e}")
     if not r.ok:
-        raise ValueError("Couldn't read this TikTok — it may be private or removed.")
+        raise ValueError("Couldn't read this TikTok - it may be private or removed.")
     data = r.json()
     caption = data.get("title")
     if not caption:
@@ -94,7 +94,7 @@ def fetch_instagram_content(url: str) -> dict:
 
     if not caption:
         raise ValueError(
-            "Instagram blocked reading this post's caption (very common — it usually "
+            "Instagram blocked reading this post's caption (very common - it usually "
             "requires login). Paste the recipe caption text in manually instead."
         )
     return {"title": title, "caption": caption}

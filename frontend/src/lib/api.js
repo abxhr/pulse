@@ -109,6 +109,7 @@ export const api = {
   retireShoe: (id) => req(`/shoes/${id}/retire`, { method: "POST" }),
   assignShoe: (activityId, shoeId) => req(`/activities/${activityId}/shoe`, { method: "POST", body: JSON.stringify({ shoe_id: shoeId }) }),
   todaysCall: () => req("/training/todays-call"),
+  performance: (days = 30) => req(`/performance?days=${days}`),
   planCompliance: (weeks = 6) => req(`/training/plan-compliance?weeks=${weeks}`),
   syncSplits: (batch = 8) => req(`/activities/splits/sync?batch_size=${batch}`, { method: "POST" }),
   runInsights: (weeks = 12) => req(`/training/run-insights?weeks=${weeks}`),
@@ -120,6 +121,7 @@ export const api = {
   restartServer: () => req("/system/restart", { method: "POST" }),
   syncGarmin: (days) => req(`/sync/garmin${days ? `?days=${days}` : ""}`, { method: "POST" }),
   syncHevy: () => req("/sync/hevy", { method: "POST" }),
+  connectHevy: () => req("/hevy/connect", { method: "POST" }),
   uploadHevyCsv: async (file) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -172,6 +174,14 @@ export const api = {
   saveRecipe: (payload) => req("/recipes", { method: "POST", body: JSON.stringify(payload) }),
   deleteRecipe: (id) => req(`/recipes/${id}`, { method: "DELETE" }),
   logRecipeAsMeal: (id, payload) => req(`/recipes/${id}/log-as-meal`, { method: "POST", body: JSON.stringify(payload || {}) }),
+  agentHistory: () => req("/agent/history"),
+  clearAgentHistory: () => req("/agent/history", { method: "DELETE" }),
+  agentExecute: (tool, args) => req("/agent/execute", { method: "POST", body: JSON.stringify({ tool, args }) }),
+  agentBriefing: () => req("/agent/briefing"),
+  refreshAgentBriefing: () => req("/agent/briefing/refresh", { method: "POST" }),
+  raceReadiness: () => req("/race/readiness"),
+  injuries: () => req("/injuries"),
+  updateInjury: (id, body) => req(`/injuries/${id}`, { method: "PUT", body: JSON.stringify(body) }),
   insight: (payload) => req("/insights", { method: "POST", body: JSON.stringify(payload) }),
   dailyInsight: () => req("/insights/daily"),
   refreshDailyInsight: () => req("/insights/daily/refresh", { method: "POST" }),

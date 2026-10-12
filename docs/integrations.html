@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Integrations | Pulse</title><meta name="description" content="Connect Garmin, Hevy and an AI provider.">
+<meta name="theme-color" content="#0F1113">
+<link rel="icon" href="assets/favicon.png"><link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("pulse-docs-theme");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="./"><i></i>Pulse</a>
+<nav><a href="./">Home</a><a href="features.html">Features</a><a href="setup.html">Set up</a><a href="integrations.html" aria-current=page>Integrations</a><a href="phone.html">Phone</a><a href="security.html">Privacy</a><a href="https://github.com/abxhr/pulse">GitHub</a><button id="theme" type="button" aria-label="Toggle light or dark theme">Theme</button></nav></div></header>
+<main class="wrap">
+<section class="hero"><h1>Integrations</h1><p class="lede">Everything is optional and everything stays on your machine. The demo needs none of it.</p></section>
+<h2 style="color:rgb(var(--cardio))">Garmin</h2>
+<p>Pulse pulls sleep and stages, HRV, training readiness, body battery, stress, SpO2, respiration, resting HR, VO2max, steps and every activity using the <code>garminconnect</code> library.</p>
+<pre><code>cd backend
+python -m app.auth_garmin</code></pre>
+<p>Run it once. It handles 2FA and caches tokens in <code>backend/data/garmin_tokens</code> (git-ignored). Optional <code>GARMIN_EMAIL</code> and <code>GARMIN_PASSWORD</code> in <code>.env</code> are used only by that one-time step.</p>
+<h2 style="color:rgb(var(--strength))">Hevy (no Pro needed)</h2>
+<table><tr><th><code>HEVY_MODE</code></th><th>What it is</th></tr>
+<tr><td><code>csv</code></td><td>Reliable. Export from Hevy (Settings, Export &amp; Import Data, Export Workouts), then drop the file in <code>backend/data/imports/</code>, upload it with <b>Import CSV</b> in the app, or run <code>python -m app.import_hevy file.csv</code>.</td></tr>
+<tr><td><code>unofficial</code></td><td>Hands-off sync through the private endpoints Hevy's own web app uses. Experimental and can break; CSV always works as a fallback. One-time login: <code>pip install "hevy-unofficial[core]"</code>, <code>python -m playwright install chromium</code>, then <code>cd backend &amp;&amp; python -m app.hevy_auth</code>. A browser opens at hevy.com and you log in there; your password goes straight to Hevy, never through Pulse.</td></tr>
+<tr><td><code>pro</code></td><td>The official API, if you have Hevy Pro: set <code>HEVY_API_KEY</code>.</td></tr>
+<tr><td><code>auto</code></td><td>The default: Pro key if present, else a saved login, else CSV.</td></tr></table>
+<h2 style="color:rgb(var(--effort))">AI Coach</h2>
+<p>Set <code>AI_PROVIDER</code> to <code>anthropic</code> or <code>openai</code> and add the matching key. The model only receives a compact summary (daily aggregates and trends, not raw records). Without a key, the rest of Pulse works as normal.</p>
+<h2>Weather and reminders</h2>
+<p>Set <code>LATITUDE</code> and <code>LONGITUDE</code> for a weather card from Open-Meteo, which needs no key. For background push reminders run <code>python -m app.generate_vapid_keys</code> and follow what it prints.</p>
+<div class="note"><b>Keep secrets out of git.</b> Your keys live in <code>.env</code> and your tokens in <code>backend/data/</code>. Both are git-ignored. Never paste either into an issue or a screenshot.</div>
+</main>
+<footer><div class="wrap">Pulse is a private, single-user app that runs on your own computer. Every screenshot on this site comes from the built-in demo: an invented person, invented workouts, invented sleep. No real data appears anywhere in this repository. MIT licensed. Not medical advice.</div></footer>
+<script>document.getElementById("theme").onclick=function(){var r=document.documentElement,d=(r.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"))==="dark"?"light":"dark";r.dataset.theme=d;try{localStorage.setItem("pulse-docs-theme",d)}catch(e){}}</script>
+</body></html>

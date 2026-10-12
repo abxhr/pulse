@@ -4,8 +4,9 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from "recharts";
 import { api } from "../lib/api";
-import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta, axisLabelStyle } from "../lib/format";
-import { Panel, StatTile, Loading, Empty } from "../components/primitives";
+import { useApi } from "../lib/useApi";
+import { COLORS, fmtDate, fmtPace, fmtNum, fmtDuration, activityMeta, axisLabelStyle, ZONE_COLORS } from "../lib/format";
+import { Panel, StatTile, Loading, Empty, ErrorState } from "../components/primitives";
 import { ChartLegend, useSeriesToggle } from "../components/ChartLegend";
 import ActivityDetail from "../components/ActivityDetail";
 import IntradayChart from "../components/IntradayChart";
@@ -13,15 +14,14 @@ import { RaceGoalCard, OverloadWarnings, RepeatRoutes, ShoeTracker, KarvonenZone
 import { consumePendingOpen } from "../components/CommandPalette";
 import RouteHeatmap from "../components/RouteHeatmap";
 
-const axis = { stroke: "var(--color-faint)", fontSize: 11, fontFamily: "JetBrains Mono" };
-const ZONE_COLORS = ["#8A93A6", "#3DD68C", "#F5A623", "#FF5C7A", "#c026d3"];
+const axis = { stroke: "var(--color-faint)", fontSize: 12, fontFamily: "Instrument Sans" };
 const ZONE_NAMES = ["Z1 easy", "Z2 aerobic", "Z3 tempo", "Z4 threshold", "Z5 max"];
 
 function Tip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(label)}</div>
       {payload.map((p) => (
         p.value != null && (
           <div key={p.dataKey} className="flex items-center gap-2 text-xs">
@@ -52,39 +52,37 @@ function RacePredictions({ data }) {
   if (!data?.predictions) return null;
   const labels = { "5k": "5K", "10k": "10K", half_marathon: "Half", marathon: "Marathon" };
   return (
-    <Panel accent={COLORS.recovery} title="Estimated race ranges" sub={`${data.confidence || "low"} confidence · ${data.qualifying_runs || 0} qualifying runs · longest ${fmtNum(data.longest_recent_km,1)}km`}>
+    <Panel accent={COLORS.recovery} title="Estimated race ranges" sub={`${data.confidence || "low"} confidence, ${data.qualifying_runs || 0} qualifying runs, longest ${fmtNum(data.longest_recent_km,1)}km`}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Object.entries(data.predictions).map(([key, v]) => (
-          <div key={key} className="rounded-xl border border-line bg-panel2/60 px-3 py-3 text-center">
-            <div className="text-[10.5px] uppercase tracking-wider text-faint">{labels[key] || key}</div>
-            <div className="mt-1 font-mono text-xl font-semibold text-recovery tnum">{fmtDuration(v.seconds)}</div>
-            <div className="font-mono text-[11px] text-faint">{fmtPace(v.pace_per_km)}</div>
-            <div className="mt-1 text-[11px] text-faint">{fmtDuration(v.low_seconds)}–{fmtDuration(v.high_seconds)}</div>
+          <div key={key} className="rounded-xl bg-panel2 px-3 py-3 text-center">
+            <div className="text-xs text-faint">{labels[key] || key}</div>
+            <div className="mt-1 font-num text-xl font-semibold text-recovery tnum">{fmtDuration(v.seconds)}</div>
+            <div className="font-mono text-xs text-faint">{fmtPace(v.pace_per_km)}</div>
+            <div className="mt-1 text-xs text-faint">{fmtDuration(v.low_seconds)}–{fmtDuration(v.high_seconds)}</div>
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-faint">{data.method}. Ranges widen when recent volume or long-run evidence is limited; this is not a guarantee.</p>
+      <p className="mt-2 text-xs text-faint">{data.method}. Ranges widen when recent volume or long-run evidence is limited; this is not a guarantee.</p>
     </Panel>
   );
 }
 
 export default function Training() {
-  const [acts, setActs] = useState(null);
-  const [health, setHealth] = useState([]);
-  const [zones, setZones] = useState(null);
-  const [predictions, setPredictions] = useState(null);
+  const { data: acts, error: actsError, reload: reloadActs } = useApi("activities:200", () => api.activities(200));
+  const { data: healthData } = useApi("healthTrend:90", () => api.healthTrend(90));
+  const { data: zones } = useApi("hrZones:30", () => api.hrZones(30));
+  const { data: predictions } = useApi("racePredictions", () => api.racePredictions());
+  const health = healthData || [];
   const [openId, setOpenId] = useState(null);
   const [filter, setFilter] = useState("run");
   const hrToggle = useSeriesToggle();
 
   useEffect(() => {
-    api.activities(200).then(setActs).catch(() => setActs([]));
-    api.healthTrend(90).then(setHealth).catch(() => setHealth([]));
-    api.hrZones(30).then(setZones).catch(() => setZones(null));
-    api.racePredictions().then(setPredictions).catch(() => setPredictions(null));
     const pending = consumePendingOpen("activity");
     if (pending) setOpenId(pending);
   }, []);
+  if (actsError) return <ErrorState title="Couldn't load your activities" detail={actsError.message} onRetry={reloadActs} />;
   if (!acts) return <Loading label="Reading activity log…" />;
 
   const runs = acts.filter((a) => a.category === "run");
@@ -118,7 +116,7 @@ export default function Training() {
       <Section title="Fitness & load" sub="how your body is adapting">
         <TrainingStressBalance />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Panel accent={COLORS.recovery} title="VO₂max trend" sub="fitness trajectory · 90 days">
+          <Panel accent={COLORS.recovery} title="VO₂max trend" sub="fitness trajectory, 90 days">
             {vo2.length ? (
               <ResponsiveContainer width="100%" height={200}>
                 <ComposedChart data={vo2} margin={{ left: -8, right: 8, top: 6 }}>
@@ -169,15 +167,15 @@ export default function Training() {
         <RunInsights />
         <KarvonenZonesCard />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Panel accent={COLORS.strength} title="Time in HR zones" sub={`across ${zones?.activities_with_hr ?? 0} activities · 30 days`}>
+          <Panel accent={COLORS.strength} title="Time in HR zones" sub={`across ${zones?.activities_with_hr ?? 0} activities, 30 days`}>
             {zoneChart.some((z) => z.min > 0) ? (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={zoneChart} layout="vertical" margin={{ left: 16, right: 12, top: 6 }}>
                   <CartesianGrid stroke="var(--color-line)" horizontal={false} />
                   <XAxis type="number" tick={axis} axisLine={false} tickLine={false}
                     label={{ value: "minutes", position: "insideBottom", offset: -4, style: axisLabelStyle }} />
-                  <YAxis type="category" dataKey="zone" tick={{ ...axis, fontFamily: "Inter" }} axisLine={false} tickLine={false} width={80} />
-                  <Tooltip contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "JetBrains Mono", fontSize: 12 }} cursor={{ fill: "#ffffff08" }} />
+                  <YAxis type="category" dataKey="zone" tick={{ ...axis, fontFamily: "Instrument Sans" }} axisLine={false} tickLine={false} width={80} />
+                  <Tooltip contentStyle={{ background: "var(--color-panel2)", border: "1px solid var(--color-line)", borderRadius: 8, fontFamily: "Instrument Sans", fontSize: 12 }} cursor={{ fill: "#ffffff08" }} />
                   <Bar dataKey="min" name="Minutes" radius={[0, 4, 4, 0]} maxBarSize={20}>
                     {zoneChart.map((z, i) => <Cell key={i} fill={z.color} />)}
                   </Bar>
@@ -195,8 +193,8 @@ export default function Training() {
                   <YAxis tick={axis} axisLine={false} tickLine={false} width={44} reversed
                     tickFormatter={(v) => fmtPace(v)} label={{ value: "pace", angle: -90, position: "insideLeft", style: axisLabelStyle }} />
                   <Tooltip content={({ active, payload, label }) => active && payload?.length ? (
-                    <div className="rounded-lg border border-line bg-panel2 px-3 py-2 shadow-panel">
-                      <div className="mb-1 font-mono text-[11px] text-muted">{fmtDate(label)}</div>
+                    <div className="rounded-lg border border-line bg-ink px-3 py-2 shadow-lg">
+                      <div className="mb-1 font-mono text-xs text-muted">{fmtDate(label)}</div>
                       <div className="text-xs text-cardio font-mono">{fmtPace(payload[0].value)}</div>
                     </div>
                   ) : null} />
@@ -218,13 +216,13 @@ export default function Training() {
       </Section>
 
       <Section title="History" sub="every session">
-        <Panel accent={COLORS.cardio} title="Activity log" sub={`${visibleActs.length} shown · click a row for the full breakdown`}
-          right={<select aria-label="Filter activities by sport" value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-[130px] rounded-lg border border-line bg-panel2 px-2 py-1 text-xs text-txt"><option value="run">Runs</option><option value="all">All sports</option><option value="strength">Strength</option><option value="walk_hike">Walk / hike</option><option value="ride">Ride</option><option value="swim">Swim</option><option value="paddle">Paddle</option><option value="sport">Sports</option><option value="other">Other</option></select>}>
+        <Panel accent={COLORS.cardio} title="Activity log" sub={`${visibleActs.length} shown, click a row for the full breakdown`}
+          right={<select aria-label="Filter activities by sport" value={filter} onChange={e=>setFilter(e.target.value)} className="max-w-[130px] rounded-lg bg-panel2 px-2 py-1 text-xs text-txt"><option value="run">Runs</option><option value="all">All sports</option><option value="strength">Strength</option><option value="walk_hike">Walk / hike</option><option value="ride">Ride</option><option value="swim">Swim</option><option value="paddle">Paddle</option><option value="sport">Sports</option><option value="other">Other</option></select>}>
           {visibleActs.length ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-line text-[10.5px] uppercase tracking-wider text-faint">
+                  <tr className="border-b border-line text-xs text-faint">
                     <th className="py-2 pr-3 font-medium">Date</th>
                     <th className="py-2 pr-3 font-medium">Activity</th>
                     <th className="py-2 pr-3 text-right font-medium">Dist</th>
@@ -240,7 +238,7 @@ export default function Training() {
                     return (
                       <tr key={a.id} onClick={() => setOpenId(a.id)} tabIndex={0}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(a.id); } }}
-                        className="cursor-pointer border-b border-line/50 hover:bg-panel2/40 focus-visible:bg-panel2/40 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cardio">
+                        className="cursor-pointer border-b border-line/50 hover:bg-panel2 focus-visible:bg-panel2 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cardio">
                         <td className="py-2 pr-3 text-muted">{fmtDate(a.date)}</td>
                         <td className="py-2 pr-3">
                           <span className="flex items-center gap-2">
