@@ -178,14 +178,16 @@ def overview(ctx: Ctx):
         "nutrition_today": nutrition.day_summary(db, date.today()), "nutrition_goal": nutrition.get_goal(db),
         "water": phase2.water_today(db), "injuries": injury_svc.list_all(db),
         "race": rr and {k: rr[k] for k in ("race", "verdict", "label", "headline", "flags")},
+        "all_races": cardio_extras.list_races(db),
         "freshness": analytics.data_freshness(db),
     }
 
 
-@tool("read", "Honest feasibility check for the active race: long-run coverage vs what the distance needs, projected best long run before race day, "
-              "weekly volume, flags, injury impact, estimated finish range, and a day-by-day bridge plan to race day.")
-def race_readiness_report(ctx: Ctx):
-    return race_readiness.assess(ctx.db) or {"error": "No active race. Offer to set one with set_race_goal."}
+@tool("read", "Honest feasibility check for the next upcoming race (or the race named in `name` when several are on file): long-run coverage vs what the distance needs, projected best long run before race day, "
+              "weekly volume, flags, injury impact, estimated finish range, and a day-by-day bridge plan to race day.",
+      name=("string", "race name, only when the owner means a race other than the next one"))
+def race_readiness_report(ctx: Ctx, name: str | None = None):
+    return race_readiness.assess(ctx.db, race_name=name) or {"error": "No upcoming race found. Offer to add one with set_race_goal."}
 
 
 @tool("read", "A metric's daily/weekly values plus first/last/min/max/avg/change. Use it to answer trend questions with real numbers. "
@@ -320,7 +322,7 @@ def update_injury(ctx: Ctx, id: int, **a):  # noqa: A002
     return row
 
 
-@tool("write", "Set (replace) the target race. Any distance works; the verdict and bridge plan recompute immediately.",
+@tool("write", "Add a race (several can be on file; the soonest is the one tracked). Saving a race with an existing name updates it. Any distance works; the verdict and bridge plan recompute immediately.",
       **{"name!": ("string", ""), "race_date!": ("string", "YYYY-MM-DD"), "distance_km!": ("number", "e.g. 25"), "target_time_min": ("number", "optional goal time in minutes")})
 def set_race_goal(ctx: Ctx, name: str, race_date: str, distance_km: float, target_time_min: float | None = None):
     kind = cardio_extras.distance_type_for(float(distance_km))
@@ -427,11 +429,16 @@ def delete_weight(ctx: Ctx, date: str):  # noqa: A002
     return {"deleted": date}
 
 
-@tool("confirm", "Clear the active race goal.")
-def clear_race_goal(ctx: Ctx):
-    cardio_extras.clear_race_goal(ctx.db)
-    ctx.done("Cleared race goal")
-    return {"cleared": True}
+@tool("confirm", "Remove a race from the list. Give its name when more than one race is on file.",
+      name=("string", "name of the race to remove"))
+def clear_race_goal(ctx: Ctx, name: str | None = None):
+    races = cardio_extras.list_races(ctx.db)
+    hit = [r for r in races if name and r["name"].strip().lower() == name.strip().lower()] or (races if len(races) == 1 else [])
+    if not hit:
+        return {"error": "Several races are on file; say which one to remove.", "races": [r["name"] for r in races]}
+    cardio_extras.clear_race_goal(ctx.db, hit[0]["id"])
+    ctx.done(f"Removed race {hit[0]['name']}")
+    return {"cleared": hit[0]["name"]}
 
 
 # --------------------------------------------------------------------------- ui tools (what the owner sees)
@@ -534,7 +541,7 @@ HOW TO THINK
 - Be proactive. After answering, surface the one or two things the owner did not ask but needs: a planned session that conflicts with an injury, a race with no plan, a missing check-in, stale data. Check overview or race_readiness_report before saying anything about readiness, the plan, or the race.
 - Act, don't instruct. If the owner states something that implies a change (food eaten, an injury, a race, "move my run", a preference), do it with the tool and confirm in one line. Ask only for details you truly cannot infer, all in one message. Destructive changes (deleting a meal, weigh-in or race) need the item's id from a lookup first (nutrition_report, weight_report), then say plainly what will be deleted; the confirm button is attached for you.
 - When an injury is mentioned and none is logged, log it (convert "3 weeks ago" to a date), then re-check the plan and race.
-- If the owner's race (distance or date) differs from the one on file, fix it with set_race_goal first, then assess that race. Never talk about a race distance that is not the owner's.
+- Several races can be on file (all_races in overview); the soonest upcoming one is the one tracked. If the owner mentions a race that is not on file, or whose date or distance differs, add or fix it with set_race_goal first (the same name updates it), then assess that race by name. Never replace one race with another unless they ask. Never talk about a race distance that is not the owner's.
 
 BLOCKS. Your text is only the short verdict and advice. Plans, charts, tiles, callouts and buttons are attached in a second step after you finish writing, built from your reply and the tool results. So in the text never write dated lists, tables, step lists or "would you like me to..." lines; say the thing once and let the blocks carry the detail. Never refer to the blocks ("I'll show", "see below", "here is a chart"). Because a chart is attached when you discuss a trend, give only the takeaway (direction, latest value against baseline) and leave min/max/average to the chart; do not recite numbers a tile would show.
 

@@ -118,13 +118,20 @@ const DIST_OPTIONS = [
 
 export function RaceGoalCard() {
   const [race, setRace] = useState(null);
+  const [others, setOthers] = useState([]);
   const [form, setForm] = useState(false);
   const [name, setName] = useState("");
   const [raceDate, setRaceDate] = useState("");
   const [dist, setDist] = useState("10k");
   const [km, setKm] = useState("");
 
-  const refresh = () => { api.raceGoal().then((r) => setRace(r?.name ? r : null)).catch(() => setRace(null)); };
+  const refresh = () => {
+    api.raceGoal().then((r) => {
+      const next = r?.name ? r : null;
+      setRace(next);
+      api.races().then((all) => setOthers(all.filter((x) => x.id !== next?.id))).catch(() => setOthers([]));
+    }).catch(() => setRace(null));
+  };
   useEffect(refresh, []);
 
   async function save(e) {
@@ -136,12 +143,12 @@ export function RaceGoalCard() {
     refresh();
   }
 
-  async function clear() {
-    await api.clearRaceGoal();
+  async function clear(id) {
+    await api.clearRaceGoal(id);
     refresh();
   }
 
-  if (!race && !form) {
+  if (!race && !others.length && !form) {
     return (
       <button onClick={() => setForm(true)}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-3 text-sm font-medium text-muted transition hover:border-cardio/40 hover:text-cardio">
@@ -184,8 +191,9 @@ export function RaceGoalCard() {
   }
 
   return (
-    <Panel accent={COLORS.cardio} title={race.name} sub={`${race.distance_label}, ${fmtDate(race.race_date)}`}
-      right={<button onClick={clear} aria-label="Clear race goal" className="text-faint hover:text-effort"><X size={15} /></button>}>
+    <div className="space-y-2">
+    {race && <Panel accent={COLORS.cardio} title={race.name} sub={`${race.distance_label}, ${fmtDate(race.race_date)}`}
+      right={<button onClick={() => clear(race.id)} aria-label={`Remove ${race.name}`} className="text-faint hover:text-effort"><X size={15} /></button>}>
       <div className="flex items-center gap-4">
         <Flag size={24} className="text-cardio" />
         <div>
@@ -201,7 +209,20 @@ export function RaceGoalCard() {
           </div>
         )}
       </div>
-    </Panel>
+    </Panel>}
+    {others.map((r) => (
+      <div key={r.id} className="flex items-center gap-3 rounded-xl bg-panel2 px-4 py-2.5 text-sm">
+        <Flag size={14} className="text-cardio" />
+        <span className="font-medium text-txt">{r.name}</span>
+        <span className="text-xs text-faint">{r.distance_label}, {fmtDate(r.race_date)}</span>
+        <button onClick={() => clear(r.id)} aria-label={`Remove ${r.name}`} className="ml-auto text-faint hover:text-effort"><X size={14} /></button>
+      </div>
+    ))}
+    <button onClick={() => setForm(true)}
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-panel2 px-4 py-2 text-xs font-medium text-muted transition hover:text-cardio">
+      <Flag size={13} /> Add another race
+    </button>
+    </div>
   );
 }
 

@@ -130,8 +130,9 @@ class FakeProviderTests(unittest.TestCase):
         ctx.run("set_race_goal", {"name": "Half", "race_date": (date.today() + timedelta(days=30)).isoformat(), "distance_km": 21.1})
         self.assertEqual(cardio_extras.get_active_race(self.db)["distance_type"], "half_marathon")
         ctx.run("set_race_goal", {"name": "25k", "race_date": (date.today() + timedelta(days=30)).isoformat(), "distance_km": 25})
-        r = cardio_extras.get_active_race(self.db)
+        r = next(x for x in cardio_extras.list_races(self.db) if x["name"] == "25k")
         self.assertEqual((r["distance_type"], r["distance_km"]), ("custom", 25.0))
+        self.assertEqual(len(cardio_extras.list_races(self.db)), 2)   # adding a race keeps the earlier one
 
     def test_series_rejects_unknown_metric_and_reports_error(self):
         ctx = agent.Ctx(self.db)

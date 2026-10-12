@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Activity, DailyHealth, PlannedSession, PlannerSettings, RaceGoal, Workout
+from . import cardio_extras
 from . import analytics, injury, weight as weight_svc
 
 RUN_TYPES = {"running", "run", "trail_running", "treadmill_running", "indoor_running"}
@@ -56,7 +57,7 @@ def _preferred_run_days(db: Session, count: int, long_day: int, rest_day: int) -
     return list(max(choices, key=score))
 
 def _race_context(db: Session) -> dict | None:
-    race = db.execute(select(RaceGoal).where(RaceGoal.active.is_(True)).order_by(RaceGoal.race_date)).scalars().first()
+    race = cardio_extras.next_race_row(db)
     if not race: return None
     days = (race.race_date-date.today()).days
     acts = [a for a in db.execute(select(Activity).where(Activity.date >= date.today()-timedelta(days=42))).scalars().all()
